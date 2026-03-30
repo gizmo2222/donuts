@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simple donut shape as the launcher foreground -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer donut body (strawberry pink) -->
+    <path
+        android:fillColor="#FFB6C1"
+        android:pathData="M54,12 A42,42 0 1 1 54,96 A42,42 0 1 1 54,12 Z
+                          M54,38 A16,16 0 1 0 54,70 A16,16 0 1 0 54,38 Z" />
+
+    <!-- Glaze top -->
+    <path
+        android:fillColor="#DC5070"
+        android:pathData="M54,16 A38,38 0 1 1 54,92 A38,38 0 1 1 54,16 Z
+                          M54,40 A14,14 0 1 0 54,68 A14,14 0 1 0 54,40 Z" />
+
+    <!-- Sprinkle dots -->
+    <circle android:fillColor="#FFFFFF" android:cx="42" android:cy="42" android:r="3" />
+    <circle android:fillColor="#FFFFFF" android:cx="66" android:cy="42" android:r="3" />
+    <circle android:fillColor="#FFFFFF" android:cx="54" android:cy="36" android:r="3" />
+    <circle android:fillColor="#FFFFFF" android:cx="38" android:cy="56" android:r="3" />
+    <circle android:fillColor="#FFFFFF" android:cx="70" android:cy="56" android:r="3" />
+
+</vector>

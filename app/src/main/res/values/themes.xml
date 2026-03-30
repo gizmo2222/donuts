@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Donuts" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/pink</item>
+        <item name="colorPrimaryVariant">@color/caramel</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/matcha</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="android:statusBarColor">@color/caramel</item>
+        <item name="android:windowBackground">@color/cream</item>
+    </style>
+</resources>
