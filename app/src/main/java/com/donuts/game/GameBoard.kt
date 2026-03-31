@@ -1,4 +1,4 @@
-package com.blackmoondev.donuts
+package com.donuts.game
 
 /**
  * Pure game-logic class — no Android dependencies.
@@ -11,7 +11,8 @@ class GameBoard(
     val rows: Int = 8,
     val cols: Int = 8,
     val movesAllowed: Int = 30,
-    val targetScore: Int = 1000
+    val targetScore: Int = 1000,
+    val sandbox: Boolean = false
 ) {
     val grid: Array<Array<GameCell>> = Array(rows) { r ->
         Array(cols) { c -> GameCell(DonutType.random(), r, c) }
@@ -23,8 +24,11 @@ class GameBoard(
     var movesLeft: Int = movesAllowed
         private set
 
-    val isGameOver: Boolean get() = movesLeft <= 0
-    val hasWon: Boolean get() = score >= targetScore
+    val donutsCleared: MutableMap<DonutType, Int> =
+        DonutType.values().associateWith { 0 }.toMutableMap()
+
+    val isGameOver: Boolean get() = !sandbox && movesLeft <= 0
+    val hasWon: Boolean get() = !sandbox && score >= targetScore
 
     // -----------------------------------------------------------------------
     // Initialisation – eliminate any matches that exist in the starting grid
@@ -148,6 +152,9 @@ class GameBoard(
         // Score: bonus for larger matches
         val pts = matches.sumOf { pointsFor(matches.size) }
         score += pts
+        matches.forEach { (r, c) ->
+            donutsCleared[grid[r][c].type] = (donutsCleared[grid[r][c].type] ?: 0) + 1
+        }
 
         // Mark matched cells as empty (null type placeholder: we rebuild below)
         val surviving = Array(rows) { r ->
@@ -189,12 +196,89 @@ class GameBoard(
     }
 
     // -----------------------------------------------------------------------
+    // Hint – find a valid chain of ≥3 same-type cells for the player
+    // -----------------------------------------------------------------------
+
+    /** Returns a list of connected same-type cells (≥3) the player could clear, or empty. */
+    fun findHint(): List<Pair<Int, Int>> {
+        for (type in DonutType.values()) {
+            val visited = mutableSetOf<Pair<Int, Int>>()
+            for (r in 0 until rows) {
+                for (c in 0 until cols) {
+                    if (grid[r][c].type != type || Pair(r, c) in visited) continue
+                    val group = floodFill(r, c, type)
+                    visited.addAll(group)
+                    if (group.size >= 3) return group.take(3)
+                }
+            }
+        }
+        return emptyList()
+    }
+
+    private fun floodFill(startR: Int, startC: Int, type: DonutType): List<Pair<Int, Int>> {
+        val result = mutableListOf<Pair<Int, Int>>()
+        val queue  = ArrayDeque<Pair<Int, Int>>()
+        val seen   = mutableSetOf<Pair<Int, Int>>()
+        queue.add(Pair(startR, startC))
+        seen.add(Pair(startR, startC))
+        while (queue.isNotEmpty()) {
+            val (r, c) = queue.removeFirst()
+            result.add(Pair(r, c))
+            for (dr in -1..1) for (dc in -1..1) {
+                if (dr == 0 && dc == 0) continue
+                val nr = r + dr; val nc = c + dc
+                if (nr in 0 until rows && nc in 0 until cols &&
+                    Pair(nr, nc) !in seen && grid[nr][nc].type == type) {
+                    seen.add(Pair(nr, nc))
+                    queue.add(Pair(nr, nc))
+                }
+            }
+        }
+        return result
+    }
+
+    // -----------------------------------------------------------------------
+    // Drag-to-connect chain clear
+    // -----------------------------------------------------------------------
+
+    /**
+     * Clears a player-drawn chain of same-type donuts (minimum 3).
+     * Scores the chain, decrements moves, then applies gravity.
+     *
+     * @return true if the chain was valid and cleared.
+     */
+    fun clearChain(cells: List<Pair<Int, Int>>): Boolean {
+        if (cells.size < 3) return false
+        val type = grid[cells[0].first][cells[0].second].type
+        if (cells.any { (r, c) -> grid[r][c].type != type }) return false
+
+        cells.forEach { (r, c) ->
+            donutsCleared[grid[r][c].type] = (donutsCleared[grid[r][c].type] ?: 0) + 1
+        }
+        if (!sandbox) {
+            score += cells.size * pointsFor(cells.size)
+            movesLeft--
+        }
+
+        val cellSet = cells.toSet()
+        for (c in 0 until cols) {
+            val column = (0 until rows)
+                .mapNotNull { r -> if (Pair(r, c) !in cellSet) grid[r][c].type else null }
+                .toMutableList()
+            while (column.size < rows) column.add(0, DonutType.random())
+            for (r in 0 until rows) grid[r][c] = GameCell(column[r], r, c)
+        }
+        return true
+    }
+
+    // -----------------------------------------------------------------------
     // Reset
     // -----------------------------------------------------------------------
 
     fun reset() {
         score = 0
         movesLeft = movesAllowed
+        DonutType.values().forEach { donutsCleared[it] = 0 }
         for (r in 0 until rows) {
             for (c in 0 until cols) {
                 grid[r][c] = GameCell(safeRandom(r, c), r, c)

@@ -1,28 +1,59 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Simple donut shape as the launcher foreground -->
+<!-- "Donuts for Steven" launcher icon: beach ball through a donut -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Outer donut body (strawberry pink) -->
-    <path
-        android:fillColor="#FFB6C1"
-        android:pathData="M54,12 A42,42 0 1 1 54,96 A42,42 0 1 1 54,12 Z
-                          M54,38 A16,16 0 1 0 54,70 A16,16 0 1 0 54,38 Z" />
+    <!-- === Beach ball (behind donut lower half) === -->
+    <!-- Ball outline -->
+    <path android:fillColor="#1C0C00"
+          android:pathData="M54,28 A20,20 0 1 1 54,68 A20,20 0 1 1 54,28 Z"/>
+    <!-- Ball wedge 1: red -->
+    <path android:fillColor="#FF3737"
+          android:pathData="M54,48 L54,28 A20,20 0 0,1 71.3,38 Z"/>
+    <!-- Ball wedge 2: yellow -->
+    <path android:fillColor="#FFDC1E"
+          android:pathData="M54,48 L71.3,38 A20,20 0 0,1 71.3,58 Z"/>
+    <!-- Ball wedge 3: blue -->
+    <path android:fillColor="#1E82FF"
+          android:pathData="M54,48 L71.3,58 A20,20 0 0,1 54,68 Z"/>
+    <!-- Ball wedge 4: orange -->
+    <path android:fillColor="#FF8214"
+          android:pathData="M54,48 L54,68 A20,20 0 0,1 36.7,58 Z"/>
+    <!-- Ball wedge 5: green -->
+    <path android:fillColor="#2DD22D"
+          android:pathData="M54,48 L36.7,58 A20,20 0 0,1 36.7,38 Z"/>
+    <!-- Ball wedge 6: pink -->
+    <path android:fillColor="#FF37AA"
+          android:pathData="M54,48 L36.7,38 A20,20 0 0,1 54,28 Z"/>
+    <!-- Ball sheen -->
+    <path android:fillColor="#55FFFFFF"
+          android:pathData="M44,32 A8,6 0 1 1 56,32 A8,6 0 1 1 44,32 Z"/>
 
-    <!-- Glaze top -->
-    <path
-        android:fillColor="#DC5070"
-        android:pathData="M54,16 A38,38 0 1 1 54,92 A38,38 0 1 1 54,16 Z
-                          M54,40 A14,14 0 1 0 54,68 A14,14 0 1 0 54,40 Z" />
-
-    <!-- Sprinkle dots -->
-    <circle android:fillColor="#FFFFFF" android:cx="42" android:cy="42" android:r="3" />
-    <circle android:fillColor="#FFFFFF" android:cx="66" android:cy="42" android:r="3" />
-    <circle android:fillColor="#FFFFFF" android:cx="54" android:cy="36" android:r="3" />
-    <circle android:fillColor="#FFFFFF" android:cx="38" android:cy="56" android:r="3" />
-    <circle android:fillColor="#FFFFFF" android:cx="70" android:cy="56" android:r="3" />
+    <!-- === Donut (top half — in front of ball) === -->
+    <!-- Donut dark outline annulus -->
+    <path android:fillColor="#1C0C00"
+          android:pathData="M54,14 A34,34 0 1 1 54,82 A34,34 0 1 1 54,14 Z
+                            M54,36 A12,12 0 1 0 54,60 A12,12 0 1 0 54,36 Z"/>
+    <!-- Donut body (pink) — only top half -->
+    <path android:fillColor="#FF5578"
+          android:pathData="M54,16 A32,32 0 1 1 54,80 A32,32 0 1 1 54,16 Z
+                            M54,37 A11,11 0 1 0 54,59 A11,11 0 1 0 54,37 Z"/>
+    <!-- Donut glaze (hot pink) -->
+    <path android:fillColor="#E60032"
+          android:pathData="M54,20 A28,28 0 1 1 54,76 A28,28 0 1 1 54,20 Z
+                            M54,39 A9,9 0 1 0 54,57 A9,9 0 1 0 54,39 Z"/>
+    <!-- Sprinkles (white dots) -->
+    <path android:fillColor="#FFFFFF"
+          android:pathData="M38,34 A2.5,2.5 0 1,0 43,34 A2.5,2.5 0 1,0 38,34 Z
+                            M65,34 A2.5,2.5 0 1,0 70,34 A2.5,2.5 0 1,0 65,34 Z
+                            M51,26 A2.5,2.5 0 1,0 56,26 A2.5,2.5 0 1,0 51,26 Z
+                            M32,48 A2.5,2.5 0 1,0 37,48 A2.5,2.5 0 1,0 32,48 Z
+                            M71,48 A2.5,2.5 0 1,0 76,48 A2.5,2.5 0 1,0 71,48 Z"/>
+    <!-- Donut sheen (top-left arc) -->
+    <path android:fillColor="#44FFFFFF"
+          android:pathData="M29,30 A28,20 0 0,1 62,22 Q54,36 38,38 Z"/>
 
 </vector>

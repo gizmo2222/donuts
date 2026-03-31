@@ -1,7 +1,7 @@
 # Donuts — Android Match-3 Game
 
 A native Android match-three puzzle game inspired by the browser game at
-[games.blackmoondev.com/donuts](https://games.blackmoondev.com/donuts/).
+the Donuts game.
 
 ## Gameplay
 
@@ -58,7 +58,7 @@ The APK will be at `app/build/outputs/apk/debug/app-debug.apk`.
 ```
 donuts/
 ├── app/src/main/
-│   ├── java/com/blackmoondev/donuts/
+│   ├── java/com/donuts/game/
 │   │   ├── DonutType.kt          – Enum of flavours + colours
 │   │   ├── GameCell.kt           – Single grid cell data class
 │   │   ├── GameBoard.kt          – Match-3 logic (swap, detect, resolve, score)

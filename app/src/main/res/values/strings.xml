@@ -1,17 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Donuts</string>
-    <string name="subtitle">Match 3 puzzle</string>
+    <string name="app_name">Donuts for Steven</string>
+    <string name="subtitle">Connect matching pieces · Infinite play</string>
     <string name="play">PLAY</string>
-    <string name="select_level">Choose a Level</string>
-    <string name="play_level">PLAY</string>
-
-    <string name="level_1_title">Level 1 – Easy</string>
-    <string name="level_1_desc">30 moves · Target: 1 000 pts</string>
-
-    <string name="level_2_title">Level 2 – Medium</string>
-    <string name="level_2_desc">25 moves · Target: 2 000 pts</string>
-
-    <string name="level_3_title">Level 3 – Hard</string>
-    <string name="level_3_desc">20 moves · Target: 3 500 pts</string>
 </resources>

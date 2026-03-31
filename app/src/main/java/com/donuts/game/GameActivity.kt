@@ -1,4 +1,4 @@
-package com.blackmoondev.donuts
+package com.donuts.game
 
 import android.os.Bundle
 import android.view.WindowManager
@@ -7,8 +7,9 @@ import androidx.appcompat.app.AppCompatActivity
 class GameActivity : AppCompatActivity() {
 
     companion object {
-        const val EXTRA_MOVES  = "extra_moves"
-        const val EXTRA_TARGET = "extra_target"
+        const val EXTRA_MOVES   = "extra_moves"
+        const val EXTRA_TARGET  = "extra_target"
+        const val EXTRA_SANDBOX = "extra_sandbox"
     }
 
     private lateinit var gameView: GameView
@@ -19,14 +20,9 @@ class GameActivity : AppCompatActivity() {
         // Keep screen on while playing
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        val moves  = intent.getIntExtra(EXTRA_MOVES,  30)
-        val target = intent.getIntExtra(EXTRA_TARGET, 1_000)
-
-        val board = GameBoard(movesAllowed = moves, targetScore = target)
-        gameView  = GameView(this, board)
-
-        // After a game-over reset the board still runs; just let the view handle it.
-        gameView.onRestart = { /* board.reset() already called inside GameView */ }
+        val prefs = Prefs(this)
+        val board = GameBoard(rows = prefs.gridSize, cols = prefs.gridSize, sandbox = true)
+        gameView  = GameView(this, board, prefs)
 
         setContentView(gameView)
     }

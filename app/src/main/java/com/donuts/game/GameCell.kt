@@ -1,4 +1,4 @@
-package com.blackmoondev.donuts
+package com.donuts.game
 
 /**
  * Represents a single cell in the game grid.

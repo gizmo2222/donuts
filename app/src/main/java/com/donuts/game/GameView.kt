@@ -1,0 +1,1182 @@
+package com.donuts.game
+
+import android.content.Context
+import android.graphics.*
+import android.os.SystemClock
+import android.view.MotionEvent
+import android.view.SurfaceHolder
+import android.view.SurfaceView
+import kotlin.math.*
+
+class GameView(context: Context, initialBoard: GameBoard, private val prefs: Prefs) :
+    SurfaceView(context), SurfaceHolder.Callback {
+
+    private var board = initialBoard
+
+    private val theme get() = GameTheme.all[prefs.themeIndex]
+
+    // -----------------------------------------------------------------------
+    // Layout
+    // -----------------------------------------------------------------------
+    private var surfaceW  = 0
+    private var surfaceH  = 0
+    private var cellSize  = 0f
+    private var boardLeft = 0f
+    private var boardTop  = 0f
+    private val hudHeight = 220f
+    private val counterH  = 130f
+
+    private var resetBtnRect    = RectF()
+    private var settingsBtnRect = RectF()
+
+    // Settings panel layout
+    private var panelRect         = RectF()
+    private val themeRects        = Array(4) { RectF() }
+    private val hintRects         = Array(4) { RectF() }
+    private val gridRects         = Array(2) { RectF() }
+    private var settingsCloseRect = RectF()
+
+    private val hintOptions = longArrayOf(3_000L, 5_000L, 10_000L, 0L)
+    private val hintLabels  = arrayOf("3s", "5s", "10s", "Off")
+    private val gridOptions = intArrayOf(6, 8)
+    private val gridLabels  = arrayOf("6×6", "8×8")
+
+    // -----------------------------------------------------------------------
+    // Hint
+    // -----------------------------------------------------------------------
+    private var lastActionMs = SystemClock.elapsedRealtime()
+    private var hintCells    = emptyList<Pair<Int, Int>>()
+    private var hintPulseMs  = 0L
+
+    // -----------------------------------------------------------------------
+    // Touch / drag
+    // -----------------------------------------------------------------------
+    private var selRow = -1
+    private var selCol = -1
+    private val dragChain = mutableListOf<Pair<Int, Int>>()
+    private val dragChainType: DonutType?
+        get() = dragChain.firstOrNull()?.let { (r, c) -> board.grid[r][c].type }
+
+    // -----------------------------------------------------------------------
+    // Game animation
+    // -----------------------------------------------------------------------
+    private enum class AnimPhase { IDLE, POPPING, DROPPING }
+    @Volatile private var animPhase = AnimPhase.IDLE
+    private var animStartMs = 0L
+    private val POP_MS  = 280L
+    private val DROP_MS = 380L
+
+    private data class AnimCell(val row: Int, val col: Int, val type: DonutType)
+    private val popCells     = mutableListOf<AnimCell>()
+    private val dropCells    = mutableListOf<AnimCell>()
+    private var pendingChain = emptyList<Pair<Int, Int>>()
+
+    // -----------------------------------------------------------------------
+    // UI Animations
+    // -----------------------------------------------------------------------
+
+    // Settings panel slide-up
+    private var settingsOpen    = false     // logical open/close intent
+    private var settingsAnim    = 0f        // 0 = fully closed, 1 = fully open
+    private val SETTINGS_OPEN_MS  = 200f
+    private val SETTINGS_CLOSE_MS = 85f
+
+    // Button press scale feedback
+    private var resetPressMs    = -1L       // time of last reset press
+    private var settingsPressMs = -1L       // time of last settings press
+    private val PRESS_MS        = 150L      // duration of press shrink
+
+    // Counter count-up
+    private var displayedCount  = 0         // animates toward actual total
+
+    // Reset flash overlay
+    private var resetFlashMs    = -1L       // time of last reset
+    private val FLASH_MS        = 350L
+
+    // -----------------------------------------------------------------------
+    // Paints (allocated once)
+    // -----------------------------------------------------------------------
+    private val fillPaint         = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val strokePaint       = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val outlinePaint      = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
+    private val textPaint         = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; typeface = Typeface.DEFAULT_BOLD }
+    private val textOutlinePaint  = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeJoin = Paint.Join.ROUND }
+    private val chainOutlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
+    private val chainLinePaint    = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
+    private val hintRingPaint     = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val dimPaint          = Paint().apply { color = Color.argb(160, 0, 0, 0) }
+    private val shadowPaint       = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val flashPaint        = Paint().apply { style = Paint.Style.FILL }
+
+    // -----------------------------------------------------------------------
+    // Lifecycle
+    // -----------------------------------------------------------------------
+    init { holder.addCallback(this); isFocusable = true }
+
+    override fun surfaceCreated(holder: SurfaceHolder) { RenderThread(holder).start() }
+
+    override fun surfaceChanged(holder: SurfaceHolder, format: Int, w: Int, h: Int) {
+        surfaceW = w; surfaceH = h; computeLayout()
+    }
+
+    override fun surfaceDestroyed(holder: SurfaceHolder) {}
+
+    private fun computeLayout() {
+        val w = surfaceW; val h = surfaceH
+        if (w == 0 || h == 0) return
+
+        val availH  = h - hudHeight - counterH
+        val boardPx = min(w.toFloat(), availH) * 0.94f
+        cellSize    = boardPx / board.cols
+        boardLeft   = (w - boardPx) / 2f
+        boardTop    = hudHeight + (availH - boardPx) / 2f
+
+        val btnH = 88f
+        val btnY = hudHeight - btnH - 12f
+        resetBtnRect    = RectF(boardLeft, btnY, boardLeft + 190f, btnY + btnH)
+        val sbEnd = boardLeft + board.cols * cellSize
+        settingsBtnRect = RectF(sbEnd - 140f, btnY, sbEnd, btnY + btnH)
+
+        // Settings panel — nearly full height, generous width
+        val pw  = min(w - 24f, 600f)
+        val ph  = min(h - 16f, 920f)
+        val pl  = (w - pw) / 2f
+        val pt  = (h - ph) / 2f
+        panelRect = RectF(pl, pt, pl + pw, pt + ph)
+
+        val pad    = 24f
+
+        // labelSz=32: pill height = 32+12 = 44px. From hTop, pillT = hTop - 10 - 32 - 6 = hTop - 48.
+        // For 14px breathing room after previous section end: spacing = 48 + 14 = 62.
+        val thBtnW = (pw - pad * 3) / 2f
+        val thBtnH = 90f
+        val thRow1 = pt + 156f            // pillT = 156-48=108, title bottom≈85, gap=23px ✓
+        val thRow2 = thRow1 + thBtnH + 10f
+        themeRects[0] = RectF(pl + pad,              thRow1, pl + pad + thBtnW,    thRow1 + thBtnH)
+        themeRects[1] = RectF(pl + pad * 2 + thBtnW, thRow1, pl + pw - pad,        thRow1 + thBtnH)
+        themeRects[2] = RectF(pl + pad,              thRow2, pl + pad + thBtnW,    thRow2 + thBtnH)
+        themeRects[3] = RectF(pl + pad * 2 + thBtnW, thRow2, pl + pw - pad,        thRow2 + thBtnH)
+
+        // Hint delay — 4 across (62 = 48 pill + 14px visible gap)
+        val hBtnW = (pw - pad * 5) / 4f
+        val hBtnH = 80f
+        val hTop  = thRow2 + thBtnH + 62f
+        for (i in 0 until 4) {
+            val x = pl + pad + i * (hBtnW + pad)
+            hintRects[i] = RectF(x, hTop, x + hBtnW, hTop + hBtnH)
+        }
+
+        // Grid size — 2 across (same 62px inter-section spacing)
+        val gBtnW = (pw - pad * 3) / 2f
+        val gBtnH = 80f
+        val gTop  = hTop + hBtnH + 62f
+        for (i in 0 until 2) {
+            val x = pl + pad + i * (gBtnW + pad)
+            gridRects[i] = RectF(x, gTop, x + gBtnW, gTop + gBtnH)
+        }
+
+        val closeH = 80f
+        settingsCloseRect = RectF(pl + pad, pt + ph - closeH - pad, pl + pw - pad, pt + ph - pad)
+    }
+
+    private fun rebuildBoard() {
+        board = GameBoard(rows = prefs.gridSize, cols = prefs.gridSize, sandbox = true)
+        animPhase = AnimPhase.IDLE
+        popCells.clear(); dropCells.clear()
+        dragChain.clear(); selRow = -1; selCol = -1
+        hintCells = emptyList()
+        displayedCount = 0
+        lastActionMs = SystemClock.elapsedRealtime()
+        computeLayout()
+    }
+
+    // -----------------------------------------------------------------------
+    // Frame
+    // -----------------------------------------------------------------------
+    fun drawFrame(canvas: Canvas) {
+        if (cellSize == 0f) return
+        val now = SystemClock.elapsedRealtime()
+        canvas.drawColor(theme.bg)
+        advanceAnimation(now)
+        updateHint(now)
+        advanceSettingsAnim(now)
+        advanceCounter(now)
+        drawHUD(canvas, now)
+        drawBoardBackground(canvas)
+        drawChainLine(canvas)
+        drawCells(canvas, now)
+        drawCounter(canvas)
+        if (settingsAnim > 0f) drawSettings(canvas, now)
+        drawResetFlash(canvas, now)
+    }
+
+    // -----------------------------------------------------------------------
+    // Hint
+    // -----------------------------------------------------------------------
+    private fun updateHint(now: Long) {
+        val delay = prefs.hintDelayMs
+        if (delay == 0L || animPhase != AnimPhase.IDLE || dragChain.isNotEmpty()) return
+        if (now - lastActionMs >= delay) {
+            if (hintCells.isEmpty()) { hintCells = board.findHint(); hintPulseMs = now }
+        } else {
+            hintCells = emptyList()
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Game animation advance
+    // -----------------------------------------------------------------------
+    private fun advanceAnimation(now: Long) {
+        when (animPhase) {
+            AnimPhase.POPPING -> if (now - animStartMs >= POP_MS) {
+                board.clearChain(pendingChain)
+                board.resolveAll()
+                val colCount = pendingChain.groupingBy { it.second }.eachCount()
+                dropCells.clear()
+                for ((col, count) in colCount)
+                    for (row in 0 until count)
+                        dropCells.add(AnimCell(row, col, board.grid[row][col].type))
+                popCells.clear(); animPhase = AnimPhase.DROPPING; animStartMs = now
+            }
+            AnimPhase.DROPPING -> if (now - animStartMs >= DROP_MS) {
+                dropCells.clear(); animPhase = AnimPhase.IDLE
+            }
+            AnimPhase.IDLE -> {}
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Settings panel slide animation
+    // -----------------------------------------------------------------------
+    private fun advanceSettingsAnim(now: Long) {
+        // settingsAnim advances at ~60fps toward target (0 or 1)
+        val target = if (settingsOpen) 1f else 0f
+        val ms     = if (target > settingsAnim) SETTINGS_OPEN_MS else SETTINGS_CLOSE_MS
+        val step   = (1000f / 60f) / ms
+        settingsAnim = if (target > settingsAnim)
+            (settingsAnim + step).coerceAtMost(1f)
+        else
+            (settingsAnim - step).coerceAtLeast(0f)
+    }
+
+    // ease-out-quint: f(t) = 1 - (1-t)^5
+    private fun easeOutQuint(t: Float): Float {
+        val x = 1f - t
+        return 1f - x * x * x * x * x
+    }
+
+    // -----------------------------------------------------------------------
+    // Counter count-up
+    // -----------------------------------------------------------------------
+    private fun advanceCounter(now: Long) {
+        val target = board.donutsCleared.values.sum()
+        if (displayedCount < target) {
+            // Jump faster when gap is large, min 1 per frame
+            val step = max(1, (target - displayedCount) / 4)
+            displayedCount = (displayedCount + step).coerceAtMost(target)
+        } else if (displayedCount > target) {
+            // After reset, snap to 0 immediately
+            displayedCount = 0
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Reset flash overlay
+    // -----------------------------------------------------------------------
+    private fun drawResetFlash(canvas: Canvas, now: Long) {
+        if (resetFlashMs < 0) return
+        val t = ((now - resetFlashMs).toFloat() / FLASH_MS).coerceIn(0f, 1f)
+        if (t >= 1f) { resetFlashMs = -1L; return }
+        // Bright white burst fades out — ease-in so it hits fast then decays
+        val alpha = ((1f - t) * (1f - t) * 220).toInt().coerceIn(0, 220)
+        flashPaint.color = Color.argb(alpha, 255, 255, 255)
+        canvas.drawRect(0f, 0f, surfaceW.toFloat(), surfaceH.toFloat(), flashPaint)
+    }
+
+    // -----------------------------------------------------------------------
+    // HUD
+    // -----------------------------------------------------------------------
+    private fun drawHUD(canvas: Canvas, now: Long) {
+        val titleX = surfaceW / 2f
+
+        // "DONUTS" — big top line
+        val sz1    = 46f
+        val line1Y = 50f
+        textPaint.color     = Color.argb(100, 0, 0, 0)
+        textPaint.textSize  = sz1
+        textPaint.textAlign = Paint.Align.CENTER
+        canvas.drawText("DONUTS", titleX + 3f, line1Y + 3f, textPaint)
+        textPaint.color = theme.textPrimary
+        canvas.drawText("DONUTS", titleX, line1Y, textPaint)
+        textOutlinePaint.color       = Color.argb(70, 0, 0, 0)
+        textOutlinePaint.strokeWidth = 2.5f
+        textOutlinePaint.textSize    = sz1
+        textOutlinePaint.textAlign   = Paint.Align.CENTER
+        textOutlinePaint.typeface    = Typeface.DEFAULT_BOLD
+        canvas.drawText("DONUTS", titleX, line1Y, textOutlinePaint)
+
+        // "for Steven" — smaller, warm secondary colour
+        val sz2    = 24f
+        val line2Y = line1Y + sz2 + 4f
+        textPaint.color    = Color.argb(90, 0, 0, 0)
+        textPaint.textSize = sz2
+        canvas.drawText("for Steven", titleX + 2f, line2Y + 2f, textPaint)
+        textPaint.color = theme.textSecondary
+        canvas.drawText("for Steven", titleX, line2Y, textPaint)
+
+        // Button press scale: 0.93x for PRESS_MS then spring back to 1.0
+        val resetScale    = buttonPressScale(now, resetPressMs)
+        val settingsScale = buttonPressScale(now, settingsPressMs)
+
+        drawPrettyButton(canvas, resetBtnRect,    theme.resetBtn,    "RESET", 28f, resetScale)
+        drawPrettyButton(canvas, settingsBtnRect, theme.settingsBtn, "\u2699", 38f, settingsScale)
+    }
+
+    /** Returns a scale factor that dips to 0.93 at tap then recovers to 1.0 over PRESS_MS. */
+    private fun buttonPressScale(now: Long, pressMs: Long): Float {
+        if (pressMs < 0) return 1f
+        val t = ((now - pressMs).toFloat() / PRESS_MS).coerceIn(0f, 1f)
+        // Dip then ease back: 0.93 at t=0, 1.0 at t=1 (ease-out)
+        return 0.93f + 0.07f * easeOutQuint(t)
+    }
+
+    private fun drawPrettyButton(canvas: Canvas, rect: RectF, baseColor: Int, label: String, labelSize: Float, scale: Float = 1f) {
+        val rx = 20f
+        canvas.save()
+        canvas.scale(scale, scale, rect.centerX(), rect.centerY())
+
+        // Drop shadow
+        shadowPaint.color = Color.argb(90, 0, 0, 0)
+        canvas.drawRoundRect(
+            RectF(rect.left + 4f, rect.top + 7f, rect.right + 4f, rect.bottom + 7f),
+            rx, rx, shadowPaint
+        )
+        // Cartoon border
+        fillPaint.color = Color.argb(200, 30, 15, 0)
+        canvas.drawRoundRect(
+            RectF(rect.left - 3f, rect.top - 3f, rect.right + 3f, rect.bottom + 3f),
+            rx + 3f, rx + 3f, fillPaint
+        )
+        // Base fill
+        fillPaint.color = baseColor; fillPaint.alpha = 255
+        canvas.drawRoundRect(rect, rx, rx, fillPaint)
+        // Top-half highlight
+        canvas.save()
+        canvas.clipRect(rect.left, rect.top, rect.right, rect.centerY())
+        fillPaint.color = Color.argb(65, 255, 255, 255)
+        canvas.drawRoundRect(rect, rx, rx, fillPaint)
+        canvas.restore()
+        // Inner border
+        strokePaint.color       = Color.argb(100, 255, 255, 255)
+        strokePaint.strokeWidth = 2f; strokePaint.alpha = 255
+        canvas.drawRoundRect(rect, rx, rx, strokePaint)
+        // Label shadow
+        textPaint.color     = Color.argb(80, 0, 0, 0)
+        textPaint.textSize  = labelSize
+        textPaint.textAlign = Paint.Align.CENTER
+        canvas.drawText(label, rect.centerX() + 2f, rect.centerY() + labelSize * 0.36f + 2f, textPaint)
+        // Label
+        textPaint.color = Color.WHITE
+        canvas.drawText(label, rect.centerX(), rect.centerY() + labelSize * 0.36f, textPaint)
+
+        canvas.restore()
+    }
+
+    // -----------------------------------------------------------------------
+    // Board & cells
+    // -----------------------------------------------------------------------
+    private fun drawBoardBackground(canvas: Canvas) {
+        val boardR = boardLeft + board.cols * cellSize
+        val boardB = boardTop  + board.rows * cellSize
+
+        shadowPaint.color = Color.argb(60, 0, 0, 0)
+        canvas.drawRoundRect(RectF(boardLeft - 4f, boardTop + 8f, boardR + 4f, boardB + 12f), 22f, 22f, shadowPaint)
+        fillPaint.color = Color.argb(200, 30, 15, 0)
+        canvas.drawRoundRect(RectF(boardLeft - 10f, boardTop - 10f, boardR + 10f, boardB + 10f), 24f, 24f, fillPaint)
+        fillPaint.color = theme.boardBg
+        canvas.drawRoundRect(RectF(boardLeft - 4f, boardTop - 4f, boardR + 4f, boardB + 4f), 20f, 20f, fillPaint)
+        // Cell grid
+        strokePaint.color       = Color.argb(35, 0, 0, 0)
+        strokePaint.strokeWidth = 1.5f
+        for (r in 1 until board.rows) {
+            val y = boardTop + r * cellSize
+            canvas.drawLine(boardLeft, y, boardR, y, strokePaint)
+        }
+        for (c in 1 until board.cols) {
+            val x = boardLeft + c * cellSize
+            canvas.drawLine(x, boardTop, x, boardB, strokePaint)
+        }
+    }
+
+    private fun drawChainLine(canvas: Canvas) {
+        if (dragChain.size < 2) return
+        chainOutlinePaint.strokeWidth = cellSize * 0.38f
+        chainLinePaint.strokeWidth    = cellSize * 0.22f
+        chainOutlinePaint.color = Color.argb(180, 30, 15, 0)
+        chainLinePaint.color    = Color.argb(245, 255, 255, 255)
+        val path = Path()
+        dragChain.forEachIndexed { i, (r, c) ->
+            val cx = boardLeft + c * cellSize + cellSize / 2f
+            val cy = boardTop  + r * cellSize + cellSize / 2f
+            if (i == 0) path.moveTo(cx, cy) else path.lineTo(cx, cy)
+        }
+        canvas.drawPath(path, chainOutlinePaint)
+        canvas.drawPath(path, chainLinePaint)
+    }
+
+    private fun drawCells(canvas: Canvas, now: Long) {
+        val popSet  = popCells.map  { it.row to it.col }.toSet()
+        val dropSet = dropCells.map { it.row to it.col }.toSet()
+
+        val hintAlpha = if (hintCells.isNotEmpty()) {
+            val t = ((now - hintPulseMs) % 900L) / 900f
+            val pulse = if (t < 0.5f) t * 2f else (1f - t) * 2f
+            (100 + (155 * pulse)).toInt()
+        } else 0
+
+        for (r in 0 until board.rows) {
+            for (c in 0 until board.cols) {
+                if ((r to c) in popSet || (r to c) in dropSet) continue
+                val cx      = boardLeft + c * cellSize + cellSize / 2f
+                val cy      = boardTop  + r * cellSize + cellSize / 2f
+                val inChain = Pair(r, c) in dragChain
+
+                // Idle breathing: each cell breathes at a slightly different phase
+                // Period ~1800ms, amplitude ±2.5%. Only when nothing is animating.
+                val breatheScale = if (animPhase == AnimPhase.IDLE && !inChain) {
+                    val phase = (r * board.cols + c) * 0.42f   // unique offset per cell
+                    val t     = ((now / 1800f + phase) * 2f * PI.toFloat())
+                    1f + sin(t) * 0.025f
+                } else 1f
+
+                drawPiece(canvas, cx, cy, cellSize * 0.43f * breatheScale, board.grid[r][c].type, inChain)
+
+                if (hintCells.isNotEmpty() && Pair(r, c) in hintCells) {
+                    hintRingPaint.color       = theme.hintRing
+                    hintRingPaint.alpha       = hintAlpha
+                    hintRingPaint.strokeWidth = cellSize * 0.12f
+                    canvas.drawCircle(cx, cy, cellSize * 0.47f * breatheScale, hintRingPaint)
+                }
+            }
+        }
+
+        if (animPhase == AnimPhase.POPPING) {
+            val t     = ((now - animStartMs).toFloat() / POP_MS).coerceIn(0f, 1f)
+            val scale = if (t < 0.3f) 1f + (t / 0.3f) * 0.55f else 1.55f * (1f - (t - 0.3f) / 0.7f)
+            val alpha = ((1f - t) * 255).toInt().coerceIn(0, 255)
+            for (cell in popCells) {
+                val cx = boardLeft + cell.col * cellSize + cellSize / 2f
+                val cy = boardTop  + cell.row * cellSize + cellSize / 2f
+                drawPiece(canvas, cx, cy, cellSize * 0.43f * scale, cell.type, false, alpha)
+            }
+            // Expanding burst ring
+            val burstT     = (t / 0.6f).coerceIn(0f, 1f)
+            val burstAlpha = ((1f - burstT) * 200).toInt().coerceIn(0, 255)
+            strokePaint.strokeWidth = cellSize * 0.07f
+            strokePaint.alpha       = burstAlpha
+            for (cell in popCells) {
+                val cx = boardLeft + cell.col * cellSize + cellSize / 2f
+                val cy = boardTop  + cell.row * cellSize + cellSize / 2f
+                strokePaint.color = Color.argb(burstAlpha, 255, 255, 255)
+                canvas.drawCircle(cx, cy, cellSize * (0.44f + burstT * 0.52f), strokePaint)
+            }
+            strokePaint.alpha = 255
+        }
+
+        if (animPhase == AnimPhase.DROPPING) {
+            val t     = ((now - animStartMs).toFloat() / DROP_MS).coerceIn(0f, 1f)
+            val eased = 1f - (1f - t) * (1f - t) * (1f - t)
+            val yOff  = -cellSize * 3.5f * (1f - eased)
+            val alpha = (eased * 255).toInt().coerceIn(0, 255)
+            for (cell in dropCells) {
+                val cx = boardLeft + cell.col * cellSize + cellSize / 2f
+                val cy = boardTop  + cell.row * cellSize + cellSize / 2f + yOff
+                drawPiece(canvas, cx, cy, cellSize * 0.43f, cell.type, false, alpha)
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // drawPiece dispatcher
+    // -----------------------------------------------------------------------
+    private fun drawPiece(
+        canvas: Canvas, cx: Float, cy: Float,
+        radius: Float, type: DonutType, selected: Boolean, alpha: Int = 255
+    ) {
+        when (theme.iconType) {
+            IconType.DONUT -> drawDonutShape(canvas, cx, cy, radius, type, selected, alpha)
+            IconType.STAR  -> drawStarShape (canvas, cx, cy, radius, type, selected, alpha)
+            IconType.DINO  -> drawDinoShape (canvas, cx, cy, radius, type, selected, alpha)
+            IconType.TRUCK -> drawTruckShape(canvas, cx, cy, radius, type, selected, alpha)
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // 3D sheen helper — upper-left crescent highlight + specular dot
+    // -----------------------------------------------------------------------
+    /**
+     * Adds a 3D-style highlight to any piece. Clips to an upper-left oval,
+     * paints a semi-transparent white sheen, then drops a bright specular dot.
+     * Call AFTER drawing the main body, BEFORE any hole/overlay elements.
+     */
+    private fun addSheen(canvas: Canvas, cx: Float, cy: Float, r: Float, alpha: Int,
+                         sheenAlpha: Float = 0.32f, specAlpha: Float = 0.75f) {
+        // Soft top-left crescent via clipPath
+        val hlPath = Path()
+        hlPath.addOval(
+            RectF(cx - r * 0.88f, cy - r * 1.05f, cx + r * 0.52f, cy + r * 0.05f),
+            Path.Direction.CW
+        )
+        canvas.save()
+        canvas.clipPath(hlPath)
+        fillPaint.color = Color.argb((alpha * sheenAlpha).toInt(), 255, 255, 255)
+        canvas.drawRect(cx - r * 2f, cy - r * 2f, cx + r * 2f, cy + r * 2f, fillPaint)
+        canvas.restore()
+        // Bright specular dot upper-left
+        fillPaint.color = Color.argb((alpha * specAlpha).toInt(), 255, 255, 255)
+        canvas.drawCircle(cx - r * 0.30f, cy - r * 0.44f, r * 0.16f, fillPaint)
+        fillPaint.alpha = 255
+    }
+
+    // -----------------------------------------------------------------------
+    // Shape: Donut
+    // -----------------------------------------------------------------------
+    private fun drawDonutShape(
+        canvas: Canvas, cx: Float, cy: Float,
+        radius: Float, type: DonutType, selected: Boolean, alpha: Int
+    ) {
+        val ow = radius * 0.18f
+        if (selected) {
+            fillPaint.color = Color.argb(alpha, 255, 255, 255)
+            canvas.drawCircle(cx, cy, radius + ow + cellSize * 0.07f, fillPaint)
+        }
+        // Dark outline circle
+        fillPaint.color = Color.argb(alpha, 28, 12, 0)
+        canvas.drawCircle(cx, cy, radius + ow, fillPaint)
+        // Drop shadow
+        fillPaint.color = Color.argb(alpha / 3, 0, 0, 0)
+        canvas.drawCircle(cx + radius * 0.06f, cy + radius * 0.12f, radius, fillPaint)
+        // Body
+        fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
+        canvas.drawCircle(cx, cy, radius, fillPaint)
+        // Glaze
+        fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
+        canvas.drawCircle(cx, cy, radius * 0.82f, fillPaint)
+        // 3D sheen on glaze
+        addSheen(canvas, cx, cy, radius * 0.82f, alpha)
+        // Sprinkles
+        drawSprinkles(canvas, cx, cy, radius * 0.82f, type, alpha)
+        // Hole
+        fillPaint.color = theme.holeColor; fillPaint.alpha = alpha
+        canvas.drawCircle(cx, cy, radius * 0.34f, fillPaint)
+        // Hole inner highlight (rim light)
+        outlinePaint.color       = Color.argb(alpha / 2, 255, 255, 255)
+        outlinePaint.strokeWidth = radius * 0.05f
+        canvas.drawCircle(cx, cy, radius * 0.34f, outlinePaint)
+        // Hole dark outline
+        outlinePaint.color       = Color.argb(alpha / 2, 28, 12, 0)
+        outlinePaint.strokeWidth = radius * 0.05f
+        canvas.drawCircle(cx, cy, radius * 0.36f, outlinePaint)
+        fillPaint.alpha = 255
+    }
+
+    private fun drawSprinkles(canvas: Canvas, cx: Float, cy: Float, glazeR: Float, type: DonutType, alpha: Int) {
+        fillPaint.color = when (type) {
+            DonutType.STRAWBERRY -> Color.WHITE
+            DonutType.VANILLA    -> Color.rgb(255, 100, 160)
+            DonutType.CHOCOLATE  -> Color.rgb(235, 195, 130)
+            DonutType.BLUEBERRY  -> Color.WHITE
+            DonutType.MATCHA     -> Color.rgb(255, 235, 80)
+            DonutType.CARAMEL    -> Color.WHITE
+        }
+        fillPaint.alpha = alpha
+        val dotR = glazeR * 0.10f; val dist = glazeR * 0.48f
+        for (i in 0 until 5) {
+            val angle = Math.toRadians(i * 72.0 + 18.0)
+            canvas.drawCircle(
+                cx + dist * cos(angle).toFloat(),
+                cy + dist * sin(angle).toFloat(),
+                dotR, fillPaint
+            )
+        }
+        fillPaint.alpha = 255
+    }
+
+    // -----------------------------------------------------------------------
+    // Shape: Star
+    // -----------------------------------------------------------------------
+    private fun drawStarShape(
+        canvas: Canvas, cx: Float, cy: Float,
+        radius: Float, type: DonutType, selected: Boolean, alpha: Int
+    ) {
+        val ow = radius * 0.18f
+        if (selected) {
+            fillPaint.color = Color.argb(alpha, 255, 255, 255)
+            canvas.drawCircle(cx, cy, radius + ow + radius * 0.08f, fillPaint)
+        }
+        // Dark outline (stroked around outer star path)
+        outlinePaint.color       = Color.argb(alpha, 28, 12, 0)
+        outlinePaint.strokeWidth = ow * 2f
+        canvas.drawPath(buildStarPath(cx, cy, radius + ow * 0.5f, (radius + ow * 0.5f) * 0.42f), outlinePaint)
+        // Drop shadow
+        fillPaint.color = Color.argb(alpha / 3, 0, 0, 0)
+        canvas.drawPath(buildStarPath(cx + radius * 0.05f, cy + radius * 0.10f, radius, radius * 0.42f), fillPaint)
+        // Body star
+        fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
+        canvas.drawPath(buildStarPath(cx, cy, radius, radius * 0.42f), fillPaint)
+        // 3D sheen on body
+        addSheen(canvas, cx, cy, radius, alpha, sheenAlpha = 0.28f)
+        // Inner accent star
+        fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
+        canvas.drawPath(buildStarPath(cx, cy, radius * 0.58f, radius * 0.24f), fillPaint)
+        // Inner star rim light (brighter edge)
+        outlinePaint.color       = Color.argb((alpha * 0.4f).toInt(), 255, 255, 255)
+        outlinePaint.strokeWidth = radius * 0.04f
+        canvas.drawPath(buildStarPath(cx, cy, radius * 0.58f, radius * 0.24f), outlinePaint)
+        fillPaint.alpha = 255
+    }
+
+    private fun buildStarPath(cx: Float, cy: Float, outerR: Float, innerR: Float): Path {
+        val path = Path()
+        for (i in 0 until 10) {
+            val angle = Math.toRadians(-90.0 + i * 36.0)
+            val r = if (i % 2 == 0) outerR else innerR
+            val x = cx + (r * cos(angle)).toFloat()
+            val y = cy + (r * sin(angle)).toFloat()
+            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        path.close()
+        return path
+    }
+
+    // -----------------------------------------------------------------------
+    // Shape: Dino  (no backing circle — each body part gets its own outline)
+    // -----------------------------------------------------------------------
+    private fun drawDinoShape(
+        canvas: Canvas, cx: Float, cy: Float,
+        radius: Float, type: DonutType, selected: Boolean, alpha: Int
+    ) {
+        val r = radius
+        val ow = r * 0.16f
+        if (selected) {
+            fillPaint.color = Color.argb(alpha, 255, 255, 255)
+            canvas.drawCircle(cx, cy, r * 1.32f, fillPaint)
+        }
+
+        // ---- Helper lambdas for outline+fill ----
+        // Each body part: stroke (dark outline), then fill (body color)
+        outlinePaint.color       = Color.argb(alpha, 28, 12, 0)
+        outlinePaint.strokeWidth = ow * 2f
+
+        // Drop shadow pass (single large offset shape)
+        fillPaint.color = Color.argb(alpha / 4, 0, 0, 0)
+        canvas.drawOval(RectF(cx - r*0.74f + r*0.06f, cy - r*0.28f + r*0.12f,
+                              cx + r*0.58f + r*0.06f, cy + r*0.60f + r*0.12f), fillPaint)
+
+        // ----- Tail -----
+        val tail = Path().apply {
+            moveTo(cx - r*0.66f, cy - r*0.04f)
+            lineTo(cx - r*0.66f, cy + r*0.34f)
+            lineTo(cx - r*1.06f, cy - r*0.12f)
+            close()
+        }
+        canvas.drawPath(tail, outlinePaint)
+        fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
+        canvas.drawPath(tail, fillPaint)
+
+        // ----- Body -----
+        val bodyRect = RectF(cx - r*0.74f, cy - r*0.28f, cx + r*0.58f, cy + r*0.60f)
+        canvas.drawOval(bodyRect, outlinePaint)
+        fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
+        canvas.drawOval(bodyRect, fillPaint)
+
+        // ----- Head -----
+        val headRect = RectF(cx + r*0.22f, cy - r*0.76f, cx + r*0.92f, cy - r*0.08f)
+        canvas.drawOval(headRect, outlinePaint)
+        fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
+        canvas.drawOval(headRect, fillPaint)
+
+        // ----- Snout -----
+        val snoutRect = RectF(cx + r*0.54f, cy - r*0.44f, cx + r*1.05f, cy - r*0.06f)
+        canvas.drawOval(snoutRect, outlinePaint)
+        fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
+        canvas.drawOval(snoutRect, fillPaint)
+
+        // ----- Spines (glazeColor) -----
+        outlinePaint.color = Color.argb(alpha, 28, 12, 0)
+        fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
+        for (i in 0 until 3) {
+            val sx = cx - r*0.34f + i * r*0.28f
+            val spine = Path().apply {
+                moveTo(sx - r*0.09f, cy - r*0.28f)
+                lineTo(sx,           cy - r*0.64f)
+                lineTo(sx + r*0.09f, cy - r*0.28f)
+                close()
+            }
+            canvas.drawPath(spine, outlinePaint)
+            canvas.drawPath(spine, fillPaint)
+        }
+
+        // ----- Arm (glazeColor) -----
+        val armRect = RectF(cx + r*0.16f, cy - r*0.02f, cx + r*0.52f, cy + r*0.20f)
+        canvas.drawOval(armRect, outlinePaint)
+        fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
+        canvas.drawOval(armRect, fillPaint)
+
+        // ----- Legs -----
+        val legRx = r * 0.10f
+        val leg1 = RectF(cx - r*0.52f, cy + r*0.52f, cx - r*0.16f, cy + r*0.90f)
+        val leg2 = RectF(cx + r*0.02f, cy + r*0.52f, cx + r*0.38f, cy + r*0.90f)
+        outlinePaint.color = Color.argb(alpha, 28, 12, 0)
+        canvas.drawRoundRect(leg1, legRx, legRx, outlinePaint)
+        canvas.drawRoundRect(leg2, legRx, legRx, outlinePaint)
+        fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
+        canvas.drawRoundRect(leg1, legRx, legRx, fillPaint)
+        canvas.drawRoundRect(leg2, legRx, legRx, fillPaint)
+
+        // 3D sheen over body area
+        addSheen(canvas, cx - r*0.08f, cy + r*0.16f, r * 0.72f, alpha, sheenAlpha = 0.22f, specAlpha = 0.55f)
+
+        // ----- Eye -----
+        fillPaint.color = Color.WHITE; fillPaint.alpha = alpha
+        canvas.drawCircle(cx + r*0.60f, cy - r*0.48f, r*0.14f, fillPaint)
+        // Eye glint
+        fillPaint.color = Color.argb((alpha * 0.9f).toInt(), 255, 255, 255)
+        canvas.drawCircle(cx + r*0.55f, cy - r*0.53f, r*0.05f, fillPaint)
+        // Pupil
+        fillPaint.color = Color.argb(alpha, 18, 18, 18)
+        canvas.drawCircle(cx + r*0.63f, cy - r*0.44f, r*0.07f, fillPaint)
+
+        // ----- Nostril -----
+        fillPaint.color = Color.argb((alpha * 0.5f).toInt(), 28, 12, 0)
+        canvas.drawCircle(cx + r*0.90f, cy - r*0.22f, r*0.04f, fillPaint)
+
+        fillPaint.alpha = 255
+    }
+
+    // -----------------------------------------------------------------------
+    // Shape: Truck  (no backing circle — each component gets its own outline)
+    // -----------------------------------------------------------------------
+    private fun drawTruckShape(
+        canvas: Canvas, cx: Float, cy: Float,
+        radius: Float, type: DonutType, selected: Boolean, alpha: Int
+    ) {
+        val r = radius
+        val ow = r * 0.16f
+        if (selected) {
+            fillPaint.color = Color.argb(alpha, 255, 255, 255)
+            canvas.drawCircle(cx, cy, r * 1.32f, fillPaint)
+        }
+
+        outlinePaint.color       = Color.argb(alpha, 28, 12, 0)
+        outlinePaint.strokeWidth = ow * 2f
+
+        val groundY  = cy + r * 0.52f
+        val truckTop = cy - r * 0.68f
+        val cargoT   = truckTop + r * 0.30f
+        val cargoL   = cx - r * 0.96f
+        val cargoR   = cx + r * 0.14f
+        val cabL     = cargoR - r * 0.05f
+        val cabR     = cx + r * 0.90f
+        val wheelR   = r * 0.22f
+        val wheelCY  = groundY + wheelR * 0.58f
+
+        // Drop shadow
+        fillPaint.color = Color.argb(alpha / 4, 0, 0, 0)
+        canvas.drawRoundRect(RectF(cargoL + r*0.06f, cargoT + r*0.10f, cabR + r*0.06f, groundY + r*0.10f),
+                             r*0.08f, r*0.08f, fillPaint)
+
+        // ----- Cargo box -----
+        val cargoRect = RectF(cargoL, cargoT, cargoR, groundY)
+        canvas.drawRoundRect(cargoRect, r*0.08f, r*0.08f, outlinePaint)
+        fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
+        canvas.drawRoundRect(cargoRect, r*0.08f, r*0.08f, fillPaint)
+        // Cargo top-panel highlight (lighter top third)
+        canvas.save()
+        canvas.clipRect(cargoL, cargoT, cargoR, cargoT + (groundY - cargoT) * 0.38f)
+        fillPaint.color = Color.argb((alpha * 0.28f).toInt(), 255, 255, 255)
+        canvas.drawRoundRect(cargoRect, r*0.08f, r*0.08f, fillPaint)
+        canvas.restore()
+        // Cargo stripe (glazeColor panel)
+        fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
+        canvas.drawRect(cargoL + r*0.10f, cargoT + r*0.08f, cargoR - r*0.10f, cargoT + r*0.26f, fillPaint)
+        // Cargo door line
+        outlinePaint.strokeWidth = ow * 0.6f
+        canvas.drawLine(cargoL + (cargoR - cargoL)/2f, cargoT + r*0.30f,
+                        cargoL + (cargoR - cargoL)/2f, groundY - r*0.06f, outlinePaint)
+        outlinePaint.strokeWidth = ow * 2f
+
+        // ----- Cab -----
+        val cabRect = RectF(cabL, truckTop, cabR, groundY)
+        canvas.drawRoundRect(cabRect, r*0.12f, r*0.12f, outlinePaint)
+        fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
+        canvas.drawRoundRect(cabRect, r*0.12f, r*0.12f, fillPaint)
+        // Cab top highlight
+        canvas.save()
+        canvas.clipRect(cabL, truckTop, cabR, truckTop + (groundY - truckTop) * 0.38f)
+        fillPaint.color = Color.argb((alpha * 0.32f).toInt(), 255, 255, 255)
+        canvas.drawRoundRect(cabRect, r*0.12f, r*0.12f, fillPaint)
+        canvas.restore()
+
+        // ----- Windshield -----
+        val windRect = RectF(cabL + r*0.08f, truckTop + r*0.10f, cabR - r*0.10f, cy - r*0.08f)
+        canvas.drawRoundRect(windRect, r*0.07f, r*0.07f, outlinePaint)
+        fillPaint.color = Color.argb((alpha * 0.90f).toInt(), 130, 210, 255)
+        canvas.drawRoundRect(windRect, r*0.07f, r*0.07f, fillPaint)
+        // Windshield reflection
+        fillPaint.color = Color.argb((alpha * 0.50f).toInt(), 255, 255, 255)
+        canvas.drawRoundRect(
+            RectF(windRect.left + r*0.05f, windRect.top + r*0.05f,
+                  windRect.centerX() - r*0.04f, windRect.bottom - r*0.08f),
+            r*0.04f, r*0.04f, fillPaint
+        )
+
+        // ----- Wheels -----
+        // Tyre outline+fill
+        outlinePaint.strokeWidth = ow * 2f
+        canvas.drawCircle(cx - r*0.50f, wheelCY, wheelR, outlinePaint)
+        canvas.drawCircle(cx + r*0.55f, wheelCY, wheelR, outlinePaint)
+        fillPaint.color = Color.argb(alpha, 30, 30, 30)
+        canvas.drawCircle(cx - r*0.50f, wheelCY, wheelR, fillPaint)
+        canvas.drawCircle(cx + r*0.55f, wheelCY, wheelR, fillPaint)
+        // Rim (glazeColor)
+        fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
+        canvas.drawCircle(cx - r*0.50f, wheelCY, wheelR * 0.50f, fillPaint)
+        canvas.drawCircle(cx + r*0.55f, wheelCY, wheelR * 0.50f, fillPaint)
+        // Rim highlight
+        fillPaint.color = Color.argb((alpha * 0.40f).toInt(), 255, 255, 255)
+        canvas.drawCircle(cx - r*0.54f, wheelCY - wheelR*0.22f, wheelR * 0.20f, fillPaint)
+        canvas.drawCircle(cx + r*0.51f, wheelCY - wheelR*0.22f, wheelR * 0.20f, fillPaint)
+        // Hub dot
+        fillPaint.color = Color.argb(alpha, 28, 12, 0)
+        canvas.drawCircle(cx - r*0.50f, wheelCY, wheelR * 0.14f, fillPaint)
+        canvas.drawCircle(cx + r*0.55f, wheelCY, wheelR * 0.14f, fillPaint)
+
+        // 3D sheen over cab
+        addSheen(canvas, cx + r*0.42f, cy - r*0.18f, r * 0.52f, alpha, sheenAlpha = 0.25f, specAlpha = 0.60f)
+
+        fillPaint.alpha = 255
+    }
+
+    // -----------------------------------------------------------------------
+    // Counter — animated count-up
+    // -----------------------------------------------------------------------
+    private fun drawCounter(canvas: Canvas) {
+        val stripY = boardTop + board.rows * cellSize
+        val midY   = stripY + counterH / 2f
+        val cw     = board.cols * cellSize * 0.72f
+        val pl     = surfaceW / 2f - cw / 2f
+        val pr     = surfaceW / 2f + cw / 2f
+
+        shadowPaint.color = Color.argb(50, 0, 0, 0)
+        canvas.drawRoundRect(RectF(pl + 2f, stripY + 12f, pr + 2f, stripY + counterH - 2f), 18f, 18f, shadowPaint)
+        fillPaint.color = Color.argb(180, 28, 12, 0)
+        canvas.drawRoundRect(RectF(pl - 4f, stripY + 4f, pr + 4f, stripY + counterH), 20f, 20f, fillPaint)
+        fillPaint.color = theme.panelBg; fillPaint.alpha = 255
+        canvas.drawRoundRect(RectF(pl, stripY + 8f, pr, stripY + counterH - 4f), 18f, 18f, fillPaint)
+
+        textPaint.color     = Color.argb(80, 0, 0, 0)
+        textPaint.textSize  = 82f
+        textPaint.textAlign = Paint.Align.CENTER
+        canvas.drawText("$displayedCount", surfaceW / 2f + 3f, midY + 22f + 3f, textPaint)
+        textPaint.color = theme.textPrimary
+        canvas.drawText("$displayedCount", surfaceW / 2f, midY + 22f, textPaint)
+
+        textPaint.textSize = 19f
+        textPaint.color    = theme.textSecondary
+        canvas.drawText("cleared", surfaceW / 2f, midY + 46f, textPaint)
+    }
+
+    // -----------------------------------------------------------------------
+    // Settings overlay — slides up from bottom
+    // -----------------------------------------------------------------------
+    private fun drawSettings(canvas: Canvas, now: Long) {
+        val eased  = easeOutQuint(settingsAnim)
+        val slideY = panelRect.height() * (1f - eased)
+
+        dimPaint.alpha = (eased * 160).toInt()
+        canvas.drawRect(0f, 0f, surfaceW.toFloat(), surfaceH.toFloat(), dimPaint)
+
+        canvas.save()
+        canvas.translate(0f, slideY)
+
+        val pr = 36f   // panel corner radius
+
+        // Thick dark cartoon outline (10px on each side)
+        fillPaint.color = Color.argb(230, 28, 12, 0)
+        canvas.drawRoundRect(
+            RectF(panelRect.left - 10f, panelRect.top - 10f, panelRect.right + 10f, panelRect.bottom + 10f),
+            pr + 10f, pr + 10f, fillPaint
+        )
+        // Bright accent ring inside the dark border
+        strokePaint.color       = Color.argb(200, 255, 255, 255)
+        strokePaint.strokeWidth = 5f; strokePaint.alpha = 255
+        canvas.drawRoundRect(
+            RectF(panelRect.left - 5f, panelRect.top - 5f, panelRect.right + 5f, panelRect.bottom + 5f),
+            pr + 5f, pr + 5f, strokePaint
+        )
+        // Panel fill
+        fillPaint.color = theme.panelBg; fillPaint.alpha = 255
+        canvas.drawRoundRect(panelRect, pr, pr, fillPaint)
+        // Top-half sheen
+        canvas.save()
+        canvas.clipRect(panelRect.left, panelRect.top, panelRect.right, panelRect.centerY())
+        fillPaint.color = Color.argb(25, 255, 255, 255)
+        canvas.drawRoundRect(panelRect, pr, pr, fillPaint)
+        canvas.restore()
+
+        val pl = panelRect.left; val pw = panelRect.width(); val pt = panelRect.top
+
+        // ---- Title ----
+        // titleSz=54: text bottom≈76+11=87. thRow1=pt+156, pillT=108. gap=21px ✓
+        val titleX = pl + pw / 2f; val titleY = pt + 76f; val titleSz = 54f
+        // Shadow
+        textPaint.color = Color.argb(100, 0, 0, 0)
+        textPaint.textSize = titleSz; textPaint.textAlign = Paint.Align.CENTER
+        canvas.drawText("Settings", titleX + 4f, titleY + 5f, textPaint)
+        // Fill
+        textPaint.color = theme.textPrimary
+        canvas.drawText("Settings", titleX, titleY, textPaint)
+        // Outline
+        textOutlinePaint.color = Color.argb(90, 0, 0, 0)
+        textOutlinePaint.strokeWidth = 5f
+        textOutlinePaint.textSize    = titleSz
+        textOutlinePaint.textAlign   = Paint.Align.CENTER
+        textOutlinePaint.typeface    = Typeface.DEFAULT_BOLD
+        canvas.drawText("Settings", titleX, titleY, textOutlinePaint)
+
+        // ---- Theme section ----
+        drawSectionLabel(canvas, "Theme", pl + 24f, themeRects[0].top - 10f)
+
+        for (i in 0 until 4) {
+            val t    = GameTheme.all[i]
+            val rect = themeRects[i]
+            val sel  = i == prefs.themeIndex
+            // Dark cartoon border
+            fillPaint.color = Color.argb(220, 28, 12, 0)
+            canvas.drawRoundRect(RectF(rect.left - 7f, rect.top - 7f, rect.right + 7f, rect.bottom + 7f), 26f, 26f, fillPaint)
+            // White accent ring if selected, else subtle
+            if (sel) {
+                strokePaint.color = Color.WHITE; strokePaint.strokeWidth = 5f; strokePaint.alpha = 255
+                canvas.drawRoundRect(RectF(rect.left - 3f, rect.top - 3f, rect.right + 3f, rect.bottom + 3f), 22f, 22f, strokePaint)
+            }
+            // Button fill
+            fillPaint.color = t.boardBg; fillPaint.alpha = 255
+            canvas.drawRoundRect(rect, 20f, 20f, fillPaint)
+            // Top highlight
+            canvas.save()
+            canvas.clipRect(rect.left, rect.top, rect.right, rect.centerY())
+            fillPaint.color = Color.argb(60, 255, 255, 255)
+            canvas.drawRoundRect(rect, 20f, 20f, fillPaint)
+            canvas.restore()
+            // Label — shadow then fill
+            textPaint.color = Color.argb(80, 0, 0, 0)
+            textPaint.textSize = 32f; textPaint.textAlign = Paint.Align.CENTER
+            canvas.drawText(t.name, rect.centerX() + 2f, rect.centerY() + 11f + 2f, textPaint)
+            textPaint.color = t.textPrimary
+            canvas.drawText(t.name, rect.centerX(), rect.centerY() + 11f, textPaint)
+        }
+
+        // ---- Hint Delay section ----
+        drawSectionLabel(canvas, "Hint Delay", pl + 24f, hintRects[0].top - 10f)
+        val currentHint = prefs.hintDelayMs
+        for (i in 0 until 4) {
+            drawSettingsBtn(canvas, hintRects[i], hintLabels[i], hintOptions[i] == currentHint)
+        }
+
+        // ---- Grid Size section ----
+        drawSectionLabel(canvas, "Grid Size", pl + 24f, gridRects[0].top - 10f)
+        for (i in 0 until 2) {
+            drawSettingsBtn(canvas, gridRects[i], gridLabels[i], gridOptions[i] == prefs.gridSize)
+        }
+
+        drawPrettyButton(canvas, settingsCloseRect, theme.btnSelected, "Close", 32f)
+
+        canvas.restore()
+    }
+
+    /** Draws a filled pill-shaped section label — more cartoon than plain text. */
+    private fun drawSectionLabel(canvas: Canvas, text: String, x: Float, baselineY: Float) {
+        val labelSz = 32f
+        textPaint.textSize  = labelSz
+        textPaint.textAlign = Paint.Align.LEFT
+        val textW = textPaint.measureText(text)
+        val padH  = 10f; val padV = 6f
+        val pillL = x - padH
+        val pillT = baselineY - labelSz - padV
+        val pillR = x + textW + padH
+        val pillB = baselineY + padV
+
+        // Dark cartoon border
+        fillPaint.color = Color.argb(210, 28, 12, 0)
+        canvas.drawRoundRect(RectF(pillL - 4f, pillT - 4f, pillR + 4f, pillB + 4f), 22f, 22f, fillPaint)
+        // Pill fill using btnSelected color
+        fillPaint.color = theme.btnSelected; fillPaint.alpha = 255
+        canvas.drawRoundRect(RectF(pillL, pillT, pillR, pillB), 18f, 18f, fillPaint)
+        // Top sheen
+        canvas.save()
+        canvas.clipRect(pillL, pillT, pillR, (pillT + pillB) / 2f)
+        fillPaint.color = Color.argb(60, 255, 255, 255)
+        canvas.drawRoundRect(RectF(pillL, pillT, pillR, pillB), 18f, 18f, fillPaint)
+        canvas.restore()
+        // Text shadow + fill
+        textPaint.color = Color.argb(80, 0, 0, 0)
+        canvas.drawText(text, x + 2f, baselineY + 2f, textPaint)
+        textPaint.color = Color.WHITE
+        canvas.drawText(text, x, baselineY, textPaint)
+    }
+
+    private fun drawSettingsBtn(canvas: Canvas, rect: RectF, label: String, selected: Boolean) {
+        // Dark cartoon border
+        fillPaint.color = Color.argb(210, 28, 12, 0)
+        canvas.drawRoundRect(RectF(rect.left - 6f, rect.top - 6f, rect.right + 6f, rect.bottom + 6f), 28f, 28f, fillPaint)
+        // Fill
+        fillPaint.color = if (selected) theme.btnSelected else theme.btnUnselected; fillPaint.alpha = 255
+        canvas.drawRoundRect(rect, 22f, 22f, fillPaint)
+        // Top highlight
+        canvas.save()
+        canvas.clipRect(rect.left, rect.top, rect.right, rect.centerY())
+        fillPaint.color = Color.argb(if (selected) 65 else 40, 255, 255, 255)
+        canvas.drawRoundRect(rect, 22f, 22f, fillPaint)
+        canvas.restore()
+        // White inner border when selected
+        if (selected) {
+            strokePaint.color = Color.argb(180, 255, 255, 255); strokePaint.strokeWidth = 4f; strokePaint.alpha = 255
+            canvas.drawRoundRect(rect, 22f, 22f, strokePaint)
+        }
+        // Text shadow
+        textPaint.color = Color.argb(80, 0, 0, 0)
+        textPaint.textSize  = 32f
+        textPaint.textAlign = Paint.Align.CENTER
+        canvas.drawText(label, rect.centerX() + 2f, rect.centerY() + 11f + 2f, textPaint)
+        // Text
+        textPaint.color = Color.WHITE
+        canvas.drawText(label, rect.centerX(), rect.centerY() + 11f, textPaint)
+    }
+
+    // -----------------------------------------------------------------------
+    // Touch
+    // -----------------------------------------------------------------------
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.action != MotionEvent.ACTION_DOWN &&
+            event.action != MotionEvent.ACTION_MOVE &&
+            event.action != MotionEvent.ACTION_UP &&
+            event.action != MotionEvent.ACTION_CANCEL) return true
+
+        synchronized(holder) {
+            // When settings is open or animating, consume touch for settings
+            if (settingsOpen || settingsAnim > 0f) {
+                if (event.action == MotionEvent.ACTION_DOWN) {
+                    val eased  = easeOutQuint(settingsAnim)
+                    val slideY = panelRect.height() * (1f - eased)
+                    handleSettingsTouch(event.x, event.y + slideY)
+                }
+                return true
+            }
+
+            if (animPhase != AnimPhase.IDLE) return true
+
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    val now = SystemClock.elapsedRealtime()
+                    when {
+                        resetBtnRect.contains(event.x, event.y) -> {
+                            resetPressMs = now
+                            board.reset()
+                            displayedCount = 0
+                            hintCells      = emptyList()
+                            resetFlashMs   = now
+                            lastActionMs   = now
+                        }
+                        settingsBtnRect.contains(event.x, event.y) -> {
+                            settingsPressMs = now
+                            settingsOpen    = true
+                        }
+                        else -> handleDown(event)
+                    }
+                }
+                MotionEvent.ACTION_MOVE   -> handleMove(event)
+                MotionEvent.ACTION_UP     -> handleUp()
+                MotionEvent.ACTION_CANCEL -> { dragChain.clear(); selRow = -1; selCol = -1 }
+            }
+        }
+        return true
+    }
+
+    private fun handleSettingsTouch(x: Float, y: Float) {
+        for (i in 0 until 4) {
+            if (themeRects[i].contains(x, y)) { prefs.themeIndex = i; return }
+        }
+        for (i in 0 until 4) {
+            if (hintRects[i].contains(x, y)) { prefs.hintDelayMs = hintOptions[i]; return }
+        }
+        for (i in 0 until 2) {
+            if (gridRects[i].contains(x, y)) {
+                if (prefs.gridSize != gridOptions[i]) {
+                    prefs.gridSize = gridOptions[i]
+                    rebuildBoard()
+                }
+                settingsOpen = false
+                return
+            }
+        }
+        if (settingsCloseRect.contains(x, y) || !panelRect.contains(x, y)) {
+            settingsOpen = false
+        }
+    }
+
+    private fun handleDown(event: MotionEvent) {
+        lastActionMs = SystemClock.elapsedRealtime(); hintCells = emptyList()
+        dragChain.clear()
+        val col = cellCol(event.x); val row = cellRow(event.y)
+        if (inBounds(row, col)) { selRow = row; selCol = col; dragChain.add(Pair(row, col)) }
+    }
+
+    private fun handleMove(event: MotionEvent) {
+        val col = cellCol(event.x); val row = cellRow(event.y)
+        if (!inBounds(row, col)) return
+        val cell = Pair(row, col)
+        if (dragChain.size >= 2 && dragChain[dragChain.size - 2] == cell) {
+            dragChain.removeAt(dragChain.size - 1); return
+        }
+        if (cell in dragChain) return
+        val last = dragChain.lastOrNull() ?: return
+        if (!adjacent8(last.first, last.second, row, col)) return
+        val chainType = dragChainType ?: return
+        if (board.grid[row][col].type != chainType) return
+        dragChain.add(cell)
+    }
+
+    private fun handleUp() {
+        if (dragChain.size >= 3) {
+            pendingChain = dragChain.toList()
+            popCells.clear()
+            popCells.addAll(pendingChain.map { (r, c) -> AnimCell(r, c, board.grid[r][c].type) })
+            val now = SystemClock.elapsedRealtime()
+            animStartMs = now; animPhase = AnimPhase.POPPING
+            lastActionMs = now; hintCells = emptyList()
+        }
+        dragChain.clear(); selRow = -1; selCol = -1
+    }
+
+    private fun cellCol(x: Float) = ((x - boardLeft) / cellSize).toInt()
+    private fun cellRow(y: Float) = ((y - boardTop)  / cellSize).toInt()
+    private fun inBounds(r: Int, c: Int) = r in 0 until board.rows && c in 0 until board.cols
+    private fun adjacent8(r1: Int, c1: Int, r2: Int, c2: Int) =
+        abs(r1 - r2) <= 1 && abs(c1 - c2) <= 1 && !(r1 == r2 && c1 == c2)
+
+    // -----------------------------------------------------------------------
+    // Render thread
+    // -----------------------------------------------------------------------
+    inner class RenderThread(private val holder: SurfaceHolder) : Thread("GameRenderThread") {
+        @Volatile var running = true
+        override fun run() {
+            while (running) {
+                val canvas = holder.lockCanvas() ?: continue
+                try { synchronized(holder) { drawFrame(canvas) } }
+                finally { holder.unlockCanvasAndPost(canvas) }
+                sleep(16L)
+            }
+        }
+    }
+}
