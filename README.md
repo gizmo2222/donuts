@@ -1,57 +1,70 @@
-# Donuts — Android Match-3 Game
+# Donuts for Steven
 
-A native Android match-three puzzle game inspired by the browser game at
-the Donuts game.
+A cozy, kid-friendly match-3 game for Android. Drag to connect matching pieces and watch them pop. No timers, no pressure — just fun.
+
+[<img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" height="60">](https://play.google.com/store/apps/details?id=com.donuts.game)
+
+---
 
 ## Gameplay
 
-Swap adjacent donuts to make rows or columns of **3 or more** matching flavours.
-Matched donuts disappear, the remaining donuts fall, and new ones fill in from the top.
-Cascade matches score bonus points. Reach the target score before your moves run out!
+Draw a chain through **3 or more** matching pieces to clear them. The board refills from above, cascades included. A counter tracks how many pieces you've cleared — there's no score to beat and no moves to run out of.
 
-### Donut flavours
+## Themes
 
-| Flavour     | Colour     |
-|-------------|------------|
-| Strawberry  | Pink       |
-| Chocolate   | Brown      |
-| Blueberry   | Blue/Purple|
-| Vanilla     | Yellow     |
-| Matcha      | Green      |
-| Caramel     | Amber      |
+Pick your favorite world from the settings panel:
 
-### Levels
+| Theme  | Pieces        | Palette      |
+|--------|---------------|--------------|
+| Donuts | Glazed donuts | Warm cream   |
+| Stars  | Stars         | Dark navy    |
+| Dinos  | Dinosaurs     | Jungle green |
+| Trucks | Trucks        | Steel blue   |
 
-| Level  | Moves | Target score |
-|--------|-------|-------------|
-| Easy   | 30    | 1 000        |
-| Medium | 25    | 2 000        |
-| Hard   | 20    | 3 500        |
+Each theme recolors the entire UI — buttons, board, background, and all.
 
-## Controls
+## Settings
 
-- **Tap** a donut to select it.
-- **Swipe** in any direction to swap it with its neighbour.
-- A swap that produces no match is rejected automatically.
-- When the game ends, **tap anywhere** to play again.
+Tap the gear icon to open the settings panel:
+
+- **Theme** — Donuts / Stars / Dinos / Trucks
+- **Hint delay** — how long before a valid chain is highlighted (1 s / 3 s / 5 s / off)
+- **Grid size** — 6×6 or 8×8
 
 ## Building
 
-Open the project in **Android Studio Hedgehog (2023.1)** or later.
+Open in **Android Studio Hedgehog (2023.1)** or later:
 
 ```
 File → Open → <path-to>/donuts
 ```
 
-Run on a device or emulator with **API 26+** (Android 8.0 Oreo and above).
+Requires a device or emulator running **Android 8.0 (API 26)** or higher.
 
-Alternatively from the command line (after running `gradle wrapper` once):
+### Debug build
 
 ```bash
 ./gradlew assembleDebug
+# Output: app/build/outputs/apk/debug/app-debug.apk
 ```
 
-The APK will be at `app/build/outputs/apk/debug/app-debug.apk`.
+### Release build
+
+Add signing credentials to `local.properties` (this file is gitignored — never commit it):
+
+```properties
+KEYSTORE_PATH=/path/to/donuts-release.jks
+KEYSTORE_PASSWORD=your_password
+KEY_ALIAS=donuts
+KEY_PASSWORD=your_password
+```
+
+Then build:
+
+```bash
+./gradlew bundleRelease
+# Output: app/build/outputs/bundle/release/app-release.aab
+```
 
 ## Project structure
 
@@ -59,19 +72,34 @@ The APK will be at `app/build/outputs/apk/debug/app-debug.apk`.
 donuts/
 ├── app/src/main/
 │   ├── java/com/donuts/game/
-│   │   ├── DonutType.kt          – Enum of flavours + colours
-│   │   ├── GameCell.kt           – Single grid cell data class
-│   │   ├── GameBoard.kt          – Match-3 logic (swap, detect, resolve, score)
-│   │   ├── GameView.kt           – SurfaceView render loop + touch input
-│   │   ├── MainActivity.kt       – Title / main menu screen
-│   │   ├── LevelSelectActivity.kt– Level picker screen
-│   │   └── GameActivity.kt       – Hosts the GameView
+│   │   ├── DonutType.kt    — Piece types, colors, and icon style
+│   │   ├── GameTheme.kt    — Theme definitions (colors, icon type)
+│   │   ├── GameCell.kt     — Single grid cell data class
+│   │   ├── GameBoard.kt    — Match-3 logic (chain detection, fill, cascade)
+│   │   ├── GameView.kt     — SurfaceView render loop, animations, settings panel
+│   │   ├── MainView.kt     — Home screen (logo, play button)
+│   │   ├── MainActivity.kt — Hosts MainView
+│   │   ├── GameActivity.kt — Hosts GameView
+│   │   └── Prefs.kt        — SharedPreferences wrapper
 │   ├── res/
-│   │   ├── layout/               – XML layouts for menu screens
-│   │   ├── values/               – strings, colors, themes
-│   │   └── drawable/             – Adaptive launcher icon (vector)
+│   │   ├── values/         — strings, colors, themes
+│   │   └── drawable/       — Adaptive launcher icon (vector)
 │   └── AndroidManifest.xml
+├── .claude/settings.json   — Auto git-push + AAB build hooks
 ├── build.gradle
-├── settings.gradle
 └── README.md
 ```
+
+## Tech notes
+
+- Fully canvas-drawn — no XML layouts for the game or home screen
+- `SurfaceView` with a dedicated render thread at ~60 fps
+- All animations are time-based (`SystemClock.elapsedRealtime()`) with `easeOutQuint`
+- Thread safety: touch events synchronized on the surface `holder`
+- Icons drawn with a two-pass cartoon technique (dark stroke outline + color fill)
+- 3D sheen via `canvas.clipPath()` with an upper-left oval highlight
+
+## Requirements
+
+- Android 8.0+ (API 26)
+- Targets API 35
