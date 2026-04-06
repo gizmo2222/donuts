@@ -149,12 +149,10 @@ class GameBoard(
         val matches = findMatches()
         if (matches.isEmpty()) return 0
 
-        // Score: bonus for larger matches
+        // Score: bonus for larger matches (cascades don't add to donutsCleared —
+        // only clearChain counts what the player explicitly dragged)
         val pts = matches.sumOf { pointsFor(matches.size) }
         score += pts
-        matches.forEach { (r, c) ->
-            donutsCleared[grid[r][c].type] = (donutsCleared[grid[r][c].type] ?: 0) + 1
-        }
 
         // Mark matched cells as empty (null type placeholder: we rebuild below)
         val surviving = Array(rows) { r ->

@@ -16,4 +16,8 @@ class Prefs(context: Context) {
     var gridSize: Int
         get()  = p.getInt("grid_size", 8)
         set(v) { p.edit().putInt("grid_size", v).apply() }
+
+    var tutorialSeen: Boolean
+        get()  = p.getBoolean("tutorial_seen", false)
+        set(v) { p.edit().putBoolean("tutorial_seen", v).apply() }
 }

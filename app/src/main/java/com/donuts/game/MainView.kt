@@ -44,13 +44,13 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         logoCX  = w / 2f
         // Logo sits at 34% — gives the title+button area room to breathe below
         logoCY  = h * 0.34f
-        // Title clears logo bottom: line1Y = logoCY + logoR*1.82 ensures
-        // title text-top (baseline - 0.78*sz) is below logo circle bottom (logoCY + logoR)
-        val previewLine2Y = logoCY + logoR * 1.82f + logoR * 0.62f
-        // Button anchored to title — not hardcoded to screen height
+        // Title clears logo bottom: logoCY + logoR*1.82 ensures text-top clears logo circle
+        val line1Y = logoCY + logoR * 1.82f
+        val line2Y = line1Y + logoR * 0.56f
+        // Button anchored below subtitle — not hardcoded to screen height
         val btnW = min(w * 0.62f, 320f)
         val btnH = 90f
-        val btnY = (previewLine2Y + logoR * 0.82f).coerceAtMost(h * 0.76f)
+        val btnY = (line2Y + logoR * 0.72f).coerceAtMost(h * 0.76f)
         playRect = RectF(w / 2f - btnW / 2f, btnY, w / 2f + btnW / 2f, btnY + btnH)
 
         // Gradient background
@@ -64,11 +64,11 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         canvas.drawRect(0f, 0f, w, h, bgPaint)
         drawDotGrid(canvas)
 
-        // Gentle bounce
-        val bounce = sin(elapsed * 1.9f) * logoR * 0.03f
+        // Bigger, livelier bounce
+        val bounce = sin(elapsed * 2.2f) * logoR * 0.055f
         drawLogo(canvas, logoCX, logoCY + bounce)
 
-        drawTitle(canvas)
+        drawTitle(canvas, elapsed)
         drawPlayButton(canvas, buttonPressScale(now))
         drawSubtitle(canvas)
 
@@ -250,32 +250,42 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
     // -----------------------------------------------------------------------
     // Title
     // -----------------------------------------------------------------------
-    private fun drawTitle(canvas: Canvas) {
-        // 1.82× clears the logo circle bottom before the text top appears
+    private fun drawTitle(canvas: Canvas, elapsed: Float) {
         val line1Y = logoCY + logoR * 1.82f
-        val line2Y = line1Y + logoR * 0.62f
+        val line2Y = line1Y + logoR * 0.60f
 
-        // "DONUTS"
-        val sz1 = logoR * 0.88f
-        textP.textSize = sz1; textP.textAlign = Paint.Align.CENTER
-        textP.color = Color.argb(90, 0, 0, 0)
-        canvas.drawText("DONUTS", w / 2f + 4f, line1Y + 4f, textP)
-        textP.color = brownDark
-        canvas.drawText("DONUTS", w / 2f, line1Y, textP)
-        // Outline
-        strokeP.style = Paint.Style.STROKE
-        strokeP.typeface = Typeface.DEFAULT_BOLD
-        strokeP.color = Color.argb(55, 0, 0, 0); strokeP.strokeWidth = sz1 * 0.045f; strokeP.textSize = sz1
-        canvas.drawText("DONUTS", w / 2f, line1Y, strokeP)
-        strokeP.style = Paint.Style.STROKE   // reset
+        // "Donuts" — app name, each letter slightly wiggles up/down
+        val sz1 = logoR * 0.70f
+        textP.textSize = sz1; textP.textAlign = Paint.Align.LEFT
+        val word1 = "Donuts"
+        // Measure full width to center
+        var totalW = 0f
+        word1.forEach { ch -> totalW += textP.measureText(ch.toString()) }
+        var charX = w / 2f - totalW / 2f
+        for ((i, ch) in word1.withIndex()) {
+            val waveY = sin(elapsed * 3.0f + i * 0.7f) * logoR * 0.07f
+            textP.color = Color.argb(90, 0, 0, 0)
+            canvas.drawText(ch.toString(), charX + 2f, line1Y + waveY + 2f, textP)
+            textP.color = brownDark
+            canvas.drawText(ch.toString(), charX, line1Y + waveY, textP)
+            charX += textP.measureText(ch.toString())
+        }
 
-        // "for Steven"
-        val sz2 = logoR * 0.50f
-        textP.textSize = sz2
-        textP.color = Color.argb(85, 0, 0, 0)
-        canvas.drawText("for Steven", w / 2f + 3f, line2Y + 3f, textP)
-        textP.color = caramel
-        canvas.drawText("for Steven", w / 2f, line2Y, textP)
+        // "for Steven" — subtitle with gentle wave
+        val sz2 = logoR * 0.46f
+        textP.textSize = sz2; textP.textAlign = Paint.Align.LEFT
+        val word2 = "for Steven"
+        var totalW2 = 0f
+        word2.forEach { ch -> totalW2 += textP.measureText(ch.toString()) }
+        var charX2 = w / 2f - totalW2 / 2f
+        for ((i, ch) in word2.withIndex()) {
+            val waveY = sin(elapsed * 2.4f + i * 0.55f + 1.2f) * logoR * 0.05f
+            textP.color = Color.argb(85, 0, 0, 0)
+            canvas.drawText(ch.toString(), charX2 + 2f, line2Y + waveY + 2f, textP)
+            textP.color = caramel
+            canvas.drawText(ch.toString(), charX2, line2Y + waveY, textP)
+            charX2 += textP.measureText(ch.toString())
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -285,7 +295,7 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         if (playPressMs < 0) return 1f
         val t = ((now - playPressMs).toFloat() / PRESS_MS).coerceIn(0f, 1f)
         val x = 1f - t
-        return 0.93f + 0.07f * (1f - x * x * x * x * x)
+        return 0.86f + 0.14f * (1f - x * x * x * x * x)
     }
 
     private fun drawPlayButton(canvas: Canvas, scale: Float) {
