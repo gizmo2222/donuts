@@ -8,7 +8,7 @@ def localPropsFile = rootProject.file('local.properties')
 if (localPropsFile.exists()) localProps.load(localPropsFile.newDataInputStream())
 
 android {
-    namespace 'com.donuts.game'
+    namespace = 'com.donuts.game'
     compileSdk 35
 
     defaultConfig {
@@ -30,9 +30,9 @@ android {
 
     buildTypes {
         release {
-            signingConfig   signingConfigs.release
-            minifyEnabled   true
-            shrinkResources true
+            signingConfig   = signingConfigs.release
+            minifyEnabled   = true
+            shrinkResources = true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -41,7 +41,7 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
     buildFeatures {
-        viewBinding true
+        viewBinding = true
     }
 }
 
