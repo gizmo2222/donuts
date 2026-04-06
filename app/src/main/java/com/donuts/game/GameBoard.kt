@@ -271,9 +271,24 @@ class GameBoard(
         return true
     }
 
+    /** True if at least one valid chain of ≥3 exists on the current board. */
+    fun hasValidMoves(): Boolean = findHint().isNotEmpty()
+
     // -----------------------------------------------------------------------
-    // Reset
+    // Reset / Shuffle
     // -----------------------------------------------------------------------
+
+    /** Rerandomizes all cells without touching score or counter — used when no moves remain. */
+    fun shuffle() {
+        for (r in 0 until rows)
+            for (c in 0 until cols)
+                grid[r][c] = GameCell(safeRandom(r, c), r, c)
+        repeat(20) {
+            val matches = findMatches()
+            if (matches.isEmpty()) return@repeat
+            matches.forEach { (r, c) -> grid[r][c] = GameCell(safeRandom(r, c), r, c) }
+        }
+    }
 
     fun reset() {
         score = 0

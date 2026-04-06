@@ -93,6 +93,10 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private var resetFlashMs    = -1L       // time of last reset
     private val FLASH_MS        = 350L
 
+    // No-moves warning + auto-shuffle
+    private var noMovesWarningMs = -1L
+    private val NO_MOVES_DELAY_MS = 2400L
+
     // -----------------------------------------------------------------------
     // Paints (allocated once)
     // -----------------------------------------------------------------------
@@ -206,6 +210,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         drawChainLine(canvas)
         drawCells(canvas, now)
         drawCounter(canvas)
+        drawNoMovesWarning(canvas, now)
         if (settingsAnim > 0f) drawSettings(canvas, now)
         drawResetFlash(canvas, now)
     }
@@ -240,8 +245,17 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             }
             AnimPhase.DROPPING -> if (now - animStartMs >= DROP_MS) {
                 dropCells.clear(); animPhase = AnimPhase.IDLE
+                if (!board.hasValidMoves()) noMovesWarningMs = now
             }
-            AnimPhase.IDLE -> {}
+            AnimPhase.IDLE -> {
+                // Auto-shuffle after warning delay
+                if (noMovesWarningMs >= 0 && now - noMovesWarningMs >= NO_MOVES_DELAY_MS) {
+                    board.shuffle()
+                    noMovesWarningMs = -1L
+                    lastActionMs = now
+                    hintCells = emptyList()
+                }
+            }
         }
     }
 
@@ -621,11 +635,15 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         // Drop shadow
         fillPaint.color = Color.argb(alpha / 3, 0, 0, 0)
         canvas.drawPath(buildStarPath(cx + radius * 0.05f, cy + radius * 0.10f, radius, radius * 0.42f), fillPaint)
-        // Body star
+        // Body star — build path once, reuse for both fill and sheen clip
+        val bodyPath = buildStarPath(cx, cy, radius, radius * 0.42f)
         fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
-        canvas.drawPath(buildStarPath(cx, cy, radius, radius * 0.42f), fillPaint)
-        // 3D sheen on body
+        canvas.drawPath(bodyPath, fillPaint)
+        // 3D sheen clipped to star shape so it doesn't bleed into concave areas
+        canvas.save()
+        canvas.clipPath(bodyPath)
         addSheen(canvas, cx, cy, radius, alpha, sheenAlpha = 0.28f)
+        canvas.restore()
         // Inner accent star
         fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
         canvas.drawPath(buildStarPath(cx, cy, radius * 0.58f, radius * 0.24f), fillPaint)
@@ -806,10 +824,10 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                         cargoL + (cargoR - cargoL)/2f, groundY - r*0.06f, outlinePaint)
         outlinePaint.strokeWidth = ow * 2f
 
-        // ----- Cab -----
+        // ----- Cab (glazeColor so cab and cargo are visually distinct at small sizes) -----
         val cabRect = RectF(cabL, truckTop, cabR, groundY)
         canvas.drawRoundRect(cabRect, r*0.12f, r*0.12f, outlinePaint)
-        fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
+        fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
         canvas.drawRoundRect(cabRect, r*0.12f, r*0.12f, fillPaint)
         // Cab top highlight
         canvas.save()
@@ -888,6 +906,53 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     }
 
     // -----------------------------------------------------------------------
+    // No-moves warning banner
+    // -----------------------------------------------------------------------
+    private fun drawNoMovesWarning(canvas: Canvas, now: Long) {
+        if (noMovesWarningMs < 0) return
+        val elapsed = (now - noMovesWarningMs).toFloat()
+        // Fade in over 300ms
+        val alpha = ((elapsed / 300f).coerceIn(0f, 1f) * 220).toInt()
+        // Progress bar filling left→right over NO_MOVES_DELAY_MS
+        val progress = (elapsed / NO_MOVES_DELAY_MS).coerceIn(0f, 1f)
+
+        val boardCX = boardLeft + board.cols * cellSize / 2f
+        val boardCY = boardTop  + board.rows * cellSize / 2f
+        val bw = min(board.cols * cellSize * 0.82f, 380f)
+        val bh = 108f
+        val bx = boardCX - bw / 2f
+        val by = boardCY - bh / 2f
+
+        // Dark cartoon border
+        fillPaint.color = Color.argb(alpha, 28, 12, 0)
+        canvas.drawRoundRect(RectF(bx - 6f, by - 6f, bx + bw + 6f, by + bh + 6f), 26f, 26f, fillPaint)
+        // Panel fill
+        fillPaint.color = Color.argb(alpha, 255, 230, 80)
+        canvas.drawRoundRect(RectF(bx, by, bx + bw, by + bh), 20f, 20f, fillPaint)
+        // Top highlight
+        canvas.save()
+        canvas.clipRect(bx, by, bx + bw, by + bh * 0.45f)
+        fillPaint.color = Color.argb((alpha * 0.30f).toInt(), 255, 255, 255)
+        canvas.drawRoundRect(RectF(bx, by, bx + bw, by + bh), 20f, 20f, fillPaint)
+        canvas.restore()
+        // Progress bar (shows countdown to shuffle)
+        val pbH = 12f; val pbPad = 18f
+        val pbY = by + bh - pbH - pbPad
+        fillPaint.color = Color.argb((alpha * 0.25f).toInt(), 28, 12, 0)
+        canvas.drawRoundRect(RectF(bx + pbPad, pbY, bx + bw - pbPad, pbY + pbH), pbH/2, pbH/2, fillPaint)
+        fillPaint.color = Color.argb(alpha, 200, 120, 0)
+        canvas.drawRoundRect(RectF(bx + pbPad, pbY, bx + pbPad + (bw - pbPad*2) * progress, pbY + pbH), pbH/2, pbH/2, fillPaint)
+
+        // Text — shadow then fill
+        val lineY = by + bh * 0.46f
+        textPaint.textSize  = 30f
+        textPaint.textAlign = Paint.Align.CENTER
+        textPaint.color = Color.argb(alpha / 2, 0, 0, 0)
+        canvas.drawText("No matches — shuffling!", boardCX + 2f, lineY + 2f, textPaint)
+        textPaint.color = Color.argb(alpha, 100, 48, 0)
+        canvas.drawText("No matches — shuffling!", boardCX, lineY, textPaint)
+    }
+
     // Settings overlay — slides up from bottom
     // -----------------------------------------------------------------------
     private fun drawSettings(canvas: Canvas, now: Long) {
@@ -1081,12 +1146,13 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                     val now = SystemClock.elapsedRealtime()
                     when {
                         resetBtnRect.contains(event.x, event.y) -> {
-                            resetPressMs = now
+                            resetPressMs     = now
                             board.reset()
-                            displayedCount = 0
-                            hintCells      = emptyList()
-                            resetFlashMs   = now
-                            lastActionMs   = now
+                            displayedCount   = 0
+                            hintCells        = emptyList()
+                            noMovesWarningMs = -1L
+                            resetFlashMs     = now
+                            lastActionMs     = now
                         }
                         settingsBtnRect.contains(event.x, event.y) -> {
                             settingsPressMs = now
