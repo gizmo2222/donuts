@@ -28,4 +28,24 @@ class Prefs(context: Context) {
     var hapticEnabled: Boolean
         get()  = p.getBoolean("haptic_enabled", false)
         set(v) { p.edit().putBoolean("haptic_enabled", v).apply() }
+
+    var lifetimeDonuts: Int
+        get()  = p.getInt("lifetime_donuts", 0)
+        set(v) { p.edit().putInt("lifetime_donuts", v).apply() }
+
+    var highScore6x6: Int
+        get()  = p.getInt("hs_6x6", 0)
+        set(v) { p.edit().putInt("hs_6x6", v).apply() }
+
+    var highScore8x8: Int
+        get()  = p.getInt("hs_8x8", 0)
+        set(v) { p.edit().putInt("hs_8x8", v).apply() }
+
+    var soundPackIndex: Int
+        get()  = p.getInt("sound_pack", 0)
+        set(v) { p.edit().putInt("sound_pack", v).apply() }
+
+    var hapticTheme: Int
+        get()  = p.getInt("haptic_theme", 1)
+        set(v) { p.edit().putInt("haptic_theme", v).apply() }
 }

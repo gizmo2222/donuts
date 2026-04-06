@@ -45,6 +45,13 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private val gridOptions = intArrayOf(6, 8)
     private val gridLabels  = arrayOf("6×6", "8×8")
 
+    private val packRects    = Array(4) { RectF() }
+    private val hapticRects  = Array(3) { RectF() }
+    private val packLabels   = arrayOf("Bubbly", "Space", "Wild", "Mech")
+    private val packOptions  = intArrayOf(0, 1, 2, 3)
+    private val hapticLabels = arrayOf("Gentle", "Normal", "Strong")
+    private val hapticOptions = intArrayOf(0, 1, 2)
+
     // -----------------------------------------------------------------------
     // Hint
     // -----------------------------------------------------------------------
@@ -84,6 +91,17 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private var settingsAnim    = 0f        // 0 = fully closed, 1 = fully open
     private val SETTINGS_OPEN_MS  = 200f
     private val SETTINGS_CLOSE_MS = 85f
+
+    // Stickers panel
+    private var stickersOpen      = false
+    private var stickersAnim      = 0f
+    private var stickersBtnRect   = RectF()
+    private var stickersPressMs   = -1L
+    private var stickerPanelRect  = RectF()
+    private val stickerRects      = Array(6) { RectF() }
+    private var stickersCloseRect = RectF()
+    private val STICKER_MILESTONES = intArrayOf(10, 25, 50, 100, 200, 500)
+    private val STICKER_EMOJIS     = arrayOf("🍩", "⭐", "🌈", "🎉", "👑", "🚀")
 
     // Button press scale feedback
     private var resetPressMs    = -1L       // time of last reset press
@@ -129,6 +147,17 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     )
     private val particles = mutableListOf<Particle>()
 
+    private data class FloatLabel(
+        val text: String, val cx: Float, val cy: Float,
+        val color: Int, val startMs: Long
+    )
+    private val floatLabels = mutableListOf<FloatLabel>()
+    private val FLOAT_MS    = 1400L
+
+    // Board entry drop-in animation
+    private var boardEntryMs  = -1L
+    private val BOARD_ENTRY_MS = 640L
+
     // Sound and haptic engines
     private val soundEngine  = SoundEngine()
     private val hapticEngine = HapticEngine(context)
@@ -153,7 +182,10 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // -----------------------------------------------------------------------
     init { holder.addCallback(this); isFocusable = true }
 
-    override fun surfaceCreated(holder: SurfaceHolder) { RenderThread(holder).start() }
+    override fun surfaceCreated(holder: SurfaceHolder) {
+        boardEntryMs = SystemClock.elapsedRealtime()
+        RenderThread(holder).start()
+    }
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, w: Int, h: Int) {
         surfaceW = w; surfaceH = h; computeLayout()
@@ -182,6 +214,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         settingsBtnRect = RectF(sbEnd - 80f,  btnY, sbEnd,          btnY + btnH)
         hapticBtnRect   = RectF(sbEnd - 168f, btnY, sbEnd - 88f,    btnY + btnH)
         soundBtnRect    = RectF(sbEnd - 256f, btnY, sbEnd - 176f,   btnY + btnH)
+        // Trophy button: 80px wide, sits right after RESET with 8px gap
+        stickersBtnRect = RectF(boardLeft + 198f, btnY, boardLeft + 278f, btnY + btnH)
 
         // Settings panel — width fits screen with margin; height computed from content
         val sc     = 1.5f
@@ -191,12 +225,16 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val gBtnH  = 80f * sc
         val closeH = 80f * sc
 
+        val packBtnH   = 80f * sc
+        val hapticBtnH = 80f * sc
         // Stack content to find required panel height:
-        // title (156*sc) + themeRow1 + gap + themeRow2 + gap + hintRow + gap + gridRow + gap + close + bottomPad
+        // title (156*sc) + themeRow1 + gap + themeRow2 + gap + hintRow + gap + gridRow + gap + packRow + gap + hapticRow + gap + close + bottomPad
         val requiredPh = 156f*sc +
             thBtnH + 10f*sc + thBtnH +   // two theme rows
             62f*sc + hBtnH +              // hint section
             62f*sc + gBtnH +              // grid section
+            62f*sc + packBtnH +           // sound pack section
+            62f*sc + hapticBtnH +         // haptic theme section
             62f*sc + closeH + pad         // close + bottom padding
         val pw = min(w - 32f, 560f)
         val ph = requiredPh.coerceAtMost(h - 32f)
@@ -226,7 +264,52 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             gridRects[i] = RectF(x, gTop, x + gBtnW, gTop + gBtnH)
         }
 
+        // Sound Pack buttons (4 in a row)
+        val pBtnW = (pw - pad * 5) / 4f
+        val pTop  = gTop + gBtnH + 62f * sc
+        for (i in 0 until 4) {
+            val x = pl + pad + i * (pBtnW + pad)
+            packRects[i] = RectF(x, pTop, x + pBtnW, pTop + packBtnH)
+        }
+
+        // Haptic Theme buttons (3 in a row)
+        val hThBtnW = (pw - pad * 4) / 3f
+        val hThTop  = pTop + packBtnH + 62f * sc
+        for (i in 0 until 3) {
+            val x = pl + pad + i * (hThBtnW + pad)
+            hapticRects[i] = RectF(x, hThTop, x + hThBtnW, hThTop + hapticBtnH)
+        }
+
         settingsCloseRect = RectF(pl + pad, pt + ph - closeH - pad, pl + pw - pad, pt + ph - pad)
+
+        // Sticker panel layout
+        val spW = min(w - 32f, 520f)
+        val spPad = 20f
+        val stickerBtnSide = (spW - spPad * 4f) / 3f
+        val spContentH = 110f + stickerBtnSide * 2f + spPad * 3f + 100f + 16f + 80f + spPad
+        val spH = spContentH.coerceAtMost(h - 32f)
+        val spL = (w - spW) / 2f
+        val spT = (h - spH) / 2f
+        stickerPanelRect = RectF(spL, spT, spL + spW, spT + spH)
+        val stRow1Y = spT + 110f
+        for (i in 0 until 6) {
+            val col = i % 3; val row = i / 3
+            val sx = spL + spPad + col * (stickerBtnSide + spPad)
+            val sy = stRow1Y + row * (stickerBtnSide + spPad)
+            stickerRects[i] = RectF(sx, sy, sx + stickerBtnSide, sy + stickerBtnSide)
+        }
+        stickersCloseRect = RectF(spL + spPad, stickerPanelRect.bottom - 80f - spPad, spL + spW - spPad, stickerPanelRect.bottom - spPad)
+    }
+
+    private fun saveSession() {
+        val sessionTotal = board.donutsCleared.values.sum()
+        if (sessionTotal == 0) return
+        prefs.lifetimeDonuts = prefs.lifetimeDonuts + sessionTotal
+        val hs = if (board.cols == 6) prefs.highScore6x6 else prefs.highScore8x8
+        if (sessionTotal > hs) {
+            if (board.cols == 6) prefs.highScore6x6 = sessionTotal
+            else prefs.highScore8x8 = sessionTotal
+        }
     }
 
     private fun rebuildBoard() {
@@ -238,6 +321,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         displayedCount = 0
         lastActionMs = SystemClock.elapsedRealtime()
         computeLayout()
+        boardEntryMs = SystemClock.elapsedRealtime()
     }
 
     // -----------------------------------------------------------------------
@@ -246,6 +330,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     fun drawFrame(canvas: Canvas) {
         if (cellSize == 0f) return
         val now = SystemClock.elapsedRealtime()
+        soundEngine.packIndex  = prefs.soundPackIndex
+        hapticEngine.theme     = prefs.hapticTheme
         canvas.drawColor(theme.bg)
         advanceAnimation(now)
         updateHint(now)
@@ -256,10 +342,12 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         drawChainLine(canvas)
         drawCells(canvas, now)
         drawCenterPing(canvas, now)
+        drawFloatLabels(canvas, now)
         drawCounter(canvas)
         drawNoMovesWarning(canvas, now)
         if (celebrateMs >= 0) drawCelebration(canvas, now)
         if (settingsAnim > 0f) drawSettings(canvas, now)
+        if (stickersAnim > 0f) drawStickersPanel(canvas)
         drawResetFlash(canvas, now)
         if (tutorialActive) drawTutorial(canvas, now)
     }
@@ -329,14 +417,21 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // Settings panel slide animation
     // -----------------------------------------------------------------------
     private fun advanceSettingsAnim(now: Long) {
-        // settingsAnim advances at ~60fps toward target (0 or 1)
-        val target = if (settingsOpen) 1f else 0f
-        val ms     = if (target > settingsAnim) SETTINGS_OPEN_MS else SETTINGS_CLOSE_MS
-        val step   = (1000f / 60f) / ms
-        settingsAnim = if (target > settingsAnim)
-            (settingsAnim + step).coerceAtMost(1f)
+        val settingsTarget = if (settingsOpen) 1f else 0f
+        val settingsMs = if (settingsTarget > settingsAnim) SETTINGS_OPEN_MS else SETTINGS_CLOSE_MS
+        val settingsStep = (1000f / 60f) / settingsMs
+        settingsAnim = if (settingsTarget > settingsAnim)
+            (settingsAnim + settingsStep).coerceAtMost(1f)
         else
-            (settingsAnim - step).coerceAtLeast(0f)
+            (settingsAnim - settingsStep).coerceAtLeast(0f)
+
+        val stickersTarget = if (stickersOpen) 1f else 0f
+        val stickersMs = if (stickersTarget > stickersAnim) SETTINGS_OPEN_MS else SETTINGS_CLOSE_MS
+        val stickersStep = (1000f / 60f) / stickersMs
+        stickersAnim = if (stickersTarget > stickersAnim)
+            (stickersAnim + stickersStep).coerceAtMost(1f)
+        else
+            (stickersAnim - stickersStep).coerceAtLeast(0f)
     }
 
     // ease-out-quint: f(t) = 1 - (1-t)^5
@@ -449,11 +544,13 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val settingsScale = buttonPressScale(now, settingsPressMs)
         val soundScale    = buttonPressScale(now, soundPressMs)
         val hapticScale   = buttonPressScale(now, hapticPressMs)
+        val stickerScale  = buttonPressScale(now, stickersPressMs)
 
         val soundColor  = if (prefs.soundEnabled)  theme.btnSelected else theme.btnUnselected
         val hapticColor = if (prefs.hapticEnabled) theme.btnSelected else theme.btnUnselected
 
         drawPrettyButton(canvas, resetBtnRect,    theme.resetBtn,    "RESET",     28f, resetScale)
+        drawPrettyButton(canvas, stickersBtnRect, theme.settingsBtn, "\u2605",    30f, stickerScale)
         drawPrettyButton(canvas, soundBtnRect,    soundColor,        "\u266A",    34f, soundScale)
         drawPrettyButton(canvas, hapticBtnRect,   hapticColor,       "\u2248",    34f, hapticScale)
         drawPrettyButton(canvas, settingsBtnRect, theme.settingsBtn, "\u2699",    38f, settingsScale)
@@ -603,8 +700,21 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         for (r in 0 until board.rows) {
             for (c in 0 until board.cols) {
                 if ((r to c) in popSet || (r to c) in dropSet) continue
+                var entryYOff = 0f
+                var skipCell  = false
+                if (boardEntryMs >= 0) {
+                    val elapsed = now - boardEntryMs - c * 55L
+                    if (elapsed < 0) {
+                        skipCell = true
+                    } else {
+                        val t     = (elapsed.toFloat() / BOARD_ENTRY_MS).coerceIn(0f, 1f)
+                        val eased = 1f - (1f - t) * (1f - t) * (1f - t)
+                        entryYOff = -cellSize * 3f * (1f - eased)
+                    }
+                }
+                if (skipCell) continue
                 val cx      = boardLeft + c * cellSize + cellSize / 2f
-                val cy      = boardTop  + r * cellSize + cellSize / 2f
+                val cy      = boardTop  + r * cellSize + cellSize / 2f + entryYOff
                 val inChain = Pair(r, c) in dragChain
 
                 // Idle breathing: each cell breathes at a slightly different phase
@@ -644,6 +754,10 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                     canvas.drawCircle(cx, cy, cellSize * 0.47f * breatheScale, hintRingPaint)
                 }
             }
+        }
+
+        if (boardEntryMs >= 0 && now - boardEntryMs >= BOARD_ENTRY_MS + board.cols * 55L) {
+            boardEntryMs = -1L
         }
 
         if (animPhase == AnimPhase.POPPING) {
@@ -1117,6 +1231,48 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         textPaint.textSize = 21f
         textPaint.color    = theme.textSecondary
         canvas.drawText("cleared  ✦", surfaceW / 2f, midY + 52f, textPaint)
+        val bestScore = if (board.cols == 6) prefs.highScore6x6 else prefs.highScore8x8
+        if (bestScore > 0) {
+            textPaint.textSize = 18f
+            textPaint.color    = theme.textSecondary
+            canvas.drawText("best: $bestScore", surfaceW / 2f, midY + 72f, textPaint)
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Floating labels (NICE!, AMAZING!, etc.)
+    // -----------------------------------------------------------------------
+    private fun drawFloatLabels(canvas: Canvas, now: Long) {
+        synchronized(floatLabels) {
+            val iter = floatLabels.iterator()
+            while (iter.hasNext()) {
+                val fl = iter.next()
+                val t = ((now - fl.startMs).toFloat() / FLOAT_MS).coerceIn(0f, 1f)
+                if (t >= 1f) { iter.remove(); continue }
+                val alpha = if (t > 0.6f) ((1f - (t - 0.6f) / 0.4f) * 255).toInt().coerceIn(0, 255) else 255
+                val rise  = cellSize * 1.8f * t
+                val scale = if (t < 0.12f) (t / 0.12f) * 1.3f else 1.3f - (t - 0.12f) * 0.3f
+                val sz    = 52f * scale
+                canvas.save()
+                canvas.translate(fl.cx, fl.cy - rise)
+                // Shadow
+                textPaint.color     = Color.argb((alpha * 0.4f).toInt(), 0, 0, 0)
+                textPaint.textSize  = sz
+                textPaint.textAlign = Paint.Align.CENTER
+                canvas.drawText(fl.text, 3f, 3f + sz * 0.36f, textPaint)
+                // Outline
+                textOutlinePaint.color       = Color.argb((alpha * 0.8f).toInt(), 28, 12, 0)
+                textOutlinePaint.textSize    = sz
+                textOutlinePaint.textAlign   = Paint.Align.CENTER
+                textOutlinePaint.strokeWidth = 7f
+                textOutlinePaint.typeface    = Typeface.DEFAULT_BOLD
+                canvas.drawText(fl.text, 0f, sz * 0.36f, textOutlinePaint)
+                // Fill
+                textPaint.color = Color.argb(alpha, Color.red(fl.color), Color.green(fl.color), Color.blue(fl.color))
+                canvas.drawText(fl.text, 0f, sz * 0.36f, textPaint)
+                canvas.restore()
+            }
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -1389,6 +1545,126 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         canvas.drawText("No matches — shuffling!", boardCX, lineY, textPaint)
     }
 
+    // -----------------------------------------------------------------------
+    // Stickers panel
+    // -----------------------------------------------------------------------
+    private fun drawStickersPanel(canvas: Canvas) {
+        val eased  = easeOutQuint(stickersAnim)
+        val slideY = stickerPanelRect.height() * (1f - eased)
+
+        dimPaint.alpha = (eased * 160).toInt()
+        canvas.drawRect(0f, 0f, surfaceW.toFloat(), surfaceH.toFloat(), dimPaint)
+
+        canvas.save()
+        canvas.translate(0f, slideY)
+
+        val pr = 36f
+        fillPaint.color = Color.argb(230, 28, 12, 0)
+        canvas.drawRoundRect(
+            RectF(stickerPanelRect.left - 10f, stickerPanelRect.top - 10f,
+                  stickerPanelRect.right + 10f, stickerPanelRect.bottom + 10f),
+            pr + 10f, pr + 10f, fillPaint)
+        strokePaint.color = Color.argb(200, 255, 255, 255); strokePaint.strokeWidth = 5f; strokePaint.alpha = 255
+        canvas.drawRoundRect(
+            RectF(stickerPanelRect.left - 5f, stickerPanelRect.top - 5f,
+                  stickerPanelRect.right + 5f, stickerPanelRect.bottom + 5f),
+            pr + 5f, pr + 5f, strokePaint)
+        fillPaint.color = theme.panelBg; fillPaint.alpha = 255
+        canvas.drawRoundRect(stickerPanelRect, pr, pr, fillPaint)
+        canvas.save()
+        canvas.clipRect(stickerPanelRect.left, stickerPanelRect.top, stickerPanelRect.right, stickerPanelRect.centerY())
+        fillPaint.color = Color.argb(25, 255, 255, 255)
+        canvas.drawRoundRect(stickerPanelRect, pr, pr, fillPaint)
+        canvas.restore()
+
+        // Title
+        val titleX = stickerPanelRect.centerX()
+        val titleY = stickerPanelRect.top + 72f
+        textPaint.color = Color.argb(100, 0, 0, 0); textPaint.textSize = 48f; textPaint.textAlign = Paint.Align.CENTER
+        canvas.drawText("Stickers", titleX + 3f, titleY + 4f, textPaint)
+        textPaint.color = theme.textPrimary
+        canvas.drawText("Stickers", titleX, titleY, textPaint)
+        textOutlinePaint.color = Color.argb(90, 0, 0, 0); textOutlinePaint.strokeWidth = 5f
+        textOutlinePaint.textSize = 48f; textOutlinePaint.textAlign = Paint.Align.CENTER
+        textOutlinePaint.typeface = Typeface.DEFAULT_BOLD
+        canvas.drawText("Stickers", titleX, titleY, textOutlinePaint)
+
+        // Sticker slots
+        val lifetime = prefs.lifetimeDonuts
+        val sessionTotal = board.donutsCleared.values.sum()
+        val effective = lifetime + sessionTotal
+
+        val stickerColors = intArrayOf(
+            Color.rgb(255, 140, 60),
+            Color.rgb(255, 210, 30),
+            Color.rgb(100, 220, 100),
+            Color.rgb(80,  160, 255),
+            Color.rgb(200, 100, 255),
+            Color.rgb(255,  80, 120)
+        )
+
+        for (i in 0 until 6) {
+            val rect    = stickerRects[i]
+            val earned  = effective >= STICKER_MILESTONES[i]
+            val color   = if (earned) stickerColors[i] else Color.rgb(180, 170, 160)
+            val borderC = if (earned) Color.argb(220, 28, 12, 0) else Color.argb(120, 28, 12, 0)
+            val bpad    = if (earned) 8f else 5f
+
+            fillPaint.color = borderC
+            canvas.drawRoundRect(RectF(rect.left-bpad, rect.top-bpad, rect.right+bpad, rect.bottom+bpad), 22f, 22f, fillPaint)
+            if (earned) {
+                strokePaint.color = Color.rgb(255, 215, 50); strokePaint.strokeWidth = 4f; strokePaint.alpha = 255
+                canvas.drawRoundRect(RectF(rect.left-bpad+2f, rect.top-bpad+2f, rect.right+bpad-2f, rect.bottom+bpad-2f), 20f, 20f, strokePaint)
+            }
+            fillPaint.color = color; fillPaint.alpha = if (earned) 255 else 120
+            canvas.drawRoundRect(rect, 18f, 18f, fillPaint)
+            if (earned) {
+                canvas.save()
+                canvas.clipRect(rect.left, rect.top, rect.right, rect.centerY())
+                fillPaint.color = Color.argb(60, 255, 255, 255)
+                canvas.drawRoundRect(rect, 18f, 18f, fillPaint)
+                canvas.restore()
+            }
+            fillPaint.alpha = 255
+
+            textPaint.color     = if (earned) Color.WHITE else Color.argb(140, 255, 255, 255)
+            textPaint.textSize  = rect.height() * 0.22f
+            textPaint.textAlign = Paint.Align.CENTER
+            val numY = rect.centerY() - rect.height() * 0.06f
+            if (earned) {
+                textPaint.color = Color.argb(80, 0, 0, 0)
+                canvas.drawText("${STICKER_MILESTONES[i]}", rect.centerX() + 2f, numY + 2f, textPaint)
+            }
+            textPaint.color = if (earned) Color.WHITE else Color.argb(140, 255, 255, 255)
+            canvas.drawText(if (earned) "${STICKER_MILESTONES[i]}" else "?", rect.centerX(), numY, textPaint)
+
+            if (earned) {
+                textPaint.textSize = rect.height() * 0.14f
+                textPaint.color    = Color.argb(200, 255, 255, 255)
+                canvas.drawText("donuts", rect.centerX(), numY + rect.height() * 0.22f, textPaint)
+            }
+
+            if (earned) {
+                val bx = rect.right - 2f; val by = rect.top + 2f; val br = 14f
+                fillPaint.color = Color.argb(220, 28, 12, 0)
+                canvas.drawCircle(bx, by, br + 3f, fillPaint)
+                fillPaint.color = Color.rgb(80, 200, 80)
+                canvas.drawCircle(bx, by, br, fillPaint)
+                textPaint.textSize = br * 1.3f; textPaint.color = Color.WHITE
+                canvas.drawText("\u2713", bx, by + br * 0.42f, textPaint)
+            }
+        }
+
+        val statsY = stickerRects[3].bottom + 22f
+        val earnedCount = STICKER_MILESTONES.count { effective >= it }
+        textPaint.textSize = 20f; textPaint.textAlign = Paint.Align.CENTER; textPaint.color = theme.textSecondary
+        canvas.drawText("lifetime: $effective donuts  \u00B7  $earnedCount / 6 stickers", stickerPanelRect.centerX(), statsY, textPaint)
+
+        drawPrettyButton(canvas, stickersCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 30f)
+
+        canvas.restore()
+    }
+
     // Settings overlay — slides up from bottom
     // -----------------------------------------------------------------------
     private fun drawSettings(canvas: Canvas, now: Long) {
@@ -1535,8 +1811,20 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             drawSettingsBtn(canvas, gridRects[i], gridLabels[i], gridOptions[i] == prefs.gridSize)
         }
 
+        // ---- Sound Pack section ----
+        drawSectionLabel(canvas, "Sound Pack", pl + 24f * sc, packRects[0].top - 10f * sc)
+        for (i in 0 until 4) {
+            drawSettingsBtn(canvas, packRects[i], packLabels[i], packOptions[i] == prefs.soundPackIndex)
+        }
+
+        // ---- Haptic Style section ----
+        drawSectionLabel(canvas, "Haptic Style", pl + 24f * sc, hapticRects[0].top - 10f * sc)
+        for (i in 0 until 3) {
+            drawSettingsBtn(canvas, hapticRects[i], hapticLabels[i], hapticOptions[i] == prefs.hapticTheme)
+        }
+
         // Close — celebratory green "Done ✓"
-        drawPrettyButton(canvas, settingsCloseRect, Color.rgb(60, 175, 80), "Done  ✓", 32f * sc)
+        drawPrettyButton(canvas, settingsCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 32f * sc)
 
         canvas.restore()
     }
@@ -1636,12 +1924,18 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 return true
             }
 
-            // When settings is open or animating, consume touch for settings
-            if (settingsOpen || settingsAnim > 0f) {
+            // When settings or stickers is open or animating, consume touch
+            if (settingsOpen || settingsAnim > 0f || stickersOpen || stickersAnim > 0f) {
                 if (event.action == MotionEvent.ACTION_DOWN) {
-                    val eased  = easeOutQuint(settingsAnim)
-                    val slideY = panelRect.height() * (1f - eased)
-                    handleSettingsTouch(event.x, event.y + slideY)
+                    if (settingsOpen || settingsAnim > 0f) {
+                        val eased  = easeOutQuint(settingsAnim)
+                        val slideY = panelRect.height() * (1f - eased)
+                        handleSettingsTouch(event.x, event.y + slideY)
+                    } else {
+                        val eased  = easeOutQuint(stickersAnim)
+                        val slideY = stickerPanelRect.height() * (1f - eased)
+                        handleStickersTouch(event.x, event.y + slideY)
+                    }
                 }
                 return true
             }
@@ -1654,12 +1948,17 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                     when {
                         resetBtnRect.contains(event.x, event.y) -> {
                             resetPressMs     = now
+                            saveSession()
                             board.reset()
                             displayedCount   = 0
                             hintCells        = emptyList()
                             noMovesWarningMs = -1L
                             resetFlashMs     = now
                             lastActionMs     = now
+                        }
+                        stickersBtnRect.contains(event.x, event.y) -> {
+                            stickersPressMs = now
+                            stickersOpen    = true
                         }
                         soundBtnRect.contains(event.x, event.y) -> {
                             soundPressMs       = now
@@ -1702,8 +2001,20 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 return
             }
         }
+        for (i in 0 until 4) {
+            if (packRects[i].contains(x, y)) { prefs.soundPackIndex = packOptions[i]; return }
+        }
+        for (i in 0 until 3) {
+            if (hapticRects[i].contains(x, y)) { prefs.hapticTheme = hapticOptions[i]; return }
+        }
         if (settingsCloseRect.contains(x, y) || !panelRect.contains(x, y)) {
             settingsOpen = false
+        }
+    }
+
+    private fun handleStickersTouch(x: Float, y: Float) {
+        if (stickersCloseRect.contains(x, y) || !stickerPanelRect.contains(x, y)) {
+            stickersOpen = false
         }
     }
 
@@ -1754,6 +2065,24 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             lastActionMs = now; hintCells = emptyList()
             if (prefs.soundEnabled)  soundEngine.playPopClear()
             if (prefs.hapticEnabled) hapticEngine.pop()
+            val label = when (pendingChain.size) {
+                4    -> "NICE!"
+                5    -> "GREAT!"
+                6    -> "AMAZING!"
+                7    -> "WOW!"
+                in 8..Int.MAX_VALUE -> "INCREDIBLE!"
+                else -> null
+            }
+            label?.let {
+                val cx = pendingChain.map { (r, c) -> boardLeft + c * cellSize + cellSize/2f }.average().toFloat()
+                val cy = pendingChain.map { (r, c) -> boardTop  + r * cellSize + cellSize/2f }.average().toFloat()
+                val colors = intArrayOf(
+                    Color.rgb(255, 80, 60), Color.rgb(255, 180, 0),
+                    Color.rgb(80, 210, 80), Color.rgb(60, 160, 255), Color.rgb(200, 80, 255)
+                )
+                val col = colors[(pendingChain.size - 4).coerceIn(0, colors.size - 1)]
+                synchronized(floatLabels) { floatLabels.add(FloatLabel(it, cx, cy, col, now)) }
+            }
         }
         dragChain.clear(); chainPings.clear(); selRow = -1; selCol = -1
     }

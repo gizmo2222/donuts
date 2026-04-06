@@ -21,29 +21,49 @@ class HapticEngine(context: Context) {
             context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
 
+    var theme: Int = 1
+
     // -----------------------------------------------------------------------
     // Public API
     // -----------------------------------------------------------------------
 
     /** Short tick — each cell added to the drag chain. */
     fun tick() {
-        vibrator.vibrate(VibrationEffect.createOneShot(16, VibrationEffect.DEFAULT_AMPLITUDE))
+        val (dur, amp) = when (theme) {
+            0    -> Pair(10L, 60)
+            2    -> Pair(22L, 255)
+            else -> Pair(16L, VibrationEffect.DEFAULT_AMPLITUDE)
+        }
+        vibrator.vibrate(VibrationEffect.createOneShot(dur, amp))
     }
 
     /** Satisfying heavy click — chain popped / donuts cleared. */
     fun pop() {
-        vibrator.vibrate(VibrationEffect.createOneShot(45, 200))
+        when (theme) {
+            0    -> vibrator.vibrate(VibrationEffect.createOneShot(25, 100))
+            2    -> vibrator.vibrate(VibrationEffect.createWaveform(
+                        longArrayOf(0, 30, 20, 40), intArrayOf(0, 200, 0, 255), -1))
+            else -> vibrator.vibrate(VibrationEffect.createOneShot(45, 200))
+        }
     }
 
     /** Triple-pulse celebration — milestone reached. */
     fun milestone() {
-        vibrator.vibrate(
-            VibrationEffect.createWaveform(
-                longArrayOf(0, 35, 55, 50, 55, 80),
-                intArrayOf(0, 110, 0, 190, 0, 255),
-                -1
-            )
-        )
+        when (theme) {
+            0    -> vibrator.vibrate(VibrationEffect.createOneShot(30, 80))
+            2    -> vibrator.vibrate(
+                        VibrationEffect.createWaveform(
+                            longArrayOf(0, 50, 30, 70, 30, 100),
+                            intArrayOf(0, 180, 0, 220, 0, 255),
+                            -1
+                        ))
+            else -> vibrator.vibrate(
+                        VibrationEffect.createWaveform(
+                            longArrayOf(0, 35, 55, 50, 55, 80),
+                            intArrayOf(0, 110, 0, 190, 0, 255),
+                            -1
+                        ))
+        }
     }
 
     /** Rapid triple buzz — board shuffle. */
