@@ -28,6 +28,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
     private var resetBtnRect    = RectF()
     private var settingsBtnRect = RectF()
+    private var soundBtnRect    = RectF()
+    private var hapticBtnRect   = RectF()
 
     // Settings panel layout
     private var panelRect         = RectF()
@@ -86,6 +88,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // Button press scale feedback
     private var resetPressMs    = -1L       // time of last reset press
     private var settingsPressMs = -1L       // time of last settings press
+    private var soundPressMs    = -1L
+    private var hapticPressMs   = -1L
     private val PRESS_MS        = 150L      // duration of press shrink
 
     // Counter count-up
@@ -124,6 +128,10 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val rotSpeed: Float, var rot: Float = 0f
     )
     private val particles = mutableListOf<Particle>()
+
+    // Sound and haptic engines
+    private val soundEngine  = SoundEngine()
+    private val hapticEngine = HapticEngine(context)
 
     // -----------------------------------------------------------------------
     // Paints (allocated once)
@@ -170,7 +178,10 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val btnY = boardTop - btnH - 26f
         resetBtnRect    = RectF(boardLeft, btnY, boardLeft + 190f, btnY + btnH)
         val sbEnd = boardLeft + board.cols * cellSize
-        settingsBtnRect = RectF(sbEnd - 140f, btnY, sbEnd, btnY + btnH)
+        // Settings gear (80px) + haptic ≋ (80px) + sound ♪ (80px) each with 8px gap
+        settingsBtnRect = RectF(sbEnd - 80f,  btnY, sbEnd,          btnY + btnH)
+        hapticBtnRect   = RectF(sbEnd - 168f, btnY, sbEnd - 88f,    btnY + btnH)
+        soundBtnRect    = RectF(sbEnd - 256f, btnY, sbEnd - 176f,   btnY + btnH)
 
         // Settings panel — width fits screen with margin; height computed from content
         val sc     = 1.5f
@@ -297,6 +308,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             }
             AnimPhase.DROPPING -> if (now - animStartMs >= DROP_MS) {
                 dropCells.clear(); animPhase = AnimPhase.IDLE
+                if (prefs.soundEnabled) soundEngine.playDropLand()
                 if (!board.hasValidMoves()) noMovesWarningMs = now
             }
             AnimPhase.IDLE -> {
@@ -306,6 +318,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                     noMovesWarningMs = -1L
                     lastActionMs = now
                     hintCells = emptyList()
+                    if (prefs.soundEnabled)  soundEngine.playShuffle()
+                    if (prefs.hapticEnabled) hapticEngine.shuffle()
                 }
             }
         }
@@ -347,6 +361,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                     celebrateMs    = now
                     celebrateCount = m
                     spawnParticles()
+                    if (prefs.soundEnabled)  soundEngine.playMilestone()
+                    if (prefs.hapticEnabled) hapticEngine.milestone()
                 }
             }
         } else if (displayedCount > target) {
@@ -431,9 +447,16 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         // Button press scale: 0.93x for PRESS_MS then spring back to 1.0
         val resetScale    = buttonPressScale(now, resetPressMs)
         val settingsScale = buttonPressScale(now, settingsPressMs)
+        val soundScale    = buttonPressScale(now, soundPressMs)
+        val hapticScale   = buttonPressScale(now, hapticPressMs)
 
-        drawPrettyButton(canvas, resetBtnRect,    theme.resetBtn,    "RESET", 28f, resetScale)
-        drawPrettyButton(canvas, settingsBtnRect, theme.settingsBtn, "\u2699", 38f, settingsScale)
+        val soundColor  = if (prefs.soundEnabled)  theme.btnSelected else theme.btnUnselected
+        val hapticColor = if (prefs.hapticEnabled) theme.btnSelected else theme.btnUnselected
+
+        drawPrettyButton(canvas, resetBtnRect,    theme.resetBtn,    "RESET",     28f, resetScale)
+        drawPrettyButton(canvas, soundBtnRect,    soundColor,        "\u266A",    34f, soundScale)
+        drawPrettyButton(canvas, hapticBtnRect,   hapticColor,       "\u2248",    34f, hapticScale)
+        drawPrettyButton(canvas, settingsBtnRect, theme.settingsBtn, "\u2699",    38f, settingsScale)
     }
 
     /** Returns a scale factor that dips to 0.93 at tap then recovers to 1.0 over PRESS_MS. */
@@ -1638,6 +1661,15 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                             resetFlashMs     = now
                             lastActionMs     = now
                         }
+                        soundBtnRect.contains(event.x, event.y) -> {
+                            soundPressMs       = now
+                            prefs.soundEnabled = !prefs.soundEnabled
+                        }
+                        hapticBtnRect.contains(event.x, event.y) -> {
+                            hapticPressMs       = now
+                            prefs.hapticEnabled = !prefs.hapticEnabled
+                            if (prefs.hapticEnabled) hapticEngine.tick()
+                        }
                         settingsBtnRect.contains(event.x, event.y) -> {
                             settingsPressMs = now
                             settingsOpen    = true
@@ -1708,6 +1740,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         dragChain.add(cell)
         chainPings[cell] = now2
         centerPingMs = now2; centerPingCount = dragChain.size
+        if (prefs.soundEnabled)  soundEngine.playConnectBlip(dragChain.size)
+        if (prefs.hapticEnabled) hapticEngine.tick()
     }
 
     private fun handleUp() {
@@ -1718,6 +1752,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             val now = SystemClock.elapsedRealtime()
             animStartMs = now; animPhase = AnimPhase.POPPING
             lastActionMs = now; hintCells = emptyList()
+            if (prefs.soundEnabled)  soundEngine.playPopClear()
+            if (prefs.hapticEnabled) hapticEngine.pop()
         }
         dragChain.clear(); chainPings.clear(); selRow = -1; selCol = -1
     }

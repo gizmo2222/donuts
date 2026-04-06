@@ -20,4 +20,12 @@ class Prefs(context: Context) {
     var tutorialSeen: Boolean
         get()  = p.getBoolean("tutorial_seen", false)
         set(v) { p.edit().putBoolean("tutorial_seen", v).apply() }
+
+    var soundEnabled: Boolean
+        get()  = p.getBoolean("sound_enabled", false)
+        set(v) { p.edit().putBoolean("sound_enabled", v).apply() }
+
+    var hapticEnabled: Boolean
+        get()  = p.getBoolean("haptic_enabled", false)
+        set(v) { p.edit().putBoolean("haptic_enabled", v).apply() }
 }
