@@ -403,22 +403,29 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private fun advanceAnimation(now: Long) {
         when (animPhase) {
             AnimPhase.POPPING -> if (now - animStartMs >= POP_MS) {
-                // Snapshot entire board BEFORE mutating so we can detect every
-                // cell that changes (direct clears + cascade clears in other cols).
+                // Snapshot board BEFORE mutating so we can find new-vs-survivor
+                // cells in every column — including cascade columns.
                 val preTypes = Array(board.rows) { r ->
                     Array(board.cols) { c -> board.grid[r][c].type }
                 }
                 board.clearChain(pendingChain)
                 board.resolveAll()
-                // Every column where ANY cell changed gets fully animated dropping.
-                // This prevents colour-flicker on survivors that shifted down, and
-                // on cascade columns that weren't part of the original chain.
+                // For each column, gravity packs survivors to the bottom in their
+                // original relative order and fills the top with new random pieces.
+                // Find K (new pieces at top) by walking pre-state from the bottom
+                // and greedily matching survivors against the post-state bottom-up.
+                // Only those top K rows are added to dropCells — survivors stay put.
                 dropCells.clear()
                 for (c in 0 until board.cols) {
-                    if ((0 until board.rows).any { r -> board.grid[r][c].type != preTypes[r][c] }) {
-                        for (row in 0 until board.rows)
-                            dropCells.add(AnimCell(row, c, board.grid[row][c].type))
+                    var postR = board.rows - 1
+                    for (preR in board.rows - 1 downTo 0) {
+                        if (postR >= 0 && board.grid[postR][c].type == preTypes[preR][c]) {
+                            postR--   // matched a survivor
+                        }
                     }
+                    val k = postR + 1   // new cells at top of this column
+                    for (row in 0 until k)
+                        dropCells.add(AnimCell(row, c, board.grid[row][c].type))
                 }
                 popCells.clear(); animPhase = AnimPhase.DROPPING; animStartMs = now
             }
