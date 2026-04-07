@@ -98,10 +98,34 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private var stickersBtnRect   = RectF()
     private var stickersPressMs   = -1L
     private var stickerPanelRect  = RectF()
-    private val stickerRects      = Array(6) { RectF() }
+    private val stickerRects      = Array(12) { RectF() }
     private var stickersCloseRect = RectF()
-    private val STICKER_MILESTONES = intArrayOf(10, 25, 50, 100, 200, 500)
-    private val STICKER_EMOJIS     = arrayOf("🍩", "⭐", "🌈", "🎉", "👑", "🚀")
+
+    // 12 stickers — 4 rows × 3 cols. Symbols use reliable Unicode/ASCII.
+    private val STICKER_SYMS   = arrayOf(
+        "\u2726", "\u2605", "\u2665",  // row 1: Donut Collector (✦ ★ ♥)
+        "4",      "6",      "8",       // row 2: Chain Master
+        "20",     "60",     "120",     // row 3: High Scorer
+        "\u21BA", "\u2295", "\u221E"   // row 4: Special (↺ ⊕ ∞)
+    )
+    private val STICKER_NAMES  = arrayOf(
+        "First Taste!",  "Donut Fan",    "Donut Legend",
+        "Linked Up",     "Chain Pro",    "Chain God",
+        "Scorer",        "Star Player",  "Top Score",
+        "Survivor",      "Explorer",     "Dedicated"
+    )
+    private val STICKER_DESCS  = arrayOf(
+        "10 donuts",  "50 donuts",  "200 donuts",
+        "chain of 4", "chain of 6", "chain of 8",
+        "score 20",   "score 60",   "score 120",
+        "1 shuffle",  "both grids", "5 sessions"
+    )
+    private val STICKER_COLORS = intArrayOf(
+        Color.rgb(255, 140,  60), Color.rgb(255, 200,  30), Color.rgb(220,  80,  50),
+        Color.rgb( 70, 170, 255), Color.rgb( 90,  90, 240), Color.rgb(160,  50, 220),
+        Color.rgb( 50, 200, 160), Color.rgb( 60, 190,  70), Color.rgb( 30, 130,  80),
+        Color.rgb(255,  90,  90), Color.rgb(240, 110, 200), Color.rgb(160,  80, 230)
+    )
 
     // Button press scale feedback
     private var resetPressMs    = -1L       // time of last reset press
@@ -214,9 +238,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         settingsBtnRect = RectF(sbEnd - 100f, btnY, sbEnd,          btnY + btnH)
         hapticBtnRect   = RectF(sbEnd - 210f, btnY, sbEnd - 110f,   btnY + btnH)
         soundBtnRect    = RectF(sbEnd - 320f, btnY, sbEnd - 220f,   btnY + btnH)
-        // Stickers ★ — centred in the gap between RESET and the right-side trio
-        val stMidX = (boardLeft + 230f + sbEnd - 320f) / 2f
-        stickersBtnRect = RectF(stMidX - 50f, btnY, stMidX + 50f, btnY + btnH)
+        // Stickers ★ — centred on the full screen width (matches title alignment)
+        stickersBtnRect = RectF(w / 2f - 60f, btnY, w / 2f + 60f, btnY + btnH)
 
         // Settings panel — width fits screen with margin; height computed from content
         val sc     = 1.5f
@@ -283,23 +306,29 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
         settingsCloseRect = RectF(pl + pad, pt + ph - closeH - pad, pl + pw - pad, pt + ph - pad)
 
-        // Sticker panel layout
-        val spW = min(w - 32f, 520f)
-        val spPad = 20f
-        val stickerBtnSide = (spW - spPad * 4f) / 3f
-        val spContentH = 110f + stickerBtnSide * 2f + spPad * 3f + 100f + 16f + 80f + spPad
-        val spH = spContentH.coerceAtMost(h - 32f)
+        // Sticker panel layout — 12 tiles, 4 rows × 3 cols
+        val spW   = min(w - 24f, 560f)
+        val spPad = 14f
+        // Tile size: constrained by width AND available height so it always fits
+        val tileFromW   = (spW - spPad * 4f) / 3f
+        val spTitleH    = 96f
+        val spStatsH    = 44f
+        val spCloseH    = 76f
+        val tileFromH   = (h - 24f - spTitleH - spStatsH - spCloseH - spPad * 7f) / 4f
+        val stickerBtnSide = min(tileFromW, tileFromH).coerceAtLeast(72f)
+        val spContentH  = spTitleH + 4f * stickerBtnSide + 3f * spPad + spStatsH + spCloseH + spPad * 3f
+        val spH = spContentH.coerceAtMost(h - 16f)
         val spL = (w - spW) / 2f
         val spT = (h - spH) / 2f
         stickerPanelRect = RectF(spL, spT, spL + spW, spT + spH)
-        val stRow1Y = spT + 110f
-        for (i in 0 until 6) {
+        val stRow1Y = spT + spTitleH
+        for (i in 0 until 12) {
             val col = i % 3; val row = i / 3
             val sx = spL + spPad + col * (stickerBtnSide + spPad)
             val sy = stRow1Y + row * (stickerBtnSide + spPad)
             stickerRects[i] = RectF(sx, sy, sx + stickerBtnSide, sy + stickerBtnSide)
         }
-        stickersCloseRect = RectF(spL + spPad, stickerPanelRect.bottom - 80f - spPad, spL + spW - spPad, stickerPanelRect.bottom - spPad)
+        stickersCloseRect = RectF(spL + spPad, stickerPanelRect.bottom - spCloseH - spPad, spL + spW - spPad, stickerPanelRect.bottom - spPad)
     }
 
     private fun saveSession() {
@@ -311,6 +340,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             if (board.cols == 6) prefs.highScore6x6 = sessionTotal
             else prefs.highScore8x8 = sessionTotal
         }
+        prefs.sessionCount = prefs.sessionCount + 1
     }
 
     private fun rebuildBoard() {
@@ -348,7 +378,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         drawNoMovesWarning(canvas, now)
         if (celebrateMs >= 0) drawCelebration(canvas, now)
         if (settingsAnim > 0f) drawSettings(canvas, now)
-        if (stickersAnim > 0f) drawStickersPanel(canvas)
+        if (stickersAnim > 0f) drawStickersPanel(canvas, now)
         drawResetFlash(canvas, now)
         if (tutorialActive) drawTutorial(canvas, now)
     }
@@ -407,6 +437,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                     noMovesWarningMs = -1L
                     lastActionMs = now
                     hintCells = emptyList()
+                    prefs.shufflesSurvived = prefs.shufflesSurvived + 1
                     if (prefs.soundEnabled)  soundEngine.playShuffle()
                     if (prefs.hapticEnabled) hapticEngine.shuffle()
                 }
@@ -1549,7 +1580,28 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // -----------------------------------------------------------------------
     // Stickers panel
     // -----------------------------------------------------------------------
-    private fun drawStickersPanel(canvas: Canvas) {
+    /** Returns true if sticker i has been earned. */
+    private fun isStickerEarned(i: Int): Boolean {
+        val lifetime  = prefs.lifetimeDonuts + board.donutsCleared.values.sum()
+        val bestScore = max(prefs.highScore6x6, prefs.highScore8x8)
+        return when (i) {
+            0  -> lifetime >= 10
+            1  -> lifetime >= 50
+            2  -> lifetime >= 200
+            3  -> prefs.bestChainLength >= 4
+            4  -> prefs.bestChainLength >= 6
+            5  -> prefs.bestChainLength >= 8
+            6  -> bestScore >= 20
+            7  -> bestScore >= 60
+            8  -> bestScore >= 120
+            9  -> prefs.shufflesSurvived >= 1
+            10 -> prefs.highScore6x6 > 0 && prefs.highScore8x8 > 0
+            11 -> prefs.sessionCount >= 5
+            else -> false
+        }
+    }
+
+    private fun drawStickersPanel(canvas: Canvas, now: Long) {
         val eased  = easeOutQuint(stickersAnim)
         val slideY = stickerPanelRect.height() * (1f - eased)
 
@@ -1559,13 +1611,15 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         canvas.save()
         canvas.translate(0f, slideY)
 
+        // ---- Panel shell ----
         val pr = 36f
         fillPaint.color = Color.argb(230, 28, 12, 0)
         canvas.drawRoundRect(
             RectF(stickerPanelRect.left - 10f, stickerPanelRect.top - 10f,
                   stickerPanelRect.right + 10f, stickerPanelRect.bottom + 10f),
             pr + 10f, pr + 10f, fillPaint)
-        strokePaint.color = Color.argb(200, 255, 255, 255); strokePaint.strokeWidth = 5f; strokePaint.alpha = 255
+        strokePaint.color = Color.argb(200, 255, 255, 255)
+        strokePaint.strokeWidth = 5f; strokePaint.alpha = 255
         canvas.drawRoundRect(
             RectF(stickerPanelRect.left - 5f, stickerPanelRect.top - 5f,
                   stickerPanelRect.right + 5f, stickerPanelRect.bottom + 5f),
@@ -1573,93 +1627,156 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         fillPaint.color = theme.panelBg; fillPaint.alpha = 255
         canvas.drawRoundRect(stickerPanelRect, pr, pr, fillPaint)
         canvas.save()
-        canvas.clipRect(stickerPanelRect.left, stickerPanelRect.top, stickerPanelRect.right, stickerPanelRect.centerY())
-        fillPaint.color = Color.argb(25, 255, 255, 255)
+        canvas.clipRect(stickerPanelRect.left, stickerPanelRect.top,
+                        stickerPanelRect.right, stickerPanelRect.top + stickerPanelRect.height() * 0.35f)
+        fillPaint.color = Color.argb(28, 255, 255, 255)
         canvas.drawRoundRect(stickerPanelRect, pr, pr, fillPaint)
         canvas.restore()
 
-        // Title
+        // ---- Title ----
         val titleX = stickerPanelRect.centerX()
-        val titleY = stickerPanelRect.top + 72f
-        textPaint.color = Color.argb(100, 0, 0, 0); textPaint.textSize = 48f; textPaint.textAlign = Paint.Align.CENTER
-        canvas.drawText("Stickers", titleX + 3f, titleY + 4f, textPaint)
+        val titleY = stickerPanelRect.top + 66f
+        textPaint.textAlign = Paint.Align.CENTER
+        textPaint.color = Color.argb(100, 0, 0, 0); textPaint.textSize = 46f
+        canvas.drawText("My Stickers", titleX + 3f, titleY + 4f, textPaint)
         textPaint.color = theme.textPrimary
-        canvas.drawText("Stickers", titleX, titleY, textPaint)
-        textOutlinePaint.color = Color.argb(90, 0, 0, 0); textOutlinePaint.strokeWidth = 5f
-        textOutlinePaint.textSize = 48f; textOutlinePaint.textAlign = Paint.Align.CENTER
+        canvas.drawText("My Stickers", titleX, titleY, textPaint)
+        textOutlinePaint.color = Color.argb(80, 0, 0, 0); textOutlinePaint.strokeWidth = 5f
+        textOutlinePaint.textSize = 46f; textOutlinePaint.textAlign = Paint.Align.CENTER
         textOutlinePaint.typeface = Typeface.DEFAULT_BOLD
-        canvas.drawText("Stickers", titleX, titleY, textOutlinePaint)
+        canvas.drawText("My Stickers", titleX, titleY, textOutlinePaint)
 
-        // Sticker slots
-        val lifetime = prefs.lifetimeDonuts
-        val sessionTotal = board.donutsCleared.values.sum()
-        val effective = lifetime + sessionTotal
+        // Earned count badge next to title
+        val earnedCount = (0 until 12).count { isStickerEarned(it) }
+        val badgeTxt = "$earnedCount / 12"
+        textPaint.textSize = 18f
+        val badgeW = textPaint.measureText(badgeTxt) + 24f
+        val badgeX = titleX + 130f; val badgeY = titleY - 22f
+        fillPaint.color = Color.argb(220, 28, 12, 0)
+        canvas.drawRoundRect(RectF(badgeX - badgeW/2f, badgeY - 16f, badgeX + badgeW/2f, badgeY + 6f), 12f, 12f, fillPaint)
+        fillPaint.color = if (earnedCount == 12) Color.rgb(255, 200, 30) else theme.btnSelected
+        canvas.drawRoundRect(RectF(badgeX - badgeW/2f + 2f, badgeY - 14f, badgeX + badgeW/2f - 2f, badgeY + 4f), 10f, 10f, fillPaint)
+        textPaint.color = Color.WHITE; textPaint.textAlign = Paint.Align.CENTER
+        canvas.drawText(badgeTxt, badgeX, badgeY + 1f, textPaint)
 
-        val stickerColors = intArrayOf(
-            Color.rgb(255, 140, 60),
-            Color.rgb(255, 210, 30),
-            Color.rgb(100, 220, 100),
-            Color.rgb(80,  160, 255),
-            Color.rgb(200, 100, 255),
-            Color.rgb(255,  80, 120)
-        )
-
-        for (i in 0 until 6) {
+        // ---- Sticker tiles ----
+        val spinMs = 3200L   // shimmer ring rotation period
+        for (i in 0 until 12) {
             val rect    = stickerRects[i]
-            val earned  = effective >= STICKER_MILESTONES[i]
-            val color   = if (earned) stickerColors[i] else Color.rgb(180, 170, 160)
-            val borderC = if (earned) Color.argb(220, 28, 12, 0) else Color.argb(120, 28, 12, 0)
-            val bpad    = if (earned) 8f else 5f
+            val earned  = isStickerEarned(i)
+            val color   = STICKER_COLORS[i]
+            val r       = 16f
+            val cx      = rect.centerX()
+            val cy      = rect.centerY()
 
-            fillPaint.color = borderC
-            canvas.drawRoundRect(RectF(rect.left-bpad, rect.top-bpad, rect.right+bpad, rect.bottom+bpad), 22f, 22f, fillPaint)
             if (earned) {
+                // Outer glow ring — pulsing
+                val pulseT  = ((now % 1600L).toFloat() / 1600f)
+                val pulse   = if (pulseT < 0.5f) pulseT * 2f else (1f - pulseT) * 2f
+                val glowA   = (80 + (pulse * 100).toInt()).coerceIn(0, 255)
+                val glowR   = Color.red(color); val glowG = Color.green(color); val glowB = Color.blue(color)
+                strokePaint.color       = Color.argb(glowA, glowR, glowG, glowB)
+                strokePaint.strokeWidth = 8f; strokePaint.alpha = glowA
+                canvas.drawRoundRect(
+                    RectF(rect.left - 6f, rect.top - 6f, rect.right + 6f, rect.bottom + 6f),
+                    r + 6f, r + 6f, strokePaint)
+                // Gold border
+                fillPaint.color = Color.argb(220, 28, 12, 0)
+                canvas.drawRoundRect(RectF(rect.left-6f, rect.top-6f, rect.right+6f, rect.bottom+6f), r+6f, r+6f, fillPaint)
                 strokePaint.color = Color.rgb(255, 215, 50); strokePaint.strokeWidth = 4f; strokePaint.alpha = 255
-                canvas.drawRoundRect(RectF(rect.left-bpad+2f, rect.top-bpad+2f, rect.right+bpad-2f, rect.bottom+bpad-2f), 20f, 20f, strokePaint)
+                canvas.drawRoundRect(RectF(rect.left-4f, rect.top-4f, rect.right+4f, rect.bottom+4f), r+4f, r+4f, strokePaint)
+            } else {
+                // Plain dark border
+                fillPaint.color = Color.argb(140, 28, 12, 0)
+                canvas.drawRoundRect(RectF(rect.left-4f, rect.top-4f, rect.right+4f, rect.bottom+4f), r+4f, r+4f, fillPaint)
             }
-            fillPaint.color = color; fillPaint.alpha = if (earned) 255 else 120
-            canvas.drawRoundRect(rect, 18f, 18f, fillPaint)
+
+            // Tile body
+            fillPaint.color = if (earned) color else Color.rgb(155, 148, 140)
+            fillPaint.alpha = if (earned) 255 else 160
+            canvas.drawRoundRect(rect, r, r, fillPaint)
+
+            // Top-half highlight
+            canvas.save()
+            canvas.clipRect(rect.left, rect.top, rect.right, cy)
+            fillPaint.color = Color.argb(if (earned) 70 else 40, 255, 255, 255)
+            canvas.drawRoundRect(rect, r, r, fillPaint)
+            canvas.restore()
+
             if (earned) {
+                // Rotating shimmer streak across the tile
+                val angle = ((now % spinMs).toFloat() / spinMs) * 360f
                 canvas.save()
-                canvas.clipRect(rect.left, rect.top, rect.right, rect.centerY())
-                fillPaint.color = Color.argb(60, 255, 255, 255)
-                canvas.drawRoundRect(rect, 18f, 18f, fillPaint)
+                canvas.clipRect(rect)
+                canvas.rotate(angle, cx, cy)
+                fillPaint.color = Color.argb(55, 255, 255, 255)
+                canvas.drawRect(cx - rect.width() * 0.08f, cy - rect.height() * 0.7f,
+                                cx + rect.width() * 0.08f, cy + rect.height() * 0.7f, fillPaint)
                 canvas.restore()
             }
-            fillPaint.alpha = 255
 
-            textPaint.color     = if (earned) Color.WHITE else Color.argb(140, 255, 255, 255)
-            textPaint.textSize  = rect.height() * 0.22f
-            textPaint.textAlign = Paint.Align.CENTER
-            val numY = rect.centerY() - rect.height() * 0.06f
-            if (earned) {
-                textPaint.color = Color.argb(80, 0, 0, 0)
-                canvas.drawText("${STICKER_MILESTONES[i]}", rect.centerX() + 2f, numY + 2f, textPaint)
-            }
-            textPaint.color = if (earned) Color.WHITE else Color.argb(140, 255, 255, 255)
-            canvas.drawText(if (earned) "${STICKER_MILESTONES[i]}" else "?", rect.centerX(), numY, textPaint)
+            fillPaint.alpha = 255; strokePaint.alpha = 255
 
             if (earned) {
-                textPaint.textSize = rect.height() * 0.14f
-                textPaint.color    = Color.argb(200, 255, 255, 255)
-                canvas.drawText("donuts", rect.centerX(), numY + rect.height() * 0.22f, textPaint)
-            }
-
-            if (earned) {
-                val bx = rect.right - 2f; val by = rect.top + 2f; val br = 14f
+                // Large symbol — top half
+                val symSz = rect.height() * 0.36f
+                val symY  = cy - rect.height() * 0.04f
+                textPaint.color = Color.argb(70, 0, 0, 0)
+                textPaint.textSize = symSz; textPaint.textAlign = Paint.Align.CENTER
+                canvas.drawText(STICKER_SYMS[i], cx + 2f, symY + 2f, textPaint)
+                textPaint.color = Color.WHITE
+                canvas.drawText(STICKER_SYMS[i], cx, symY, textPaint)
+                // Sticker name — bottom
+                val nameSz = rect.height() * 0.145f
+                textPaint.textSize = nameSz
+                textPaint.color    = Color.argb(90, 0, 0, 0)
+                canvas.drawText(STICKER_NAMES[i], cx + 1f, rect.bottom - rect.height() * 0.12f + 1f, textPaint)
+                textPaint.color = Color.WHITE
+                canvas.drawText(STICKER_NAMES[i], cx, rect.bottom - rect.height() * 0.12f, textPaint)
+                // Small condition text
+                textPaint.textSize = rect.height() * 0.105f
+                textPaint.color    = Color.argb(180, 255, 255, 255)
+                canvas.drawText(STICKER_DESCS[i], cx, rect.bottom - rect.height() * 0.30f, textPaint)
+                // Earned checkmark badge — top right
+                val bx = rect.right - 1f; val by = rect.top + 1f; val br2 = 11f
                 fillPaint.color = Color.argb(220, 28, 12, 0)
-                canvas.drawCircle(bx, by, br + 3f, fillPaint)
-                fillPaint.color = Color.rgb(80, 200, 80)
-                canvas.drawCircle(bx, by, br, fillPaint)
-                textPaint.textSize = br * 1.3f; textPaint.color = Color.WHITE
-                canvas.drawText("\u2713", bx, by + br * 0.42f, textPaint)
+                canvas.drawCircle(bx, by, br2 + 2f, fillPaint)
+                fillPaint.color = Color.rgb(80, 210, 80)
+                canvas.drawCircle(bx, by, br2, fillPaint)
+                textPaint.textSize = br2 * 1.4f; textPaint.color = Color.WHITE
+                canvas.drawText("\u2713", bx, by + br2 * 0.42f, textPaint)
+            } else {
+                // Lock icon — simple padlock shape
+                val lockR  = rect.height() * 0.13f
+                val lockCX = cx; val lockCY = cy - lockR * 0.2f
+                // Shackle (arc)
+                strokePaint.color       = Color.argb(160, 255, 255, 255)
+                strokePaint.strokeWidth = lockR * 0.5f; strokePaint.alpha = 160
+                canvas.drawArc(RectF(lockCX - lockR, lockCY - lockR * 1.3f,
+                                     lockCX + lockR, lockCY + lockR * 0.3f),
+                               180f, 180f, false, strokePaint)
+                // Body
+                fillPaint.color = Color.argb(160, 255, 255, 255)
+                canvas.drawRoundRect(RectF(lockCX - lockR * 1.1f, lockCY - lockR * 0.1f,
+                                          lockCX + lockR * 1.1f, lockCY + lockR * 1.5f),
+                                     lockR * 0.35f, lockR * 0.35f, fillPaint)
+                // Condition hint at bottom
+                textPaint.textSize  = rect.height() * 0.115f
+                textPaint.color     = Color.argb(160, 255, 255, 255)
+                textPaint.textAlign = Paint.Align.CENTER
+                canvas.drawText(STICKER_DESCS[i], cx, rect.bottom - rect.height() * 0.12f, textPaint)
+                strokePaint.alpha = 255
             }
         }
 
-        val statsY = stickerRects[3].bottom + 22f
-        val earnedCount = STICKER_MILESTONES.count { effective >= it }
-        textPaint.textSize = 20f; textPaint.textAlign = Paint.Align.CENTER; textPaint.color = theme.textSecondary
-        canvas.drawText("lifetime: $effective donuts  \u00B7  $earnedCount / 6 stickers", stickerPanelRect.centerX(), statsY, textPaint)
+        // ---- Stats line ----
+        val statsY = stickerRects[11].bottom + 22f
+        val lifetime = prefs.lifetimeDonuts + board.donutsCleared.values.sum()
+        textPaint.textSize = 18f; textPaint.textAlign = Paint.Align.CENTER
+        textPaint.color = theme.textSecondary
+        canvas.drawText(
+            "$lifetime donuts lifetime  \u00B7  $earnedCount of 12 stickers",
+            stickerPanelRect.centerX(), statsY, textPaint)
 
         drawPrettyButton(canvas, stickersCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 30f)
 
@@ -2064,6 +2181,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             val now = SystemClock.elapsedRealtime()
             animStartMs = now; animPhase = AnimPhase.POPPING
             lastActionMs = now; hintCells = emptyList()
+            if (pendingChain.size > prefs.bestChainLength) prefs.bestChainLength = pendingChain.size
             if (prefs.soundEnabled)  soundEngine.playPopClear()
             if (prefs.hapticEnabled) hapticEngine.pop()
             val label = when (pendingChain.size) {

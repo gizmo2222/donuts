@@ -48,4 +48,16 @@ class Prefs(context: Context) {
     var hapticTheme: Int
         get()  = p.getInt("haptic_theme", 1)
         set(v) { p.edit().putInt("haptic_theme", v).apply() }
+
+    var bestChainLength: Int
+        get()  = p.getInt("best_chain", 0)
+        set(v) { p.edit().putInt("best_chain", v).apply() }
+
+    var shufflesSurvived: Int
+        get()  = p.getInt("shuffles", 0)
+        set(v) { p.edit().putInt("shuffles", v).apply() }
+
+    var sessionCount: Int
+        get()  = p.getInt("sessions", 0)
+        set(v) { p.edit().putInt("sessions", v).apply() }
 }
