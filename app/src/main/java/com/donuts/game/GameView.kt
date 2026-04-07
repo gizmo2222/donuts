@@ -140,6 +140,16 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // Counter count-up
     private var displayedCount  = 0         // animates toward actual total
 
+    // Digit flip — each digit flips independently when its value changes
+    private data class DigitFlip(val from: Char, val to: Char, val startMs: Long)
+    private val digitFlips       = HashMap<Int, DigitFlip>()  // right-to-left digit position (0=ones)
+    private var prevDisplayCount = -1
+    private val DIGIT_FLIP_MS    = 200L
+
+    // Squish on land — per-cell damped bounce when a dropping piece arrives
+    private val squishCells = HashMap<Pair<Int,Int>, Long>()  // (row,col) → squish start ms
+    private val SQUISH_MS   = 380L
+
     // Reset flash overlay
     private var resetFlashMs    = -1L       // time of last reset
     private val FLASH_MS        = 350L
@@ -378,7 +388,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         drawCells(canvas, now)
         drawCenterPing(canvas, now)
         drawFloatLabels(canvas, now)
-        drawCounter(canvas)
+        drawCounter(canvas, now)
         drawNoMovesWarning(canvas, now)
         if (celebrateMs >= 0) drawCelebration(canvas, now)
         if (settingsAnim > 0f) drawSettings(canvas, now)
@@ -443,6 +453,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 popCells.clear(); animPhase = AnimPhase.DROPPING; animStartMs = now
             }
             AnimPhase.DROPPING -> if (now - animStartMs >= DROP_MS) {
+                for (cell in dropCells) squishCells[cell.row to cell.col] = now
                 dropCells.clear(); dropColMask.clear()
                 animPhase = AnimPhase.IDLE
                 if (prefs.soundEnabled) soundEngine.playDropLand()
@@ -498,7 +509,20 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val target = board.donutsCleared.values.sum()
         if (displayedCount < target) {
             val step = max(1, (target - displayedCount) / 4)
+            val oldCount = displayedCount
             displayedCount = (displayedCount + step).coerceAtMost(target)
+            // Record digit flips for any digit that changed
+            if (prevDisplayCount >= 0) {
+                var pos = 0; var m = maxOf(displayedCount, oldCount, 1)
+                while (m > 0) {
+                    val p   = generateSequence(1) { it * 10 }.drop(pos).first()
+                    val nd  = (displayedCount / p) % 10
+                    val od  = (oldCount       / p) % 10
+                    if (nd != od) digitFlips[pos] = DigitFlip('0' + od, '0' + nd, now)
+                    m /= 10; pos++
+                }
+            }
+            prevDisplayCount = displayedCount
             // Check milestones
             for (m in MILESTONES) {
                 if (m > lastMilestone && displayedCount >= m) {
@@ -511,8 +535,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 }
             }
         } else if (displayedCount > target) {
-            displayedCount = 0
-            lastMilestone  = 0
+            displayedCount = 0; prevDisplayCount = -1
+            lastMilestone  = 0; digitFlips.clear()
         }
         // Advance particles
         if (particles.isNotEmpty()) {
@@ -786,7 +810,27 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 } ?: 1f
 
                 val finalScale = if (inChain) breatheScale * pingScale else breatheScale
-                drawPiece(canvas, cx, cy, cellSize * 0.43f * finalScale, board.grid[r][c].type, inChain)
+
+                // Squish on land — damped cosine oscillation
+                val squishMs = squishCells[r to c]
+                var sqX = 1f; var sqY = 1f
+                if (squishMs != null) {
+                    val t = ((now - squishMs).toFloat() / SQUISH_MS).coerceIn(0f, 1f)
+                    if (t >= 1f) {
+                        squishCells.remove(r to c)
+                    } else {
+                        val factor = (1f - t) * (1f - t) * cos(t * PI.toFloat() * 3.5f) * 0.32f
+                        sqX = 1f + factor; sqY = 1f - factor
+                    }
+                }
+                if (sqX != 1f) {
+                    canvas.save()
+                    canvas.scale(sqX, sqY, cx, cy)
+                    drawPiece(canvas, cx, cy, cellSize * 0.43f * finalScale, board.grid[r][c].type, inChain)
+                    canvas.restore()
+                } else {
+                    drawPiece(canvas, cx, cy, cellSize * 0.43f * finalScale, board.grid[r][c].type, inChain)
+                }
 
                 // Expanding ring on ping
                 pingMs?.let { pm ->
@@ -1250,15 +1294,16 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     }
 
     // -----------------------------------------------------------------------
-    // Counter — animated count-up
+    // Counter — digit-flip scoreboard
     // -----------------------------------------------------------------------
-    private fun drawCounter(canvas: Canvas) {
+    private fun drawCounter(canvas: Canvas, now: Long) {
         val stripY = boardTop + board.rows * cellSize
         val midY   = stripY + counterH / 2f
         val cw     = board.cols * cellSize * 0.72f
         val pl     = surfaceW / 2f - cw / 2f
         val pr     = surfaceW / 2f + cw / 2f
 
+        // Panel shell
         shadowPaint.color = Color.argb(50, 0, 0, 0)
         canvas.drawRoundRect(RectF(pl + 2f, stripY + 12f, pr + 2f, stripY + counterH - 2f), 18f, 18f, shadowPaint)
         fillPaint.color = Color.argb(180, 28, 12, 0)
@@ -1266,24 +1311,60 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         fillPaint.color = theme.panelBg; fillPaint.alpha = 255
         canvas.drawRoundRect(RectF(pl, stripY + 8f, pr, stripY + counterH - 4f), 18f, 18f, fillPaint)
 
-        // Big number — the star of the counter
-        textPaint.color     = Color.argb(80, 0, 0, 0)
-        textPaint.textSize  = 96f
-        textPaint.textAlign = Paint.Align.CENTER
-        canvas.drawText("$displayedCount", surfaceW / 2f + 4f, midY + 26f + 4f, textPaint)
-        textPaint.color = theme.textPrimary
-        canvas.drawText("$displayedCount", surfaceW / 2f, midY + 26f, textPaint)
-        // Outline for extra punch
-        textOutlinePaint.textSize    = 96f
+        // --- Digit-flip number ---
+        val digitSz = 96f
+        textPaint.textSize = digitSz
+        val cellW  = textPaint.measureText("0") * 1.18f   // fixed per-digit width
+        val numStr = displayedCount.toString()
+        val totalW = numStr.length * cellW
+        val startX = surfaceW / 2f - totalW / 2f + cellW / 2f
+        val baseY  = midY + 26f
+        val pivotY = baseY - digitSz * 0.36f               // visual centre of digit
+
+        textOutlinePaint.textSize    = digitSz
         textOutlinePaint.textAlign   = Paint.Align.CENTER
         textOutlinePaint.typeface    = Typeface.DEFAULT_BOLD
         textOutlinePaint.strokeWidth = 4f
-        textOutlinePaint.color       = Color.argb(40, 28, 12, 0)
-        canvas.drawText("$displayedCount", surfaceW / 2f, midY + 26f, textOutlinePaint)
 
-        textPaint.textSize = 21f
-        textPaint.color    = theme.textSecondary
-        canvas.drawText("cleared  ✦", surfaceW / 2f, midY + 52f, textPaint)
+        for ((idx, ch) in numStr.withIndex()) {
+            val pos  = numStr.length - 1 - idx             // 0 = ones place
+            val x    = startX + idx * cellW
+            val flip = digitFlips[pos]
+
+            // Dark cell background — makes it look like a scoreboard slot
+            fillPaint.color = Color.argb(55, 28, 12, 0)
+            canvas.drawRoundRect(RectF(x - cellW * 0.46f, pivotY - digitSz * 0.54f,
+                                       x + cellW * 0.46f, pivotY + digitSz * 0.54f), 8f, 8f, fillPaint)
+
+            val (displayCh, scaleY) = if (flip != null) {
+                val t  = ((now - flip.startMs).toFloat() / DIGIT_FLIP_MS).coerceIn(0f, 1f)
+                val sy = abs(1f - t * 2f)                  // 1 → 0 at mid → 1
+                val dc = if (t < 0.5f) flip.from else flip.to
+                if (t >= 1f) digitFlips.remove(pos)
+                Pair(dc, sy)
+            } else {
+                Pair(ch, 1f)
+            }
+
+            canvas.save()
+            canvas.scale(1f, scaleY, x, pivotY)
+            // Shadow
+            textPaint.color     = Color.argb(80, 0, 0, 0)
+            textPaint.textAlign = Paint.Align.CENTER
+            canvas.drawText("$displayCh", x + 4f, baseY + 4f, textPaint)
+            // Fill
+            textPaint.color = theme.textPrimary
+            canvas.drawText("$displayCh", x, baseY, textPaint)
+            // Outline
+            textOutlinePaint.color = Color.argb(40, 28, 12, 0)
+            canvas.drawText("$displayCh", x, baseY, textOutlinePaint)
+            canvas.restore()
+        }
+
+        textPaint.textSize  = 21f
+        textPaint.textAlign = Paint.Align.CENTER
+        textPaint.color     = theme.textSecondary
+        canvas.drawText("cleared  \u2746", surfaceW / 2f, midY + 52f, textPaint)
         val bestScore = if (board.cols == 6) prefs.highScore6x6 else prefs.highScore8x8
         if (bestScore > 0) {
             textPaint.textSize = 18f
