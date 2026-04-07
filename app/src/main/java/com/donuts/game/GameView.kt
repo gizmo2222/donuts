@@ -307,17 +307,18 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         settingsCloseRect = RectF(pl + pad, pt + ph - closeH - pad, pl + pw - pad, pt + ph - pad)
 
         // Sticker panel layout — 12 tiles, 4 rows × 3 cols
-        val spW   = min(w - 24f, 560f)
-        val spPad = 14f
-        // Tile size: constrained by width AND available height so it always fits
+        // Panel fills width minus 40px margin (20 each side) and height minus 80px (40 each side)
+        val spW   = w - 40f
+        val spPad = 18f
+        val spTitleH    = 116f
+        val spStatsH    = 52f
+        val spCloseH    = 88f
+        // Tile size fills remaining height or width, whichever is tighter
         val tileFromW   = (spW - spPad * 4f) / 3f
-        val spTitleH    = 96f
-        val spStatsH    = 44f
-        val spCloseH    = 76f
-        val tileFromH   = (h - 24f - spTitleH - spStatsH - spCloseH - spPad * 7f) / 4f
-        val stickerBtnSide = min(tileFromW, tileFromH).coerceAtLeast(72f)
+        val tileFromH   = (h - 80f - spTitleH - spStatsH - spCloseH - spPad * 7f) / 4f
+        val stickerBtnSide = min(tileFromW, tileFromH).coerceAtLeast(80f)
         val spContentH  = spTitleH + 4f * stickerBtnSide + 3f * spPad + spStatsH + spCloseH + spPad * 3f
-        val spH = spContentH.coerceAtMost(h - 16f)
+        val spH = spContentH.coerceAtMost(h - 80f)
         val spL = (w - spW) / 2f
         val spT = (h - spH) / 2f
         stickerPanelRect = RectF(spL, spT, spL + spW, spT + spH)
@@ -1635,21 +1636,21 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
         // ---- Title ----
         val titleX = stickerPanelRect.centerX()
-        val titleY = stickerPanelRect.top + 66f
+        val titleY = stickerPanelRect.top + 78f
         textPaint.textAlign = Paint.Align.CENTER
-        textPaint.color = Color.argb(100, 0, 0, 0); textPaint.textSize = 46f
+        textPaint.color = Color.argb(100, 0, 0, 0); textPaint.textSize = 58f
         canvas.drawText("My Stickers", titleX + 3f, titleY + 4f, textPaint)
         textPaint.color = theme.textPrimary
         canvas.drawText("My Stickers", titleX, titleY, textPaint)
-        textOutlinePaint.color = Color.argb(80, 0, 0, 0); textOutlinePaint.strokeWidth = 5f
-        textOutlinePaint.textSize = 46f; textOutlinePaint.textAlign = Paint.Align.CENTER
+        textOutlinePaint.color = Color.argb(80, 0, 0, 0); textOutlinePaint.strokeWidth = 6f
+        textOutlinePaint.textSize = 58f; textOutlinePaint.textAlign = Paint.Align.CENTER
         textOutlinePaint.typeface = Typeface.DEFAULT_BOLD
         canvas.drawText("My Stickers", titleX, titleY, textOutlinePaint)
 
         // Earned count badge next to title
         val earnedCount = (0 until 12).count { isStickerEarned(it) }
         val badgeTxt = "$earnedCount / 12"
-        textPaint.textSize = 18f
+        textPaint.textSize = 22f
         val badgeW = textPaint.measureText(badgeTxt) + 24f
         val badgeX = titleX + 130f; val badgeY = titleY - 22f
         fillPaint.color = Color.argb(220, 28, 12, 0)
@@ -1770,15 +1771,15 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         }
 
         // ---- Stats line ----
-        val statsY = stickerRects[11].bottom + 22f
+        val statsY = stickerRects[11].bottom + 28f
         val lifetime = prefs.lifetimeDonuts + board.donutsCleared.values.sum()
-        textPaint.textSize = 18f; textPaint.textAlign = Paint.Align.CENTER
+        textPaint.textSize = 22f; textPaint.textAlign = Paint.Align.CENTER
         textPaint.color = theme.textSecondary
         canvas.drawText(
             "$lifetime donuts lifetime  \u00B7  $earnedCount of 12 stickers",
             stickerPanelRect.centerX(), statsY, textPaint)
 
-        drawPrettyButton(canvas, stickersCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 30f)
+        drawPrettyButton(canvas, stickersCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 36f)
 
         canvas.restore()
     }
