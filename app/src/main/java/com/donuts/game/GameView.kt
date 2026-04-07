@@ -403,27 +403,23 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private fun advanceAnimation(now: Long) {
         when (animPhase) {
             AnimPhase.POPPING -> if (now - animStartMs >= POP_MS) {
-                // Snapshot the types that will drop (new pieces filling from top)
-                // before clearChain mutates the board.
-                val clearedCols = pendingChain.groupingBy { it.second }.eachCount()
-                val clearedSet  = pendingChain.toSet()
-                // Per column: surviving types in order, then pad top with randoms
-                // We snapshot this BEFORE clearing so we know how many will refill.
-                val colSnapshots = mutableMapOf<Int, List<DonutType>>()
-                for ((col, count) in clearedCols) {
-                    val surviving = (0 until board.rows)
-                        .filter { row -> Pair(row, col) !in clearedSet }
-                        .map  { row -> board.grid[row][col].type }
-                    // The new pieces are 'count' unknowns; we'll read them after clear
-                    colSnapshots[col] = surviving
+                // Snapshot entire board BEFORE mutating so we can detect every
+                // cell that changes (direct clears + cascade clears in other cols).
+                val preTypes = Array(board.rows) { r ->
+                    Array(board.cols) { c -> board.grid[r][c].type }
                 }
                 board.clearChain(pendingChain)
                 board.resolveAll()
-                // Now the top `count` rows in each column are the freshly filled pieces
+                // Every column where ANY cell changed gets fully animated dropping.
+                // This prevents colour-flicker on survivors that shifted down, and
+                // on cascade columns that weren't part of the original chain.
                 dropCells.clear()
-                for ((col, count) in clearedCols)
-                    for (row in 0 until count)
-                        dropCells.add(AnimCell(row, col, board.grid[row][col].type))
+                for (c in 0 until board.cols) {
+                    if ((0 until board.rows).any { r -> board.grid[r][c].type != preTypes[r][c] }) {
+                        for (row in 0 until board.rows)
+                            dropCells.add(AnimCell(row, c, board.grid[row][c].type))
+                    }
+                }
                 popCells.clear(); animPhase = AnimPhase.DROPPING; animStartMs = now
             }
             AnimPhase.DROPPING -> if (now - animStartMs >= DROP_MS) {
