@@ -77,11 +77,12 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private val POP_MS  = 280L
     private val DROP_MS = 380L
 
-    private data class AnimCell(val row: Int, val col: Int, val type: DonutType)
-    private val popCells     = mutableListOf<AnimCell>()
-    private val dropCells    = mutableListOf<AnimCell>()   // new pieces: animate falling
-    private val holdCells    = mutableListOf<AnimCell>()   // survivors: draw at OLD position, stationary
-    private val dropColMask  = mutableSetOf<Int>()         // columns hidden from normal draw during DROPPING
+    // fromRow = starting row for animation (may be negative = above the board)
+    // row     = destination row
+    private data class AnimCell(val row: Int, val col: Int, val type: DonutType, val fromRow: Int = row)
+    private val popCells    = mutableListOf<AnimCell>()
+    private val dropCells   = mutableListOf<AnimCell>()  // all moving cells during DROPPING
+    private val dropColMask = mutableSetOf<Int>()        // columns hidden from the normal draw loop
     private var pendingChain = emptyList<Pair<Int, Int>>()
 
     // -----------------------------------------------------------------------
@@ -411,37 +412,38 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 }
                 board.clearChain(pendingChain)
                 board.resolveAll()
-                // After gravity, survivors are packed to the bottom in their
-                // original relative order; new random pieces fill the top K rows.
-                // Identify K per column by matching survivors bottom-up.
-                // dropCells  = top K new pieces  → animate falling from above
-                // holdCells  = survivors          → drawn stationary at OLD positions
-                // dropColMask= changed columns    → hidden from the normal draw loop
-                dropCells.clear(); holdCells.clear(); dropColMask.clear()
+                // Build one dropCells list where every cell has:
+                //   row     = destination (post-gravity)
+                //   fromRow = where it starts the animation
+                // New pieces (fromRow < 0): fall in from above the board.
+                // Survivors (fromRow >= 0): slide down from their old row to their new row.
+                // dropColMask hides changed columns from the normal draw loop.
+                dropCells.clear(); dropColMask.clear()
                 for (c in 0 until board.cols) {
-                    // Walk pre- and post-state bottom-up, greedy-match survivors.
+                    // Match survivors bottom-up between pre- and post-states.
                     var postR = board.rows - 1
-                    val survivorPreRows = mutableListOf<Int>()
+                    val survivorMap = mutableListOf<Pair<Int,Int>>() // (preRow, postRow)
                     for (preR in board.rows - 1 downTo 0) {
                         if (postR >= 0 && board.grid[postR][c].type == preTypes[preR][c]) {
-                            survivorPreRows.add(0, preR)   // collect in top→bottom order
+                            survivorMap.add(0, Pair(preR, postR))
                             postR--
                         }
                     }
-                    val k = postR + 1   // rows 0..k-1 are new
-                    if (k == 0) continue // column unchanged — nothing to animate
+                    val k = postR + 1   // number of new pieces at top
+                    if (k == 0) continue
                     dropColMask.add(c)
-                    // New pieces fall in from above
+                    // New pieces: start k rows above their destination so they
+                    // all travel the same distance and land simultaneously.
                     for (row in 0 until k)
-                        dropCells.add(AnimCell(row, c, board.grid[row][c].type))
-                    // Survivors drawn at their pre-clear row positions, stationary
-                    for ((idx, preRow) in survivorPreRows.withIndex())
-                        holdCells.add(AnimCell(preRow, c, board.grid[k + idx][c].type))
+                        dropCells.add(AnimCell(row, c, board.grid[row][c].type, fromRow = row - k))
+                    // Survivors: slide from old row down to new row.
+                    for ((preRow, postRow) in survivorMap)
+                        dropCells.add(AnimCell(postRow, c, board.grid[postRow][c].type, fromRow = preRow))
                 }
                 popCells.clear(); animPhase = AnimPhase.DROPPING; animStartMs = now
             }
             AnimPhase.DROPPING -> if (now - animStartMs >= DROP_MS) {
-                dropCells.clear(); holdCells.clear(); dropColMask.clear()
+                dropCells.clear(); dropColMask.clear()
                 animPhase = AnimPhase.IDLE
                 if (prefs.soundEnabled) soundEngine.playDropLand()
                 if (!board.hasValidMoves()) noMovesWarningMs = now
@@ -859,19 +861,14 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         if (animPhase == AnimPhase.DROPPING) {
             val t     = ((now - animStartMs).toFloat() / DROP_MS).coerceIn(0f, 1f)
             val eased = 1f - (1f - t) * (1f - t) * (1f - t)
-            val yOff  = -cellSize * 3.5f * (1f - eased)
-            val alpha = (eased * 255).toInt().coerceIn(0, 255)
-            // New pieces: fall in from above
             for (cell in dropCells) {
-                val cx = boardLeft + cell.col * cellSize + cellSize / 2f
-                val cy = boardTop  + cell.row * cellSize + cellSize / 2f + yOff
+                val cx     = boardLeft + cell.col     * cellSize + cellSize / 2f
+                val startY = boardTop  + cell.fromRow * cellSize + cellSize / 2f
+                val endY   = boardTop  + cell.row     * cellSize + cellSize / 2f
+                val cy     = startY + (endY - startY) * eased
+                // New pieces (fromRow < 0) fade in; survivors are always fully opaque
+                val alpha  = if (cell.fromRow < 0) (eased * 255).toInt().coerceIn(0, 255) else 255
                 drawPiece(canvas, cx, cy, cellSize * 0.43f, cell.type, false, alpha)
-            }
-            // Survivors: hold at their pre-clear positions, fully opaque, no movement
-            for (cell in holdCells) {
-                val cx = boardLeft + cell.col * cellSize + cellSize / 2f
-                val cy = boardTop  + cell.row * cellSize + cellSize / 2f
-                drawPiece(canvas, cx, cy, cellSize * 0.43f, cell.type, false, 255)
             }
         }
     }
