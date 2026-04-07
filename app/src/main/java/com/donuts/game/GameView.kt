@@ -23,7 +23,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private var cellSize  = 0f
     private var boardLeft = 0f
     private var boardTop  = 0f
-    private val hudHeight = 185f
+    private val hudHeight = 220f
     private val counterH  = 130f
 
     private var resetBtnRect    = RectF()
@@ -206,16 +206,17 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         boardTop    = ((h - boardPx - counterH) / 2f).coerceAtLeast(hudHeight)
 
         // Buttons sit just above the board with a comfortable gap
-        val btnH = 80f
+        val btnH = 100f
         val btnY = boardTop - btnH - 26f
-        resetBtnRect    = RectF(boardLeft, btnY, boardLeft + 190f, btnY + btnH)
+        resetBtnRect    = RectF(boardLeft, btnY, boardLeft + 230f, btnY + btnH)
         val sbEnd = boardLeft + board.cols * cellSize
-        // Settings gear (80px) + haptic ≋ (80px) + sound ♪ (80px) each with 8px gap
-        settingsBtnRect = RectF(sbEnd - 80f,  btnY, sbEnd,          btnY + btnH)
-        hapticBtnRect   = RectF(sbEnd - 168f, btnY, sbEnd - 88f,    btnY + btnH)
-        soundBtnRect    = RectF(sbEnd - 256f, btnY, sbEnd - 176f,   btnY + btnH)
-        // Trophy button: 80px wide, sits right after RESET with 8px gap
-        stickersBtnRect = RectF(boardLeft + 198f, btnY, boardLeft + 278f, btnY + btnH)
+        // Settings ⚙ (100px) + haptic ≋ (100px) + sound ♪ (100px) — 10px gaps
+        settingsBtnRect = RectF(sbEnd - 100f, btnY, sbEnd,          btnY + btnH)
+        hapticBtnRect   = RectF(sbEnd - 210f, btnY, sbEnd - 110f,   btnY + btnH)
+        soundBtnRect    = RectF(sbEnd - 320f, btnY, sbEnd - 220f,   btnY + btnH)
+        // Stickers ★ — centred in the gap between RESET and the right-side trio
+        val stMidX = (boardLeft + 230f + sbEnd - 320f) / 2f
+        stickersBtnRect = RectF(stMidX - 50f, btnY, stMidX + 50f, btnY + btnH)
 
         // Settings panel — width fits screen with margin; height computed from content
         val sc     = 1.5f
@@ -236,7 +237,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             62f*sc + packBtnH +           // sound pack section
             62f*sc + hapticBtnH +         // haptic theme section
             62f*sc + closeH + pad         // close + bottom padding
-        val pw = min(w - 32f, 560f)
+        val pw = min(w - 32f, 660f)
         val ph = requiredPh.coerceAtMost(h - 32f)
         val pl = (w - pw) / 2f
         val pt = (h - ph) / 2f
