@@ -1647,18 +1647,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         textOutlinePaint.typeface = Typeface.DEFAULT_BOLD
         canvas.drawText("My Stickers", titleX, titleY, textOutlinePaint)
 
-        // Earned count badge next to title
         val earnedCount = (0 until 12).count { isStickerEarned(it) }
-        val badgeTxt = "$earnedCount / 12"
-        textPaint.textSize = 22f
-        val badgeW = textPaint.measureText(badgeTxt) + 24f
-        val badgeX = titleX + 130f; val badgeY = titleY - 22f
-        fillPaint.color = Color.argb(220, 28, 12, 0)
-        canvas.drawRoundRect(RectF(badgeX - badgeW/2f, badgeY - 16f, badgeX + badgeW/2f, badgeY + 6f), 12f, 12f, fillPaint)
-        fillPaint.color = if (earnedCount == 12) Color.rgb(255, 200, 30) else theme.btnSelected
-        canvas.drawRoundRect(RectF(badgeX - badgeW/2f + 2f, badgeY - 14f, badgeX + badgeW/2f - 2f, badgeY + 4f), 10f, 10f, fillPaint)
-        textPaint.color = Color.WHITE; textPaint.textAlign = Paint.Align.CENTER
-        canvas.drawText(badgeTxt, badgeX, badgeY + 1f, textPaint)
 
         // ---- Sticker tiles ----
         val spinMs = 3200L   // shimmer ring rotation period
