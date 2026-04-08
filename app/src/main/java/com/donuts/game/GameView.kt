@@ -6,6 +6,7 @@ import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import androidx.core.content.res.ResourcesCompat
 import kotlin.math.*
 
 class GameView(context: Context, initialBoard: GameBoard, private val prefs: Prefs) :
@@ -24,7 +25,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private var boardLeft = 0f
     private var boardTop  = 0f
     private val hudHeight = 220f
-    private val counterH  = 130f
+    private val counterH  = 210f
 
     private var resetBtnRect    = RectF()
     private var settingsBtnRect = RectF()
@@ -65,8 +66,13 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private var selRow = -1
     private var selCol = -1
     private val dragChain = mutableListOf<Pair<Int, Int>>()
+
+    // Returns the type of the chain: first non-golden cell's type, or first cell's type
+    // if every cell in the chain is golden (all-golden chain is valid).
     private val dragChainType: DonutType?
-        get() = dragChain.firstOrNull()?.let { (r, c) -> board.grid[r][c].type }
+        get() = dragChain.firstOrNull { (r, c) -> !board.grid[r][c].isGolden }
+            ?.let { (r, c) -> board.grid[r][c].type }
+            ?: dragChain.firstOrNull()?.let { (r, c) -> board.grid[r][c].type }
 
     // -----------------------------------------------------------------------
     // Game animation
@@ -79,11 +85,22 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
     // fromRow = starting row for animation (may be negative = above the board)
     // row     = destination row
-    private data class AnimCell(val row: Int, val col: Int, val type: DonutType, val fromRow: Int = row)
+    private data class AnimCell(
+        val row: Int, val col: Int, val type: DonutType,
+        val fromRow: Int = row, val isGolden: Boolean = false
+    )
     private val popCells    = mutableListOf<AnimCell>()
     private val dropCells   = mutableListOf<AnimCell>()  // all moving cells during DROPPING
     private val dropColMask = mutableSetOf<Int>()        // columns hidden from the normal draw loop
-    private var pendingChain = emptyList<Pair<Int, Int>>()
+
+    // Pre-computed chain clear result (set in handleUp, consumed in advanceAnimation).
+    private var pendingResult: ChainResult? = null
+
+    // Cascade counter — how many auto-resolve passes have fired after the player's clear.
+    private var cascadeCount    = 0
+    private var isCascade       = false
+    private var cascadeLabelMs  = -1L
+    private val CASCADE_LABEL_MS = 1000L
 
     // -----------------------------------------------------------------------
     // UI Animations
@@ -99,29 +116,32 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private var stickersOpen      = false
     private var stickersAnim      = 0f
     private var stickersBtnRect   = RectF()
-    private var stickersPressMs   = -1L
+    private var stickersPressMs        = -1L
+    private var stickerResetConfirmMs  = -1L
+    private val STICKER_RESET_CONFIRM_MS = 1500L
     private var stickerPanelRect  = RectF()
     private val stickerRects      = Array(12) { RectF() }
     private var stickersCloseRect = RectF()
+    private var stickersResetRect = RectF()
 
-    // 12 stickers — 4 rows × 3 cols. Symbols use reliable Unicode/ASCII.
+    // 12 stickers — 4 rows × 3 cols
     private val STICKER_SYMS   = arrayOf(
-        "\u2726", "\u2605", "\u2665",  // row 1: Donut Collector (✦ ★ ♥)
-        "4",      "6",      "8",       // row 2: Chain Master
-        "20",     "60",     "120",     // row 3: High Scorer
-        "\u21BA", "\u2295", "\u221E"   // row 4: Special (↺ ⊕ ∞)
+        "\uD83C\uDF69", "\u2B50",        "\uD83D\uDC51",  // 🍩 ⭐ 👑  row 1: Donut Collector
+        "\uD83D\uDD17", "\u26A1",        "\uD83C\uDF1F",  // 🔗 ⚡ 🌟  row 2: Chain Builder
+        "\uD83C\uDFAF", "\uD83C\uDFC6",  "\uD83D\uDC8E",  // 🎯 🏆 💎  row 3: High Scorer
+        "\uD83D\uDD00", "\uD83D\uDD2D",  "\u2764"         // 🔀 🔭 ❤   row 4: Special
     )
     private val STICKER_NAMES  = arrayOf(
-        "First Taste!",  "Donut Fan",    "Donut Legend",
-        "Linked Up",     "Chain Pro",    "Chain God",
-        "Scorer",        "Star Player",  "Top Score",
-        "Survivor",      "Explorer",     "Dedicated"
+        "Donut Taster",   "Donut Lover",   "Donut King",
+        "Chain Starter",  "Chain Pro",     "Chain Legend",
+        "On The Board",   "High Scorer",   "Donut Master",
+        "Survivor",       "Explorer",      "True Fan"
     )
     private val STICKER_DESCS  = arrayOf(
-        "10 donuts",  "50 donuts",  "200 donuts",
-        "chain of 4", "chain of 6", "chain of 8",
-        "score 20",   "score 60",   "score 120",
-        "1 shuffle",  "both grids", "5 sessions"
+        "10 donuts",   "50 donuts",   "500 donuts",
+        "chain of 4",  "chain of 6",  "chain of 8",
+        "score 20",    "score 60",    "score 200",
+        "5 shuffles",  "both grids",  "10 sessions"
     )
     private val STICKER_COLORS = intArrayOf(
         Color.rgb(255, 140,  60), Color.rgb(255, 200,  30), Color.rgb(220,  80,  50),
@@ -146,9 +166,19 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private var prevDisplayCount = -1
     private val DIGIT_FLIP_MS    = 200L
 
-    // Squish on land — per-cell damped bounce when a dropping piece arrives
-    private val squishCells = HashMap<Pair<Int,Int>, Long>()  // (row,col) → squish start ms
-    private val SQUISH_MS   = 380L
+    // Counter heartbeat — panel scale-pulse when score increments
+    private var counterPulseMs   = -1L
+    private val COUNTER_PULSE_MS = 240L
+
+    // Big-chain color flash overlay (chain ≥ 6)
+    private var chainFlashMs     = -1L
+    private var chainFlashColor  = 0
+    private val CHAIN_FLASH_MS   = 200L
+
+    // Shuffle pop animation
+    private var shuffleAnimMs    = -1L
+    private val SHUFFLE_ANIM_MS  = 360L
+    private val SHUFFLE_MAX_DELAY = 300L   // max stagger across all cells
 
     // Reset flash overlay
     private var resetFlashMs    = -1L       // time of last reset
@@ -176,9 +206,11 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private var celebrateMs     = -1L
     private val CELEBRATE_MS    = 2200L
     private var celebrateCount  = 0
-    private data class Particle(
-        val x: Float, val y: Float,
-        val vx: Float, val vy: Float,
+    // Mutable class (not data class) so physics can update fields in-place each frame,
+    // avoiding the 60-object copy + new-list allocation that a data-class copy() would incur.
+    private class Particle(
+        var x: Float, var y: Float,
+        var vx: Float, var vy: Float,
         val color: Int, val radius: Float,
         val rotSpeed: Float, var rot: Float = 0f
     )
@@ -200,19 +232,52 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private val hapticEngine = HapticEngine(context)
 
     // -----------------------------------------------------------------------
+    // Typeface — Fredoka One; falls back to system bold if unavailable
+    // -----------------------------------------------------------------------
+    private val boldTypeface: Typeface =
+        try { ResourcesCompat.getFont(context, R.font.fredoka_one) ?: Typeface.DEFAULT_BOLD }
+        catch (e: Exception) { Typeface.DEFAULT_BOLD }
+
+    // -----------------------------------------------------------------------
     // Paints (allocated once)
     // -----------------------------------------------------------------------
     private val fillPaint         = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val strokePaint       = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val outlinePaint      = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
-    private val textPaint         = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; typeface = Typeface.DEFAULT_BOLD }
-    private val textOutlinePaint  = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeJoin = Paint.Join.ROUND }
+    private val textPaint         = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; typeface = boldTypeface }
+    private val textOutlinePaint  = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeJoin = Paint.Join.ROUND; typeface = boldTypeface }
     private val chainOutlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
     private val chainLinePaint    = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
     private val hintRingPaint     = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val dimPaint          = Paint().apply { color = Color.argb(160, 0, 0, 0) }
     private val shadowPaint       = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val flashPaint        = Paint().apply { style = Paint.Style.FILL }
+
+    // -----------------------------------------------------------------------
+    // Scratch objects — allocated once, reused every frame via rewind()/set().
+    // NEVER allocate Path/RectF inside the render loop; use these instead.
+    // -----------------------------------------------------------------------
+    // scratchPath  : transient paths (chain line, sheen clip, dino tail/spines,
+    //                golden spark, anything used-then-discarded within one draw call)
+    // scratchPath2 : clip paths that must survive while addSheen() runs inside them
+    //                (donut glaze clip, star body clip, dino body clip)
+    // scratchRectF : any transient RectF used for drawOval/drawRoundRect arguments
+    private val scratchPath  = Path()
+    private val scratchPath2 = Path()
+    private val scratchRectF = RectF()
+
+    // -----------------------------------------------------------------------
+    // Precomputed trigonometry — computed once at class init, never recalculated.
+    // -----------------------------------------------------------------------
+    // 10 vertices of a 5-point star at angles -90°, -54°, -18°, …
+    private val starCos = FloatArray(10) { cos(Math.toRadians(-90.0 + it * 36.0)).toFloat() }
+    private val starSin = FloatArray(10) { sin(Math.toRadians(-90.0 + it * 36.0)).toFloat() }
+    // 5 sprinkle dots at 72° intervals starting at 18°
+    private val sprinkleCos = FloatArray(5) { cos(Math.toRadians(it * 72.0 + 18.0)).toFloat() }
+    private val sprinkleSin = FloatArray(5) { sin(Math.toRadians(it * 72.0 + 18.0)).toFloat() }
+    // 8 vertices of the ✦ spark drawn on golden cells (45° intervals, -90° start)
+    private val sparkCos = FloatArray(8) { cos(Math.toRadians(it * 45.0 - 90.0)).toFloat() }
+    private val sparkSin = FloatArray(8) { sin(Math.toRadians(it * 45.0 - 90.0)).toFloat() }
 
     // -----------------------------------------------------------------------
     // Lifecycle
@@ -245,14 +310,15 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         // Buttons sit just above the board with a comfortable gap
         val btnH = 100f
         val btnY = boardTop - btnH - 26f
-        resetBtnRect    = RectF(boardLeft, btnY, boardLeft + 230f, btnY + btnH)
         val sbEnd = boardLeft + board.cols * cellSize
-        // Settings ⚙ (100px) + haptic ≋ (100px) + sound ♪ (100px) — 10px gaps
-        settingsBtnRect = RectF(sbEnd - 100f, btnY, sbEnd,          btnY + btnH)
-        hapticBtnRect   = RectF(sbEnd - 210f, btnY, sbEnd - 110f,   btnY + btnH)
-        soundBtnRect    = RectF(sbEnd - 320f, btnY, sbEnd - 220f,   btnY + btnH)
-        // Stickers ★ — centred on the full screen width (matches title alignment)
-        stickersBtnRect = RectF(w / 2f - 60f, btnY, w / 2f + 60f, btnY + btnH)
+        // Left: RESET alone
+        resetBtnRect    = RectF(boardLeft, btnY, boardLeft + 230f, btnY + btnH)
+        // Centre: stickers 🏅 — anchored to screen midpoint
+        stickersBtnRect = RectF(w / 2f - 65f, btnY, w / 2f + 65f, btnY + btnH)
+        // Right cluster: ♪ · ≋ · ⚙ — 10px gaps
+        settingsBtnRect = RectF(sbEnd - 100f, btnY, sbEnd,        btnY + btnH)
+        hapticBtnRect   = RectF(sbEnd - 210f, btnY, sbEnd - 110f, btnY + btnH)
+        soundBtnRect    = RectF(sbEnd - 320f, btnY, sbEnd - 220f, btnY + btnH)
 
         // Settings panel — width fits screen with margin; height computed from content
         val sc     = 1.5f
@@ -342,7 +408,12 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             val sy = stRow1Y + row * (stickerBtnSide + spPad)
             stickerRects[i] = RectF(sx, sy, sx + stickerBtnSide, sy + stickerBtnSide)
         }
-        stickersCloseRect = RectF(spL + spPad, stickerPanelRect.bottom - spCloseH - spPad, spL + spW - spPad, stickerPanelRect.bottom - spPad)
+        // Bottom bar: "Done ✓" (wide, green) left · "Reset" (narrow, red) right
+        val spResetW  = 130f
+        val spDoneW   = spW - spPad * 3f - spResetW
+        val closeRowY = stickerPanelRect.bottom - spCloseH - spPad
+        stickersCloseRect = RectF(spL + spPad,                  closeRowY, spL + spPad + spDoneW, stickerPanelRect.bottom - spPad)
+        stickersResetRect = RectF(spL + spW - spPad - spResetW, closeRowY, spL + spW - spPad,     stickerPanelRect.bottom - spPad)
     }
 
     private fun saveSession() {
@@ -362,6 +433,10 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         animPhase = AnimPhase.IDLE
         popCells.clear(); dropCells.clear()
         dragChain.clear(); selRow = -1; selCol = -1
+        pendingResult  = null
+        cascadeCount   = 0
+        isCascade      = false
+        cascadeLabelMs = -1L
         hintCells = emptyList()
         displayedCount = 0
         lastActionMs = SystemClock.elapsedRealtime()
@@ -393,6 +468,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         if (celebrateMs >= 0) drawCelebration(canvas, now)
         if (settingsAnim > 0f) drawSettings(canvas, now)
         if (stickersAnim > 0f) drawStickersPanel(canvas, now)
+        drawChainFlash(canvas, now)
         drawResetFlash(canvas, now)
         if (tutorialActive) drawTutorial(canvas, now)
     }
@@ -416,53 +492,109 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private fun advanceAnimation(now: Long) {
         when (animPhase) {
             AnimPhase.POPPING -> if (now - animStartMs >= POP_MS) {
-                // Snapshot full board BEFORE mutating.
-                val preTypes = Array(board.rows) { r ->
-                    Array(board.cols) { c -> board.grid[r][c].type }
+                // Snapshot golden flags BEFORE mutating the board.
+                val preGolden = Array(board.rows) { r -> Array(board.cols) { c -> board.grid[r][c].isGolden } }
+
+                // Capture the exact set of cells being removed BEFORE any board mutation.
+                // For cascades, popCells was populated from findMatches() at DROPPING end.
+                // For player clears, pendingResult holds chainCells + bonusCells.
+                // Using exact cleared positions (rather than type-matching survivors) is
+                // necessary to correctly handle columns with multiple cells of the same type.
+                val clearedSet: Set<Pair<Int, Int>> = if (isCascade) {
+                    popCells.map { Pair(it.row, it.col) }.toSet()
+                } else {
+                    val res = pendingResult
+                    if (res != null) (res.chainCells + res.bonusCells).toSet() else emptySet()
                 }
-                board.clearChain(pendingChain)
-                board.resolveAll()
-                // Build one dropCells list where every cell has:
-                //   row     = destination (post-gravity)
-                //   fromRow = where it starts the animation
-                // New pieces (fromRow < 0): fall in from above the board.
-                // Survivors (fromRow >= 0): slide down from their old row to their new row.
+
+                if (isCascade) {
+                    // Auto-resolve one cascade pass (findMatches → clear → gravity).
+                    board.resolveOnce()
+                } else {
+                    // Player-initiated clear — apply the pre-computed result.
+                    pendingResult?.let { board.clearChain(it) }
+                    pendingResult = null
+                }
+
+                // Build dropCells using exact cleared-position knowledge.
+                //
+                // Gravity rule: surviving cells (those NOT in clearedSet) are packed to
+                // the BOTTOM of the column in their original top-to-bottom order.
+                // New cells (spawned to fill the gap) fall in from ABOVE the board.
+                //
+                // So for a column with k cleared cells:
+                //   - Rows [0 .. k-1]   → new cells  (fromRow = row - k, i.e. above the board)
+                //   - Rows [k .. rows-1] → survivors  (fromRow = original preRow)
+                //
                 // dropColMask hides changed columns from the normal draw loop.
                 dropCells.clear(); dropColMask.clear()
                 for (c in 0 until board.cols) {
-                    // Match survivors bottom-up between pre- and post-states.
-                    var postR = board.rows - 1
-                    val survivorMap = mutableListOf<Pair<Int,Int>>() // (preRow, postRow)
-                    for (preR in board.rows - 1 downTo 0) {
-                        if (postR >= 0 && board.grid[postR][c].type == preTypes[preR][c]) {
-                            survivorMap.add(0, Pair(preR, postR))
-                            postR--
+                    val clearedRowsInCol = (0 until board.rows)
+                        .filter { r -> Pair(r, c) in clearedSet }
+                        .toSet()
+                    if (clearedRowsInCol.isEmpty()) continue
+                    dropColMask.add(c)
+                    val k = clearedRowsInCol.size  // number of new cells at top
+
+                    // New cells: each starts k rows above its destination so they all
+                    // travel the same distance and land simultaneously.
+                    for (row in 0 until k)
+                        dropCells.add(AnimCell(row, c, board.grid[row][c].type,
+                            fromRow = row - k, isGolden = board.grid[row][c].isGolden))
+
+                    // Survivors: we know exactly which preRow each one came from, so
+                    // the animation source is always correct — even with duplicate types.
+                    var survivorIdx = 0
+                    for (preR in 0 until board.rows) {
+                        if (preR !in clearedRowsInCol) {
+                            val postRow = k + survivorIdx
+                            dropCells.add(AnimCell(postRow, c, board.grid[postRow][c].type,
+                                fromRow = preR, isGolden = preGolden[preR][c]))
+                            survivorIdx++
                         }
                     }
-                    val k = postR + 1   // number of new pieces at top
-                    if (k == 0) continue
-                    dropColMask.add(c)
-                    // New pieces: start k rows above their destination so they
-                    // all travel the same distance and land simultaneously.
-                    for (row in 0 until k)
-                        dropCells.add(AnimCell(row, c, board.grid[row][c].type, fromRow = row - k))
-                    // Survivors: slide from old row down to new row.
-                    for ((preRow, postRow) in survivorMap)
-                        dropCells.add(AnimCell(postRow, c, board.grid[postRow][c].type, fromRow = preRow))
                 }
                 popCells.clear(); animPhase = AnimPhase.DROPPING; animStartMs = now
             }
             AnimPhase.DROPPING -> if (now - animStartMs >= DROP_MS) {
-                for (cell in dropCells) squishCells[cell.row to cell.col] = now
                 dropCells.clear(); dropColMask.clear()
-                animPhase = AnimPhase.IDLE
                 if (prefs.soundEnabled) soundEngine.playDropLand()
-                if (!board.hasValidMoves()) noMovesWarningMs = now
+
+                // Check for cascades: if the board now has auto-matches, animate them.
+                val cascadeMatches = board.findMatches()
+                if (cascadeMatches.isNotEmpty()) {
+                    cascadeCount++
+                    isCascade = true
+                    popCells.clear()
+                    popCells.addAll(cascadeMatches.map { (r, c) ->
+                        AnimCell(r, c, board.grid[r][c].type, isGolden = board.grid[r][c].isGolden)
+                    })
+                    animPhase = AnimPhase.POPPING; animStartMs = now
+                    // Floating cascade-combo label
+                    val cx = cascadeMatches.map { (_, c) -> boardLeft + c * cellSize + cellSize / 2f }.average().toFloat()
+                    val cy = cascadeMatches.map { (r, _) -> boardTop  + r * cellSize + cellSize / 2f }.average().toFloat()
+                    val comboLabel = "COMBO ×${cascadeCount + 1}"
+                    synchronized(floatLabels) {
+                        floatLabels.add(FloatLabel(comboLabel, cx, cy, Color.rgb(255, 220, 40), now))
+                    }
+                    cascadeLabelMs = now
+                    if (prefs.soundEnabled)  soundEngine.playPopClear()
+                    if (prefs.hapticEnabled) hapticEngine.pop()
+                } else {
+                    cascadeCount   = 0
+                    isCascade      = false
+                    animPhase      = AnimPhase.IDLE
+                    if (!board.hasValidMoves()) noMovesWarningMs = now
+                }
             }
             AnimPhase.IDLE -> {
+                // Clear expired shuffle animation
+                if (shuffleAnimMs >= 0 && now - shuffleAnimMs > SHUFFLE_ANIM_MS + SHUFFLE_MAX_DELAY)
+                    shuffleAnimMs = -1L
                 // Auto-shuffle after warning delay
                 if (noMovesWarningMs >= 0 && now - noMovesWarningMs >= NO_MOVES_DELAY_MS) {
                     board.shuffle()
+                    shuffleAnimMs    = now
                     noMovesWarningMs = -1L
                     lastActionMs = now
                     hintCells = emptyList()
@@ -523,6 +655,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 }
             }
             prevDisplayCount = displayedCount
+            counterPulseMs = now
             // Check milestones
             for (m in MILESTONES) {
                 if (m > lastMilestone && displayedCount >= m) {
@@ -538,15 +671,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             displayedCount = 0; prevDisplayCount = -1
             lastMilestone  = 0; digitFlips.clear()
         }
-        // Advance particles
-        if (particles.isNotEmpty()) {
-            val dt = 1f / 60f
-            val iter = particles.iterator()
-            while (iter.hasNext()) {
-                val p = iter.next()
-                // gravity + update — we don't mutate Particle fields (val), so rebuild into new list below
-            }
-        }
+        // Particle physics is driven by drawCelebration() each frame; nothing to do here.
     }
 
     private fun spawnParticles() {
@@ -586,16 +711,28 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     }
 
     // -----------------------------------------------------------------------
+    // Big-chain color flash (chain ≥ 6)
+    // -----------------------------------------------------------------------
+    private fun drawChainFlash(canvas: Canvas, now: Long) {
+        if (chainFlashMs < 0) return
+        val t = ((now - chainFlashMs).toFloat() / CHAIN_FLASH_MS).coerceIn(0f, 1f)
+        if (t >= 1f) { chainFlashMs = -1L; return }
+        val alpha = ((1f - t) * (1f - t) * 85).toInt().coerceIn(0, 85)
+        flashPaint.color = (chainFlashColor and 0x00FFFFFF) or (alpha shl 24)
+        canvas.drawRect(0f, 0f, surfaceW.toFloat(), surfaceH.toFloat(), flashPaint)
+    }
+
+    // -----------------------------------------------------------------------
     // HUD
     // -----------------------------------------------------------------------
     private fun drawHUD(canvas: Canvas, now: Long) {
         val titleX = surfaceW / 2f
 
         // "for Steven" baseline sits just above the buttons; "Donuts" above that
-        val sz2    = 22f
+        val sz2    = 26f
         val line2Y = resetBtnRect.top - 14f
         val sz1    = 36f
-        val line1Y = line2Y - sz2 - 8f
+        val line1Y = line2Y - sz2 - 10f
 
         textPaint.textAlign = Paint.Align.CENTER
 
@@ -623,11 +760,13 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val soundColor  = if (prefs.soundEnabled)  theme.btnSelected else theme.btnUnselected
         val hapticColor = if (prefs.hapticEnabled) theme.btnSelected else theme.btnUnselected
 
-        drawPrettyButton(canvas, resetBtnRect,    theme.resetBtn,    "RESET",     28f, resetScale)
-        drawPrettyButton(canvas, stickersBtnRect, theme.settingsBtn, "\u2605",    30f, stickerScale)
-        drawPrettyButton(canvas, soundBtnRect,    soundColor,        "\u266A",    34f, soundScale)
-        drawPrettyButton(canvas, hapticBtnRect,   hapticColor,       "\u2248",    34f, hapticScale)
-        drawPrettyButton(canvas, settingsBtnRect, theme.settingsBtn, "\u2699",    38f, settingsScale)
+        val soundLabel  = if (prefs.soundEnabled)  "\uD83D\uDD0A" else "\uD83D\uDD07"  // 🔊 / 🔇
+        val hapticLabel = if (prefs.hapticEnabled) "\uD83D\uDCF3" else "\uD83D\uDCF1"  // 📳 / 📱
+        drawPrettyButton(canvas, resetBtnRect,    theme.resetBtn,    "RESET",      36f, resetScale)
+        drawPrettyButton(canvas, stickersBtnRect, theme.settingsBtn, "\uD83C\uDFC5", 36f, stickerScale)  // 🏅
+        drawPrettyButton(canvas, soundBtnRect,    soundColor,        soundLabel,   38f, soundScale)
+        drawPrettyButton(canvas, hapticBtnRect,   hapticColor,       hapticLabel,  38f, hapticScale)
+        drawPrettyButton(canvas, settingsBtnRect, theme.settingsBtn, "\u2699",     38f, settingsScale)
     }
 
     /** Returns a scale factor that dips to 0.93 at tap then recovers to 1.0 over PRESS_MS. */
@@ -669,13 +808,15 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         strokePaint.strokeWidth = 2f; strokePaint.alpha = 255
         canvas.drawRoundRect(rect, rx, rx, strokePaint)
         // Label shadow
-        textPaint.color     = Color.argb(80, 0, 0, 0)
-        textPaint.textSize  = labelSize
-        textPaint.textAlign = Paint.Align.CENTER
+        textPaint.color         = Color.argb(80, 0, 0, 0)
+        textPaint.textSize      = labelSize
+        textPaint.textAlign     = Paint.Align.CENTER
+        textPaint.letterSpacing = 0.06f
         canvas.drawText(label, rect.centerX() + 2f, rect.centerY() + labelSize * 0.36f + 2f, textPaint)
         // Label
         textPaint.color = Color.WHITE
         canvas.drawText(label, rect.centerX(), rect.centerY() + labelSize * 0.36f, textPaint)
+        textPaint.letterSpacing = 0f
 
         canvas.restore()
     }
@@ -729,30 +870,41 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
     private fun drawChainLine(canvas: Canvas) {
         if (dragChain.size < 2) return
-        val path = Path()
+        // Reuse scratchPath2 — drawChainLine runs before drawCells, so there is no conflict.
+        scratchPath2.rewind()
         dragChain.forEachIndexed { i, (r, c) ->
             val cx = boardLeft + c * cellSize + cellSize / 2f
             val cy = boardTop  + r * cellSize + cellSize / 2f
-            if (i == 0) path.moveTo(cx, cy) else path.lineTo(cx, cy)
+            if (i == 0) scratchPath2.moveTo(cx, cy) else scratchPath2.lineTo(cx, cy)
         }
+        val path = scratchPath2
         // Color-match chain to the piece type
         val chainColor = dragChainType?.glazeColor ?: Color.WHITE
         val cr = Color.red(chainColor); val cg = Color.green(chainColor); val cb = Color.blue(chainColor)
 
-        // Wide color glow
-        chainOutlinePaint.strokeWidth = cellSize * 0.72f
-        chainOutlinePaint.color = Color.argb(55, cr, cg, cb)
+        // Scale glow intensity with chain length: 0 at 1 cell, 1 at 8+ cells
+        val boost = ((dragChain.size - 1f) / 7f).coerceIn(0f, 1f)
+
+        // Outer super-glow — only visible on big chains (5+)
+        if (boost > 0.5f) {
+            chainOutlinePaint.strokeWidth = cellSize * 1.4f
+            chainOutlinePaint.color = Color.argb(((boost - 0.5f) * 80).toInt(), cr, cg, cb)
+            canvas.drawPath(path, chainOutlinePaint)
+        }
+        // Wide color glow — grows with chain length
+        chainOutlinePaint.strokeWidth = cellSize * (0.72f + boost * 0.28f)
+        chainOutlinePaint.color = Color.argb((55 + (boost * 85).toInt()), cr, cg, cb)
         canvas.drawPath(path, chainOutlinePaint)
         // Mid color layer
-        chainOutlinePaint.strokeWidth = cellSize * 0.50f
-        chainOutlinePaint.color = Color.argb(120, cr, cg, cb)
+        chainOutlinePaint.strokeWidth = cellSize * (0.50f + boost * 0.10f)
+        chainOutlinePaint.color = Color.argb((120 + (boost * 60).toInt()), cr, cg, cb)
         canvas.drawPath(path, chainOutlinePaint)
         // Dark cartoon border
-        chainOutlinePaint.strokeWidth = cellSize * 0.38f
+        chainOutlinePaint.strokeWidth = cellSize * (0.38f + boost * 0.06f)
         chainOutlinePaint.color = Color.argb(200, 28, 12, 0)
         canvas.drawPath(path, chainOutlinePaint)
-        // Colored core
-        chainLinePaint.strokeWidth = cellSize * 0.24f
+        // Colored core — widens with chain
+        chainLinePaint.strokeWidth = cellSize * (0.24f + boost * 0.06f)
         chainLinePaint.color = Color.argb(255, cr, cg, cb)
         canvas.drawPath(path, chainLinePaint)
         // White highlight thread
@@ -794,11 +946,30 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
                 // Idle breathing: each cell breathes at a slightly different phase
                 // Period 1400–2200ms, amplitude ±5%. Feels alive.
-                val breatheScale = if (animPhase == AnimPhase.IDLE && !inChain) {
+                // Suppressed during shuffle so the pop animation reads cleanly.
+                val breatheScale = if (animPhase == AnimPhase.IDLE && !inChain && shuffleAnimMs < 0) {
                     val phase  = (r * board.cols + c) * 0.61f   // golden-ratio-ish spread
                     val period = 1400f + (r * board.cols + c) % 5 * 160f
                     val t      = ((now / period + phase) * 2f * PI.toFloat())
                     1f + sin(t) * 0.05f
+                } else 1f
+
+                // Shuffle pop: each cell shrinks to 0 then bounces back up with a stagger
+                val shuffleScale = if (shuffleAnimMs >= 0) {
+                    val cellDelay = ((r * 5 + c * 3 + r * c) % 16).toLong() * 19L
+                    val elapsed   = now - shuffleAnimMs - cellDelay
+                    when {
+                        elapsed <= 0L              -> 1f
+                        elapsed >= SHUFFLE_ANIM_MS -> 1f
+                        else -> {
+                            val t = elapsed.toFloat() / SHUFFLE_ANIM_MS
+                            when {
+                                t < 0.35f -> 1f - (t / 0.35f)                          // shrink to 0
+                                t < 0.62f -> (t - 0.35f) / 0.27f * 1.38f              // pop up big
+                                else      -> 1.38f - ((t - 0.62f) / 0.38f) * 0.38f    // settle to 1.0
+                            }
+                        }
+                    }
                 } else 1f
 
                 // Ping scale-pop when cell joins chain
@@ -809,44 +980,40 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                     else 1.28f - ((t - 0.35f) / 0.65f) * 0.28f
                 } ?: 1f
 
-                val finalScale = if (inChain) breatheScale * pingScale else breatheScale
+                val finalScale = (if (inChain) breatheScale * pingScale else breatheScale) * shuffleScale
+                val pieceR = cellSize * 0.43f * finalScale
 
-                // Squish on land — damped cosine oscillation
-                val squishMs = squishCells[r to c]
-                var sqX = 1f; var sqY = 1f
-                if (squishMs != null) {
-                    val t = ((now - squishMs).toFloat() / SQUISH_MS).coerceIn(0f, 1f)
-                    if (t >= 1f) {
-                        squishCells.remove(r to c)
-                    } else {
-                        val factor = (1f - t) * (1f - t) * cos(t * PI.toFloat() * 3.5f) * 0.32f
-                        sqX = 1f + factor; sqY = 1f - factor
-                    }
-                }
-                if (sqX != 1f) {
-                    canvas.save()
-                    canvas.scale(sqX, sqY, cx, cy)
-                    drawPiece(canvas, cx, cy, cellSize * 0.43f * finalScale, board.grid[r][c].type, inChain)
-                    canvas.restore()
-                } else {
-                    drawPiece(canvas, cx, cy, cellSize * 0.43f * finalScale, board.grid[r][c].type, inChain)
+                drawPiece(canvas, cx, cy, pieceR, board.grid[r][c].type, inChain)
+
+                // Golden shimmer overlay — rotating gold ring + warm tint
+                if (board.grid[r][c].isGolden) {
+                    drawGoldenOverlay(canvas, cx, cy, pieceR, now)
                 }
 
-                // Expanding ring on ping
+                // Expanding ring on ping — colored to match the donut
                 pingMs?.let { pm ->
                     val t = ((now - pm).toFloat() / PING_MS).coerceIn(0f, 1f)
-                    val ringAlpha = ((1f - t) * (1f - t) * 200).toInt().coerceIn(0, 255)
-                    strokePaint.color       = Color.argb(ringAlpha, 255, 255, 255)
-                    strokePaint.strokeWidth = cellSize * 0.06f
-                    canvas.drawCircle(cx, cy, cellSize * (0.43f + t * 0.38f), strokePaint)
+                    val ringAlpha = ((1f - t) * (1f - t) * 220).toInt().coerceIn(0, 255)
+                    val pieceColor = board.grid[r][c].type.glazeColor
+                    strokePaint.color       = Color.argb(ringAlpha,
+                        Color.red(pieceColor), Color.green(pieceColor), Color.blue(pieceColor))
+                    strokePaint.strokeWidth = cellSize * 0.07f
+                    canvas.drawCircle(cx, cy, cellSize * (0.43f + t * 0.40f), strokePaint)
                     strokePaint.alpha = 255
                 }
 
                 if (hintCells.isNotEmpty() && Pair(r, c) in hintCells) {
+                    // Hint ring pulses in both alpha AND scale for a bouncier feel
+                    val hintT = ((now - hintPulseMs) % 900L) / 900f
+                    val hintPulse = if (hintT < 0.5f) hintT * 2f else (1f - hintT) * 2f
+                    val hintRingScale = 1f + hintPulse * 0.06f
                     hintRingPaint.color       = theme.hintRing
                     hintRingPaint.alpha       = hintAlpha
                     hintRingPaint.strokeWidth = cellSize * 0.12f
+                    canvas.save()
+                    canvas.scale(hintRingScale, hintRingScale, cx, cy)
                     canvas.drawCircle(cx, cy, cellSize * 0.47f * breatheScale, hintRingPaint)
+                    canvas.restore()
                 }
             }
         }
@@ -888,16 +1055,22 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 drawPiece(canvas, cx, cy, cellSize * 0.43f, cell.type, false, alpha)
                 canvas.restore()
             }
-            // Expanding burst ring
+            // Expanding burst ring — gold for bonus cells (power-up), white for chain cells
             val burstT     = (t / 0.6f).coerceIn(0f, 1f)
             val burstAlpha = ((1f - burstT) * 200).toInt().coerceIn(0, 255)
+            val chainSet   = pendingResult?.chainCells?.toSet() ?: emptySet()
             strokePaint.strokeWidth = cellSize * 0.07f
             strokePaint.alpha       = burstAlpha
             for (cell in popCells) {
                 val cx = boardLeft + cell.col * cellSize + cellSize / 2f
                 val cy = boardTop  + cell.row * cellSize + cellSize / 2f
-                strokePaint.color = Color.argb(burstAlpha, 255, 255, 255)
-                canvas.drawCircle(cx, cy, cellSize * (0.44f + burstT * 0.52f), strokePaint)
+                val isBonus = !isCascade && Pair(cell.row, cell.col) !in chainSet
+                strokePaint.color = if (isBonus)
+                    Color.argb(burstAlpha, 255, 210, 0)   // gold ring for power-up bonus
+                else
+                    Color.argb(burstAlpha, 255, 255, 255) // white ring for normal
+                val ringScale = if (isBonus) 0.52f + burstT * 0.72f else 0.44f + burstT * 0.52f
+                canvas.drawCircle(cx, cy, cellSize * ringScale, strokePaint)
             }
             strokePaint.alpha = 255
         }
@@ -910,11 +1083,58 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 val startY = boardTop  + cell.fromRow * cellSize + cellSize / 2f
                 val endY   = boardTop  + cell.row     * cellSize + cellSize / 2f
                 val cy     = startY + (endY - startY) * eased
-                // New pieces (fromRow < 0) fade in; survivors are always fully opaque
-                val alpha  = if (cell.fromRow < 0) (eased * 255).toInt().coerceIn(0, 255) else 255
-                drawPiece(canvas, cx, cy, cellSize * 0.43f, cell.type, false, alpha)
+                drawPiece(canvas, cx, cy, cellSize * 0.43f, cell.type, false)
+                if (cell.isGolden) drawGoldenOverlay(canvas, cx, cy, cellSize * 0.43f, now)
             }
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Golden shimmer overlay
+    // -----------------------------------------------------------------------
+    /**
+     * Draws a rotating gold ring and a warm tint over any piece to mark it as golden.
+     * Rendered AFTER the base piece so it sits on top without clipping complexity.
+     */
+    private fun drawGoldenOverlay(canvas: Canvas, cx: Float, cy: Float, r: Float, now: Long) {
+        // Slow spin: one full rotation every 2400 ms
+        val spinAngle = (now % 2400L) / 2400f * 360f
+
+        // Outer dashed-looking gold ring (drawn as a stroked arc sweep — full circle)
+        strokePaint.color       = Color.argb(200, 255, 210, 30)
+        strokePaint.strokeWidth = r * 0.13f
+        strokePaint.alpha       = 200
+        canvas.save()
+        canvas.rotate(spinAngle, cx, cy)
+        // Draw 4 arcs spaced 90° apart to fake a dashed ring
+        for (i in 0 until 4) {
+            canvas.drawArc(
+                RectF(cx - r * 1.10f, cy - r * 1.10f, cx + r * 1.10f, cy + r * 1.10f),
+                i * 90f, 60f, false, strokePaint
+            )
+        }
+        canvas.restore()
+        strokePaint.alpha = 255
+
+        // Inner warm gold tint — very subtle fill overlay
+        fillPaint.color = Color.argb(55, 255, 200, 0)
+        canvas.drawCircle(cx, cy, r * 0.90f, fillPaint)
+
+        // Small ✦ star spark at top-left — reuse scratchPath + precomputed sparkCos/sparkSin.
+        val sparkR  = r * 0.22f
+        val sparkCx = cx - r * 0.52f
+        val sparkCy = cy - r * 0.52f
+        fillPaint.color = Color.argb(220, 255, 240, 80)
+        scratchPath.rewind()
+        for (i in 0 until 8) {
+            val sr = if (i % 2 == 0) sparkR else sparkR * 0.38f
+            val sx = sparkCx + sr * sparkCos[i]
+            val sy = sparkCy + sr * sparkSin[i]
+            if (i == 0) scratchPath.moveTo(sx, sy) else scratchPath.lineTo(sx, sy)
+        }
+        scratchPath.close()
+        canvas.drawPath(scratchPath, fillPaint)
+        fillPaint.alpha = 255
     }
 
     // -----------------------------------------------------------------------
@@ -942,14 +1162,15 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
      */
     private fun addSheen(canvas: Canvas, cx: Float, cy: Float, r: Float, alpha: Int,
                          sheenAlpha: Float = 0.32f, specAlpha: Float = 0.75f) {
-        // Soft top-left crescent via clipPath
-        val hlPath = Path()
-        hlPath.addOval(
-            RectF(cx - r * 0.88f, cy - r * 1.05f, cx + r * 0.52f, cy + r * 0.05f),
+        // Soft top-left crescent via clipPath — reuse scratchPath (callers use scratchPath2
+        // for their own outer clip, so there is no aliasing conflict here).
+        scratchPath.rewind()
+        scratchPath.addOval(
+            scratchRectF.apply { set(cx - r * 0.88f, cy - r * 1.05f, cx + r * 0.52f, cy + r * 0.05f) },
             Path.Direction.CW
         )
         canvas.save()
-        canvas.clipPath(hlPath)
+        canvas.clipPath(scratchPath)
         fillPaint.color = Color.argb((alpha * sheenAlpha).toInt(), 255, 255, 255)
         canvas.drawRect(cx - r * 2f, cy - r * 2f, cx + r * 2f, cy + r * 2f, fillPaint)
         canvas.restore()
@@ -983,10 +1204,11 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         // Glaze
         fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
         canvas.drawCircle(cx, cy, radius * 0.82f, fillPaint)
-        // 3D sheen clipped to glaze circle so it doesn't bleed into the body ring
-        val glazePath = Path().apply { addCircle(cx, cy, radius * 0.82f, Path.Direction.CW) }
+        // 3D sheen clipped to glaze circle — reuse scratchPath2 (addSheen uses scratchPath).
+        scratchPath2.rewind()
+        scratchPath2.addCircle(cx, cy, radius * 0.82f, Path.Direction.CW)
         canvas.save()
-        canvas.clipPath(glazePath)
+        canvas.clipPath(scratchPath2)
         addSheen(canvas, cx, cy, radius * 0.82f, alpha)
         canvas.restore()
         // Sprinkles
@@ -1017,10 +1239,9 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         fillPaint.alpha = alpha
         val dotR = glazeR * 0.10f; val dist = glazeR * 0.48f
         for (i in 0 until 5) {
-            val angle = Math.toRadians(i * 72.0 + 18.0)
             canvas.drawCircle(
-                cx + dist * cos(angle).toFloat(),
-                cy + dist * sin(angle).toFloat(),
+                cx + dist * sprinkleCos[i],
+                cy + dist * sprinkleSin[i],
                 dotR, fillPaint
             )
         }
@@ -1039,43 +1260,51 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             fillPaint.color = Color.argb(alpha, 255, 255, 255)
             canvas.drawCircle(cx, cy, radius + ow + radius * 0.08f, fillPaint)
         }
-        // Dark outline (stroked around outer star path)
+        // Dark outline — scratchPath is transient here (drawn immediately, then reused below).
         outlinePaint.color       = Color.argb(alpha, 28, 12, 0)
         outlinePaint.strokeWidth = ow * 2f
-        canvas.drawPath(buildStarPath(cx, cy, radius + ow * 0.5f, (radius + ow * 0.5f) * 0.42f), outlinePaint)
+        scratchPath.rewind()
+        buildStarPathInto(scratchPath, cx, cy, radius + ow * 0.5f, (radius + ow * 0.5f) * 0.42f)
+        canvas.drawPath(scratchPath, outlinePaint)
         // Drop shadow
         fillPaint.color = Color.argb(alpha / 3, 0, 0, 0)
-        canvas.drawPath(buildStarPath(cx + radius * 0.05f, cy + radius * 0.10f, radius, radius * 0.42f), fillPaint)
-        // Body star — build path once, reuse for both fill and sheen clip
-        val bodyPath = buildStarPath(cx, cy, radius, radius * 0.42f)
+        scratchPath.rewind()
+        buildStarPathInto(scratchPath, cx + radius * 0.05f, cy + radius * 0.10f, radius, radius * 0.42f)
+        canvas.drawPath(scratchPath, fillPaint)
+        // Body star — must survive for both fill AND clipPath, so use scratchPath2.
+        scratchPath2.rewind()
+        buildStarPathInto(scratchPath2, cx, cy, radius, radius * 0.42f)
         fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
-        canvas.drawPath(bodyPath, fillPaint)
-        // 3D sheen clipped to star shape so it doesn't bleed into concave areas
+        canvas.drawPath(scratchPath2, fillPaint)
+        // 3D sheen clipped to star (addSheen uses scratchPath — no aliasing conflict).
         canvas.save()
-        canvas.clipPath(bodyPath)
+        canvas.clipPath(scratchPath2)
         addSheen(canvas, cx, cy, radius, alpha, sheenAlpha = 0.28f)
         canvas.restore()
-        // Inner accent star
+        // Inner accent star — scratchPath is free again after the sheen block.
+        scratchPath.rewind()
+        buildStarPathInto(scratchPath, cx, cy, radius * 0.58f, radius * 0.24f)
         fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
-        canvas.drawPath(buildStarPath(cx, cy, radius * 0.58f, radius * 0.24f), fillPaint)
-        // Inner star rim light (brighter edge)
+        canvas.drawPath(scratchPath, fillPaint)
+        // Inner star rim light
         outlinePaint.color       = Color.argb((alpha * 0.4f).toInt(), 255, 255, 255)
         outlinePaint.strokeWidth = radius * 0.04f
-        canvas.drawPath(buildStarPath(cx, cy, radius * 0.58f, radius * 0.24f), outlinePaint)
+        canvas.drawPath(scratchPath, outlinePaint)   // reuse same accent path
         fillPaint.alpha = 255
     }
 
-    private fun buildStarPath(cx: Float, cy: Float, outerR: Float, innerR: Float): Path {
-        val path = Path()
+    /**
+     * Fills [path] (which must already be rewound) with a 5-point star centred at (cx, cy).
+     * Uses precomputed [starCos]/[starSin] arrays — no trigonometry at call time.
+     */
+    private fun buildStarPathInto(path: Path, cx: Float, cy: Float, outerR: Float, innerR: Float) {
         for (i in 0 until 10) {
-            val angle = Math.toRadians(-90.0 + i * 36.0)
             val r = if (i % 2 == 0) outerR else innerR
-            val x = cx + (r * cos(angle)).toFloat()
-            val y = cy + (r * sin(angle)).toFloat()
+            val x = cx + r * starCos[i]
+            val y = cy + r * starSin[i]
             if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
         }
         path.close()
-        return path
     }
 
     // -----------------------------------------------------------------------
@@ -1097,78 +1326,78 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         outlinePaint.color       = Color.argb(alpha, 28, 12, 0)
         outlinePaint.strokeWidth = ow * 2f
 
-        // Drop shadow pass (single large offset shape)
+        // Drop shadow pass — reuse scratchRectF.
         fillPaint.color = Color.argb(alpha / 4, 0, 0, 0)
-        canvas.drawOval(RectF(cx - r*0.74f + r*0.06f, cy - r*0.28f + r*0.12f,
-                              cx + r*0.58f + r*0.06f, cy + r*0.60f + r*0.12f), fillPaint)
+        scratchRectF.set(cx - r*0.74f + r*0.06f, cy - r*0.28f + r*0.12f,
+                         cx + r*0.58f + r*0.06f, cy + r*0.60f + r*0.12f)
+        canvas.drawOval(scratchRectF, fillPaint)
 
-        // ----- Tail -----
-        val tail = Path().apply {
-            moveTo(cx - r*0.66f, cy - r*0.04f)
-            lineTo(cx - r*0.66f, cy + r*0.34f)
-            lineTo(cx - r*1.06f, cy - r*0.12f)
-            close()
-        }
-        canvas.drawPath(tail, outlinePaint)
+        // ----- Tail — scratchPath, drawn immediately -----
+        scratchPath.rewind()
+        scratchPath.moveTo(cx - r*0.66f, cy - r*0.04f)
+        scratchPath.lineTo(cx - r*0.66f, cy + r*0.34f)
+        scratchPath.lineTo(cx - r*1.06f, cy - r*0.12f)
+        scratchPath.close()
+        canvas.drawPath(scratchPath, outlinePaint)
         fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
-        canvas.drawPath(tail, fillPaint)
+        canvas.drawPath(scratchPath, fillPaint)
 
         // ----- Body -----
-        val bodyRect = RectF(cx - r*0.74f, cy - r*0.28f, cx + r*0.58f, cy + r*0.60f)
-        canvas.drawOval(bodyRect, outlinePaint)
+        scratchRectF.set(cx - r*0.74f, cy - r*0.28f, cx + r*0.58f, cy + r*0.60f)
+        canvas.drawOval(scratchRectF, outlinePaint)
         fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
-        canvas.drawOval(bodyRect, fillPaint)
+        canvas.drawOval(scratchRectF, fillPaint)
 
         // ----- Head -----
-        val headRect = RectF(cx + r*0.22f, cy - r*0.76f, cx + r*0.92f, cy - r*0.08f)
-        canvas.drawOval(headRect, outlinePaint)
+        scratchRectF.set(cx + r*0.22f, cy - r*0.76f, cx + r*0.92f, cy - r*0.08f)
+        canvas.drawOval(scratchRectF, outlinePaint)
         fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
-        canvas.drawOval(headRect, fillPaint)
+        canvas.drawOval(scratchRectF, fillPaint)
 
         // ----- Snout -----
-        val snoutRect = RectF(cx + r*0.54f, cy - r*0.44f, cx + r*1.05f, cy - r*0.06f)
-        canvas.drawOval(snoutRect, outlinePaint)
+        scratchRectF.set(cx + r*0.54f, cy - r*0.44f, cx + r*1.05f, cy - r*0.06f)
+        canvas.drawOval(scratchRectF, outlinePaint)
         fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
-        canvas.drawOval(snoutRect, fillPaint)
+        canvas.drawOval(scratchRectF, fillPaint)
 
-        // ----- Spines (glazeColor) -----
+        // ----- Spines (glazeColor) — reuse scratchPath each iteration -----
         outlinePaint.color = Color.argb(alpha, 28, 12, 0)
         fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
         for (i in 0 until 3) {
             val sx = cx - r*0.34f + i * r*0.28f
-            val spine = Path().apply {
-                moveTo(sx - r*0.09f, cy - r*0.28f)
-                lineTo(sx,           cy - r*0.64f)
-                lineTo(sx + r*0.09f, cy - r*0.28f)
-                close()
-            }
-            canvas.drawPath(spine, outlinePaint)
-            canvas.drawPath(spine, fillPaint)
+            scratchPath.rewind()
+            scratchPath.moveTo(sx - r*0.09f, cy - r*0.28f)
+            scratchPath.lineTo(sx,           cy - r*0.64f)
+            scratchPath.lineTo(sx + r*0.09f, cy - r*0.28f)
+            scratchPath.close()
+            canvas.drawPath(scratchPath, outlinePaint)
+            canvas.drawPath(scratchPath, fillPaint)
         }
 
         // ----- Arm (glazeColor) -----
-        val armRect = RectF(cx + r*0.16f, cy - r*0.02f, cx + r*0.52f, cy + r*0.20f)
-        canvas.drawOval(armRect, outlinePaint)
+        scratchRectF.set(cx + r*0.16f, cy - r*0.02f, cx + r*0.52f, cy + r*0.20f)
+        canvas.drawOval(scratchRectF, outlinePaint)
         fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
-        canvas.drawOval(armRect, fillPaint)
+        canvas.drawOval(scratchRectF, fillPaint)
 
         // ----- Legs -----
         val legRx = r * 0.10f
-        val leg1 = RectF(cx - r*0.52f, cy + r*0.52f, cx - r*0.16f, cy + r*0.90f)
-        val leg2 = RectF(cx + r*0.02f, cy + r*0.52f, cx + r*0.38f, cy + r*0.90f)
         outlinePaint.color = Color.argb(alpha, 28, 12, 0)
-        canvas.drawRoundRect(leg1, legRx, legRx, outlinePaint)
-        canvas.drawRoundRect(leg2, legRx, legRx, outlinePaint)
-        fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
-        canvas.drawRoundRect(leg1, legRx, legRx, fillPaint)
-        canvas.drawRoundRect(leg2, legRx, legRx, fillPaint)
+        scratchRectF.set(cx - r*0.52f, cy + r*0.52f, cx - r*0.16f, cy + r*0.90f)
+        canvas.drawRoundRect(scratchRectF, legRx, legRx, outlinePaint)
+        canvas.drawRoundRect(scratchRectF, legRx, legRx, fillPaint.also { it.color = type.bodyColor; it.alpha = alpha })
+        scratchRectF.set(cx + r*0.02f, cy + r*0.52f, cx + r*0.38f, cy + r*0.90f)
+        canvas.drawRoundRect(scratchRectF, legRx, legRx, outlinePaint)
+        canvas.drawRoundRect(scratchRectF, legRx, legRx, fillPaint)
 
-        // 3D sheen clipped to body oval so it doesn't bleed above it
-        val bodyOvalPath = Path().apply {
-            addOval(RectF(cx - r*0.74f, cy - r*0.28f, cx + r*0.58f, cy + r*0.60f), Path.Direction.CW)
-        }
+        // 3D sheen clipped to body oval — scratchPath2 holds the clip; addSheen uses scratchPath.
+        scratchPath2.rewind()
+        scratchPath2.addOval(
+            scratchRectF.apply { set(cx - r*0.74f, cy - r*0.28f, cx + r*0.58f, cy + r*0.60f) },
+            Path.Direction.CW
+        )
         canvas.save()
-        canvas.clipPath(bodyOvalPath)
+        canvas.clipPath(scratchPath2)
         addSheen(canvas, cx - r*0.08f, cy + r*0.16f, r * 0.72f, alpha, sheenAlpha = 0.22f, specAlpha = 0.55f)
         canvas.restore()
 
@@ -1216,21 +1445,21 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val wheelR   = r * 0.22f
         val wheelCY  = groundY + wheelR * 0.58f
 
-        // Drop shadow
+        // Drop shadow — reuse scratchRectF.
         fillPaint.color = Color.argb(alpha / 4, 0, 0, 0)
-        canvas.drawRoundRect(RectF(cargoL + r*0.06f, cargoT + r*0.10f, cabR + r*0.06f, groundY + r*0.10f),
-                             r*0.08f, r*0.08f, fillPaint)
+        scratchRectF.set(cargoL + r*0.06f, cargoT + r*0.10f, cabR + r*0.06f, groundY + r*0.10f)
+        canvas.drawRoundRect(scratchRectF, r*0.08f, r*0.08f, fillPaint)
 
         // ----- Cargo box -----
-        val cargoRect = RectF(cargoL, cargoT, cargoR, groundY)
-        canvas.drawRoundRect(cargoRect, r*0.08f, r*0.08f, outlinePaint)
+        scratchRectF.set(cargoL, cargoT, cargoR, groundY)
+        canvas.drawRoundRect(scratchRectF, r*0.08f, r*0.08f, outlinePaint)
         fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
-        canvas.drawRoundRect(cargoRect, r*0.08f, r*0.08f, fillPaint)
+        canvas.drawRoundRect(scratchRectF, r*0.08f, r*0.08f, fillPaint)
         // Cargo top-panel highlight (lighter top third)
         canvas.save()
         canvas.clipRect(cargoL, cargoT, cargoR, cargoT + (groundY - cargoT) * 0.38f)
         fillPaint.color = Color.argb((alpha * 0.28f).toInt(), 255, 255, 255)
-        canvas.drawRoundRect(cargoRect, r*0.08f, r*0.08f, fillPaint)
+        canvas.drawRoundRect(scratchRectF, r*0.08f, r*0.08f, fillPaint)
         canvas.restore()
         // Cargo stripe (glazeColor panel)
         fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
@@ -1241,30 +1470,31 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                         cargoL + (cargoR - cargoL)/2f, groundY - r*0.06f, outlinePaint)
         outlinePaint.strokeWidth = ow * 2f
 
-        // ----- Cab (glazeColor so cab and cargo are visually distinct at small sizes) -----
-        val cabRect = RectF(cabL, truckTop, cabR, groundY)
-        canvas.drawRoundRect(cabRect, r*0.12f, r*0.12f, outlinePaint)
+        // ----- Cab -----
+        // Save wind coords before we overwrite scratchRectF for cab.
+        val windL = cabL + r*0.08f; val windT = truckTop + r*0.10f
+        val windR = cabR - r*0.10f; val windB = cy   - r*0.08f
+        scratchRectF.set(cabL, truckTop, cabR, groundY)
+        canvas.drawRoundRect(scratchRectF, r*0.12f, r*0.12f, outlinePaint)
         fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
-        canvas.drawRoundRect(cabRect, r*0.12f, r*0.12f, fillPaint)
+        canvas.drawRoundRect(scratchRectF, r*0.12f, r*0.12f, fillPaint)
         // Cab top highlight
         canvas.save()
         canvas.clipRect(cabL, truckTop, cabR, truckTop + (groundY - truckTop) * 0.38f)
         fillPaint.color = Color.argb((alpha * 0.32f).toInt(), 255, 255, 255)
-        canvas.drawRoundRect(cabRect, r*0.12f, r*0.12f, fillPaint)
+        canvas.drawRoundRect(scratchRectF, r*0.12f, r*0.12f, fillPaint)
         canvas.restore()
 
         // ----- Windshield -----
-        val windRect = RectF(cabL + r*0.08f, truckTop + r*0.10f, cabR - r*0.10f, cy - r*0.08f)
-        canvas.drawRoundRect(windRect, r*0.07f, r*0.07f, outlinePaint)
+        scratchRectF.set(windL, windT, windR, windB)
+        canvas.drawRoundRect(scratchRectF, r*0.07f, r*0.07f, outlinePaint)
         fillPaint.color = Color.argb((alpha * 0.90f).toInt(), 130, 210, 255)
-        canvas.drawRoundRect(windRect, r*0.07f, r*0.07f, fillPaint)
-        // Windshield reflection
+        canvas.drawRoundRect(scratchRectF, r*0.07f, r*0.07f, fillPaint)
+        // Windshield reflection — reuse scratchRectF (wind values saved as locals above).
         fillPaint.color = Color.argb((alpha * 0.50f).toInt(), 255, 255, 255)
-        canvas.drawRoundRect(
-            RectF(windRect.left + r*0.05f, windRect.top + r*0.05f,
-                  windRect.centerX() - r*0.04f, windRect.bottom - r*0.08f),
-            r*0.04f, r*0.04f, fillPaint
-        )
+        scratchRectF.set(windL + r*0.05f, windT + r*0.05f,
+                         (windL + windR) / 2f - r*0.04f, windB - r*0.08f)
+        canvas.drawRoundRect(scratchRectF, r*0.04f, r*0.04f, fillPaint)
 
         // ----- Wheels -----
         // Tyre outline+fill
@@ -1299,9 +1529,18 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private fun drawCounter(canvas: Canvas, now: Long) {
         val stripY = boardTop + board.rows * cellSize
         val midY   = stripY + counterH / 2f
-        val cw     = board.cols * cellSize * 0.72f
+        val cw     = board.cols * cellSize * 0.88f
         val pl     = surfaceW / 2f - cw / 2f
         val pr     = surfaceW / 2f + cw / 2f
+
+        // Heartbeat — quick scale-pulse when score increments
+        val beat = if (counterPulseMs >= 0) {
+            val t = ((now - counterPulseMs).toFloat() / COUNTER_PULSE_MS).coerceIn(0f, 1f)
+            if (t >= 1f) { counterPulseMs = -1L; 1f }
+            else 1f + sin(t * PI.toFloat()) * 0.045f
+        } else 1f
+        canvas.save()
+        canvas.scale(beat, beat, surfaceW / 2f, midY)
 
         // Panel shell
         shadowPaint.color = Color.argb(50, 0, 0, 0)
@@ -1311,6 +1550,16 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         fillPaint.color = theme.panelBg; fillPaint.alpha = 255
         canvas.drawRoundRect(RectF(pl, stripY + 8f, pr, stripY + counterH - 4f), 18f, 18f, fillPaint)
 
+        // "CLEARED" — small header label at top of panel (caption before the value)
+        textPaint.textSize      = 24f
+        textPaint.textAlign     = Paint.Align.CENTER
+        textPaint.letterSpacing = 0.12f
+        textPaint.color         = Color.argb(80, 0, 0, 0)
+        canvas.drawText("CLEARED  \u2746", surfaceW / 2f + 1f, stripY + 36f + 1f, textPaint)
+        textPaint.color         = theme.textSecondary
+        canvas.drawText("CLEARED  \u2746", surfaceW / 2f, stripY + 36f, textPaint)
+        textPaint.letterSpacing = 0f
+
         // --- Digit-flip number ---
         val digitSz = 96f
         textPaint.textSize = digitSz
@@ -1318,12 +1567,12 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val numStr = displayedCount.toString()
         val totalW = numStr.length * cellW
         val startX = surfaceW / 2f - totalW / 2f + cellW / 2f
-        val baseY  = midY + 26f
+        val baseY  = stripY + 150f                         // shifted down to leave room for header label
         val pivotY = baseY - digitSz * 0.36f               // visual centre of digit
 
         textOutlinePaint.textSize    = digitSz
         textOutlinePaint.textAlign   = Paint.Align.CENTER
-        textOutlinePaint.typeface    = Typeface.DEFAULT_BOLD
+        textOutlinePaint.typeface    = boldTypeface
         textOutlinePaint.strokeWidth = 4f
 
         for ((idx, ch) in numStr.withIndex()) {
@@ -1361,16 +1610,25 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             canvas.restore()
         }
 
-        textPaint.textSize  = 21f
-        textPaint.textAlign = Paint.Align.CENTER
-        textPaint.color     = theme.textSecondary
-        canvas.drawText("cleared  \u2746", surfaceW / 2f, midY + 52f, textPaint)
+        // Subtle separator between digits and best-score footer
+        strokePaint.color       = Color.argb(30, 28, 12, 0)
+        strokePaint.strokeWidth = 1.5f
+        canvas.drawLine(pl + 28f, stripY + 174f, pr - 28f, stripY + 174f, strokePaint)
+
+        // "best" — personal record anchored to bottom of panel
         val bestScore = if (board.cols == 6) prefs.highScore6x6 else prefs.highScore8x8
         if (bestScore > 0) {
-            textPaint.textSize = 18f
-            textPaint.color    = theme.textSecondary
-            canvas.drawText("best: $bestScore", surfaceW / 2f, midY + 72f, textPaint)
+            textPaint.textSize      = 26f
+            textPaint.textAlign     = Paint.Align.CENTER
+            textPaint.letterSpacing = 0.06f
+            textPaint.color         = Color.argb(80, 0, 0, 0)
+            canvas.drawText("best  \u00B7  $bestScore", surfaceW / 2f + 1f, stripY + 196f + 1f, textPaint)
+            textPaint.color         = theme.textSecondary
+            canvas.drawText("best  \u00B7  $bestScore", surfaceW / 2f, stripY + 196f, textPaint)
+            textPaint.letterSpacing = 0f
         }
+
+        canvas.restore()  // end heartbeat scale
     }
 
     // -----------------------------------------------------------------------
@@ -1395,15 +1653,19 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 textPaint.textAlign = Paint.Align.CENTER
                 canvas.drawText(fl.text, 3f, 3f + sz * 0.36f, textPaint)
                 // Outline
-                textOutlinePaint.color       = Color.argb((alpha * 0.8f).toInt(), 28, 12, 0)
-                textOutlinePaint.textSize    = sz
-                textOutlinePaint.textAlign   = Paint.Align.CENTER
-                textOutlinePaint.strokeWidth = 7f
-                textOutlinePaint.typeface    = Typeface.DEFAULT_BOLD
+                textOutlinePaint.color         = Color.argb((alpha * 0.8f).toInt(), 28, 12, 0)
+                textOutlinePaint.textSize      = sz
+                textOutlinePaint.textAlign     = Paint.Align.CENTER
+                textOutlinePaint.strokeWidth   = 7f
+                textOutlinePaint.typeface      = boldTypeface
+                textOutlinePaint.letterSpacing = 0.08f
                 canvas.drawText(fl.text, 0f, sz * 0.36f, textOutlinePaint)
                 // Fill
-                textPaint.color = Color.argb(alpha, Color.red(fl.color), Color.green(fl.color), Color.blue(fl.color))
+                textPaint.color         = Color.argb(alpha, Color.red(fl.color), Color.green(fl.color), Color.blue(fl.color))
+                textPaint.letterSpacing = 0.08f
                 canvas.drawText(fl.text, 0f, sz * 0.36f, textPaint)
+                textPaint.letterSpacing         = 0f
+                textOutlinePaint.letterSpacing  = 0f
                 canvas.restore()
             }
         }
@@ -1435,7 +1697,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         // Dark outline
         textOutlinePaint.textSize    = sz
         textOutlinePaint.textAlign   = Paint.Align.CENTER
-        textOutlinePaint.typeface    = Typeface.DEFAULT_BOLD
+        textOutlinePaint.typeface    = boldTypeface
         textOutlinePaint.strokeWidth = sz * 0.12f
         textOutlinePaint.color       = Color.argb(alpha, 28, 12, 0)
         canvas.drawText("$centerPingCount", baseCx, floatY, textOutlinePaint)
@@ -1454,31 +1716,28 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
         val t = elapsed / CELEBRATE_MS
 
-        // Draw + update particles
-        val dt = 1f / 60f
+        // Draw + update particles in-place — no new allocations per frame.
+        val dt      = 1f / 60f
         val gravity = cellSize * 0.28f
-        val updatedParticles = mutableListOf<Particle>()
-        for (p in particles) {
-            val newVy = p.vy + gravity * dt
-            val newX  = p.x  + p.vx * dt * 60f
-            val newY  = p.y  + newVy * dt * 60f
-            val newRot = p.rot + p.rotSpeed
-            val alpha = ((1f - (elapsed / CELEBRATE_MS)) * 255).toInt().coerceIn(0, 255)
-            if (newY < surfaceH + cellSize) {
-                updatedParticles.add(p.copy(x = newX, y = newY, vy = newVy, rot = newRot))
-                // Draw as a small rounded square rotated
-                canvas.save()
-                canvas.translate(newX, newY)
-                canvas.rotate(newRot)
-                fillPaint.color = (p.color and 0x00FFFFFF) or (alpha shl 24)
-                canvas.drawRoundRect(
-                    RectF(-p.radius, -p.radius * 0.6f, p.radius, p.radius * 0.6f),
-                    p.radius * 0.3f, p.radius * 0.3f, fillPaint
-                )
-                canvas.restore()
-            }
+        val alpha   = ((1f - (elapsed / CELEBRATE_MS)) * 255).toInt().coerceIn(0, 255)
+        val iter = particles.iterator()
+        while (iter.hasNext()) {
+            val p = iter.next()
+            // Physics: apply gravity to vy, then move.
+            p.vy  += gravity * dt
+            p.x   += p.vx * dt * 60f
+            p.y   += p.vy * dt * 60f
+            p.rot += p.rotSpeed
+            if (p.y >= surfaceH + cellSize) { iter.remove(); continue }
+            // Draw as a small rounded square rotated — reuse scratchRectF.
+            canvas.save()
+            canvas.translate(p.x, p.y)
+            canvas.rotate(p.rot)
+            fillPaint.color = (p.color and 0x00FFFFFF) or (alpha shl 24)
+            scratchRectF.set(-p.radius, -p.radius * 0.6f, p.radius, p.radius * 0.6f)
+            canvas.drawRoundRect(scratchRectF, p.radius * 0.3f, p.radius * 0.3f, fillPaint)
+            canvas.restore()
         }
-        particles.clear(); particles.addAll(updatedParticles)
         fillPaint.alpha = 255
 
         // Banner — slides down from top, holds, then fades
@@ -1514,16 +1773,18 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
         // Text — milestone number large, label small
         val label = when {
-            celebrateCount >= 500 -> "⭐ $celebrateCount CLEARED! ⭐"
-            celebrateCount >= 100 -> "🎉 $celebrateCount CLEARED!"
-            else                  -> "$celebrateCount cleared!"
+            celebrateCount >= 500 -> "\u2605 $celebrateCount CLEARED! \u2605"
+            celebrateCount >= 100 -> "$celebrateCount CLEARED! \u2605"
+            else                  -> "$celebrateCount CLEARED!"
         }
-        textPaint.textAlign = Paint.Align.CENTER
-        textPaint.textSize  = 36f
-        textPaint.color     = Color.argb((bannerAlpha * 0.5f).toInt(), 0, 0, 0)
+        textPaint.textAlign     = Paint.Align.CENTER
+        textPaint.textSize      = 36f
+        textPaint.letterSpacing = 0.06f
+        textPaint.color         = Color.argb((bannerAlpha * 0.5f).toInt(), 0, 0, 0)
         canvas.drawText(label, surfaceW / 2f + 2f, by + bh * 0.62f + 2f, textPaint)
         textPaint.color = Color.argb(bannerAlpha, 90, 40, 0)
         canvas.drawText(label, surfaceW / 2f, by + bh * 0.62f, textPaint)
+        textPaint.letterSpacing = 0f
     }
 
     // -----------------------------------------------------------------------
@@ -1618,7 +1879,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         }
 
         // Instruction text
-        textPaint.textSize  = 26f
+        textPaint.textSize  = 36f
         textPaint.textAlign = Paint.Align.CENTER
         textPaint.color = Color.argb(80, 0, 0, 0)
         canvas.drawText("Draw through 3 matching pieces!", surfaceW / 2f + 2f, dy - r * 2.6f + 2f, textPaint)
@@ -1626,8 +1887,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         canvas.drawText("Draw through 3 matching pieces!", surfaceW / 2f, dy - r * 2.6f, textPaint)
 
         // Tap to play
-        textPaint.textSize = 20f
-        textPaint.color    = Color.argb(180, 255, 255, 255)
+        textPaint.textSize = 28f
+        textPaint.color    = Color.argb(200, 255, 255, 255)
         canvas.drawText("Tap anywhere to play!", surfaceW / 2f, dy + r * 2.8f, textPaint)
     }
 
@@ -1671,7 +1932,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
         // Text — shadow then fill
         val lineY = by + bh * 0.46f
-        textPaint.textSize  = 30f
+        textPaint.textSize  = 34f
         textPaint.textAlign = Paint.Align.CENTER
         textPaint.color = Color.argb(alpha / 2, 0, 0, 0)
         canvas.drawText("No matches — shuffling!", boardCX + 2f, lineY + 2f, textPaint)
@@ -1689,16 +1950,16 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         return when (i) {
             0  -> lifetime >= 10
             1  -> lifetime >= 50
-            2  -> lifetime >= 200
+            2  -> lifetime >= 500
             3  -> prefs.bestChainLength >= 4
             4  -> prefs.bestChainLength >= 6
             5  -> prefs.bestChainLength >= 8
             6  -> bestScore >= 20
             7  -> bestScore >= 60
-            8  -> bestScore >= 120
-            9  -> prefs.shufflesSurvived >= 1
+            8  -> bestScore >= 200
+            9  -> prefs.shufflesSurvived >= 5
             10 -> prefs.highScore6x6 > 0 && prefs.highScore8x8 > 0
-            11 -> prefs.sessionCount >= 5
+            11 -> prefs.sessionCount >= 10
             else -> false
         }
     }
@@ -1745,7 +2006,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         canvas.drawText("My Stickers", titleX, titleY, textPaint)
         textOutlinePaint.color = Color.argb(80, 0, 0, 0); textOutlinePaint.strokeWidth = 6f
         textOutlinePaint.textSize = 58f; textOutlinePaint.textAlign = Paint.Align.CENTER
-        textOutlinePaint.typeface = Typeface.DEFAULT_BOLD
+        textOutlinePaint.typeface = boldTypeface
         canvas.drawText("My Stickers", titleX, titleY, textOutlinePaint)
 
         val earnedCount = (0 until 12).count { isStickerEarned(it) }
@@ -1782,9 +2043,9 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 canvas.drawRoundRect(RectF(rect.left-4f, rect.top-4f, rect.right+4f, rect.bottom+4f), r+4f, r+4f, fillPaint)
             }
 
-            // Tile body
-            fillPaint.color = if (earned) color else Color.rgb(155, 148, 140)
-            fillPaint.alpha = if (earned) 255 else 160
+            // Tile body — warm parchment for unearned (not cold grey) so it reads as collectible, not broken
+            fillPaint.color = if (earned) color else Color.rgb(210, 190, 162)
+            fillPaint.alpha = if (earned) 255 else 220
             canvas.drawRoundRect(rect, r, r, fillPaint)
 
             // Top-half highlight
@@ -1809,25 +2070,22 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             fillPaint.alpha = 255; strokePaint.alpha = 255
 
             if (earned) {
-                // Large symbol — top half
-                val symSz = rect.height() * 0.36f
-                val symY  = cy - rect.height() * 0.04f
-                textPaint.color = Color.argb(70, 0, 0, 0)
-                textPaint.textSize = symSz; textPaint.textAlign = Paint.Align.CENTER
-                canvas.drawText(STICKER_SYMS[i], cx + 2f, symY + 2f, textPaint)
+                // Symbol — large, visually centered in the tile
+                val symSz      = rect.height() * 0.50f
+                val symBaseline = cy + symSz * 0.36f
+                textPaint.textSize  = symSz
+                textPaint.textAlign = Paint.Align.CENTER
+                textPaint.color     = Color.argb(70, 0, 0, 0)
+                canvas.drawText(STICKER_SYMS[i], cx + 2f, symBaseline + 2f, textPaint)
                 textPaint.color = Color.WHITE
-                canvas.drawText(STICKER_SYMS[i], cx, symY, textPaint)
-                // Sticker name — bottom
-                val nameSz = rect.height() * 0.145f
+                canvas.drawText(STICKER_SYMS[i], cx, symBaseline, textPaint)
+                // Name — bottom
+                val nameSz = rect.height() * 0.150f
                 textPaint.textSize = nameSz
                 textPaint.color    = Color.argb(90, 0, 0, 0)
-                canvas.drawText(STICKER_NAMES[i], cx + 1f, rect.bottom - rect.height() * 0.12f + 1f, textPaint)
+                canvas.drawText(STICKER_NAMES[i], cx + 1f, rect.bottom - rect.height() * 0.09f + 1f, textPaint)
                 textPaint.color = Color.WHITE
-                canvas.drawText(STICKER_NAMES[i], cx, rect.bottom - rect.height() * 0.12f, textPaint)
-                // Small condition text
-                textPaint.textSize = rect.height() * 0.105f
-                textPaint.color    = Color.argb(180, 255, 255, 255)
-                canvas.drawText(STICKER_DESCS[i], cx, rect.bottom - rect.height() * 0.30f, textPaint)
+                canvas.drawText(STICKER_NAMES[i], cx, rect.bottom - rect.height() * 0.09f, textPaint)
                 // Earned checkmark badge — top right
                 val bx = rect.right - 1f; val by = rect.top + 1f; val br2 = 11f
                 fillPaint.color = Color.argb(220, 28, 12, 0)
@@ -1837,39 +2095,54 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 textPaint.textSize = br2 * 1.4f; textPaint.color = Color.WHITE
                 canvas.drawText("\u2713", bx, by + br2 * 0.42f, textPaint)
             } else {
-                // Lock icon — simple padlock shape
-                val lockR  = rect.height() * 0.13f
-                val lockCX = cx; val lockCY = cy - lockR * 0.2f
-                // Shackle (arc)
-                strokePaint.color       = Color.argb(160, 255, 255, 255)
-                strokePaint.strokeWidth = lockR * 0.5f; strokePaint.alpha = 160
-                canvas.drawArc(RectF(lockCX - lockR, lockCY - lockR * 1.3f,
-                                     lockCX + lockR, lockCY + lockR * 0.3f),
-                               180f, 180f, false, strokePaint)
-                // Body
-                fillPaint.color = Color.argb(160, 255, 255, 255)
-                canvas.drawRoundRect(RectF(lockCX - lockR * 1.1f, lockCY - lockR * 0.1f,
-                                          lockCX + lockR * 1.1f, lockCY + lockR * 1.5f),
-                                     lockR * 0.35f, lockR * 0.35f, fillPaint)
-                // Condition hint at bottom
+                // Mystery "?" — warm and inviting, not a broken/disabled lock
+                val qSz = rect.height() * 0.48f
+                val qY  = cy + qSz * 0.36f
+                textPaint.textSize  = qSz
+                textPaint.textAlign = Paint.Align.CENTER
+                textPaint.color     = Color.argb(45, 28, 12, 0)
+                canvas.drawText("?", cx + 2f, qY + 2f, textPaint)
+                textPaint.color     = Color.argb(140, 100, 60, 10)
+                canvas.drawText("?", cx, qY, textPaint)
+                // Condition hint — tells Steven how to earn it
                 textPaint.textSize  = rect.height() * 0.115f
-                textPaint.color     = Color.argb(160, 255, 255, 255)
+                textPaint.color     = Color.argb(130, 80, 50, 10)
                 textPaint.textAlign = Paint.Align.CENTER
                 canvas.drawText(STICKER_DESCS[i], cx, rect.bottom - rect.height() * 0.12f, textPaint)
-                strokePaint.alpha = 255
             }
         }
 
         // ---- Stats line ----
         val statsY = stickerRects[11].bottom + 28f
         val lifetime = prefs.lifetimeDonuts + board.donutsCleared.values.sum()
-        textPaint.textSize = 22f; textPaint.textAlign = Paint.Align.CENTER
+        textPaint.textSize = 28f; textPaint.textAlign = Paint.Align.CENTER
         textPaint.color = theme.textSecondary
         canvas.drawText(
             "$lifetime donuts lifetime  \u00B7  $earnedCount of 12 stickers",
             stickerPanelRect.centerX(), statsY, textPaint)
 
-        drawPrettyButton(canvas, stickersCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 36f)
+        drawPrettyButton(canvas, stickersCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 32f)
+
+        // Reset button — two-tap confirm: first tap → amber "Sure?"; second tap → executes
+        val confirmActive = stickerResetConfirmMs >= 0 &&
+                            (now - stickerResetConfirmMs) < STICKER_RESET_CONFIRM_MS
+        if (stickerResetConfirmMs >= 0 && !confirmActive) stickerResetConfirmMs = -1L
+        val resetBtnColor = if (confirmActive) Color.rgb(220, 130, 30) else Color.rgb(200, 70, 50)
+        val resetBtnLabel = if (confirmActive) "Sure?" else "Reset"
+        drawPrettyButton(canvas, stickersResetRect, resetBtnColor, resetBtnLabel, 26f)
+        // Countdown bar drains left→right while confirm is pending
+        if (confirmActive) {
+            val progress = 1f - (now - stickerResetConfirmMs).toFloat() / STICKER_RESET_CONFIRM_MS
+            val bx = stickersResetRect.left  + 10f
+            val bw = stickersResetRect.width() - 20f
+            val by = stickersResetRect.bottom - 12f
+            val bh = 5f
+            fillPaint.color = Color.argb(60, 28, 12, 0)
+            canvas.drawRoundRect(RectF(bx, by, bx + bw, by + bh), bh / 2, bh / 2, fillPaint)
+            fillPaint.color = Color.argb(220, 255, 200, 60)
+            canvas.drawRoundRect(RectF(bx, by, bx + bw * progress, by + bh), bh / 2, bh / 2, fillPaint)
+            fillPaint.alpha = 255
+        }
 
         canvas.restore()
     }
@@ -1925,7 +2198,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         textOutlinePaint.strokeWidth = 5f * sc
         textOutlinePaint.textSize    = titleSz
         textOutlinePaint.textAlign   = Paint.Align.CENTER
-        textOutlinePaint.typeface    = Typeface.DEFAULT_BOLD
+        textOutlinePaint.typeface    = boldTypeface
         canvas.drawText("Settings", titleX, titleY, textOutlinePaint)
 
         // ---- Theme section ----
@@ -2062,10 +2335,12 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         fillPaint.alpha = 255
 
         val upper = text.uppercase()
+        textPaint.letterSpacing = 0.10f
         textPaint.color = Color.argb(70, 0, 0, 0)
         canvas.drawText(upper, textX + 2f, baselineY + 2f, textPaint)
         textPaint.color = theme.textPrimary
         canvas.drawText(upper, textX, baselineY, textPaint)
+        textPaint.letterSpacing = 0f
     }
 
     private fun drawSettingsBtn(canvas: Canvas, rect: RectF, label: String, selected: Boolean) {
@@ -2095,12 +2370,14 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         canvas.drawRoundRect(rect, 22f, 22f, fillPaint)
         canvas.restore()
         val sc = settingsSc
-        textPaint.color     = Color.argb(80, 0, 0, 0)
-        textPaint.textSize  = 30f * sc
-        textPaint.textAlign = Paint.Align.CENTER
+        textPaint.color         = Color.argb(80, 0, 0, 0)
+        textPaint.textSize      = 30f * sc
+        textPaint.textAlign     = Paint.Align.CENTER
+        textPaint.letterSpacing = 0.04f
         canvas.drawText(label, rect.centerX() + 2f, rect.centerY() + 10f * sc + 2f, textPaint)
         textPaint.color = Color.WHITE
         canvas.drawText(label, rect.centerX(), rect.centerY() + 10f * sc, textPaint)
+        textPaint.letterSpacing = 0f
         // Checkmark badge on selected
         if (selected) {
             val bx = rect.right - 1f; val by = rect.top + 1f; val br = 13f * sc
@@ -2160,10 +2437,26 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                             saveSession()
                             board.reset()
                             displayedCount   = 0
+                            prevDisplayCount = -1
+                            digitFlips.clear()
+                            lastMilestone    = 0
+                            celebrateMs      = -1L
+                            particles.clear()
+                            synchronized(floatLabels) { floatLabels.clear() }
+                            dragChain.clear(); chainPings.clear()
+                            selRow = -1; selCol = -1
+                            pendingResult    = null
+                            cascadeCount     = 0
+                            isCascade        = false
+                            cascadeLabelMs   = -1L
+                            counterPulseMs   = -1L
+                            chainFlashMs     = -1L
+                            shuffleAnimMs    = -1L
                             hintCells        = emptyList()
                             noMovesWarningMs = -1L
                             resetFlashMs     = now
                             lastActionMs     = now
+                            boardEntryMs     = now
                         }
                         stickersBtnRect.contains(event.x, event.y) -> {
                             stickersPressMs = now
@@ -2222,9 +2515,37 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     }
 
     private fun handleStickersTouch(x: Float, y: Float) {
-        if (stickersCloseRect.contains(x, y) || !stickerPanelRect.contains(x, y)) {
-            stickersOpen = false
+        val now = SystemClock.elapsedRealtime()
+        when {
+            stickersResetRect.contains(x, y) -> {
+                val confirmActive = stickerResetConfirmMs >= 0 &&
+                                    (now - stickerResetConfirmMs) < STICKER_RESET_CONFIRM_MS
+                if (confirmActive) {
+                    resetStickerProgress()
+                    stickerResetConfirmMs = -1L
+                } else {
+                    stickerResetConfirmMs = now   // arm the confirm
+                }
+            }
+            stickersCloseRect.contains(x, y) || !stickerPanelRect.contains(x, y) -> {
+                stickerResetConfirmMs = -1L
+                stickersOpen = false
+            }
         }
+    }
+
+    private fun resetStickerProgress() {
+        prefs.lifetimeDonuts   = 0
+        prefs.highScore6x6     = 0
+        prefs.highScore8x8     = 0
+        prefs.bestChainLength  = 0
+        prefs.shufflesSurvived = 0
+        prefs.sessionCount     = 0
+        board.donutsCleared.keys.forEach { board.donutsCleared[it] = 0 }
+        displayedCount   = 0
+        prevDisplayCount = -1
+        lastMilestone    = 0
+        digitFlips.clear()
     }
 
     private fun handleDown(event: MotionEvent) {
@@ -2254,8 +2575,11 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         if (cell in dragChain) return
         val last = dragChain.lastOrNull() ?: return
         if (!adjacent8(last.first, last.second, row, col)) return
+        // Golden cells are wild — they join any chain regardless of type.
+        // Non-golden cells must match the chain type.
         val chainType = dragChainType ?: return
-        if (board.grid[row][col].type != chainType) return
+        val cellIsGolden = board.grid[row][col].isGolden
+        if (!cellIsGolden && board.grid[row][col].type != chainType) return
         val now2 = SystemClock.elapsedRealtime()
         dragChain.add(cell)
         chainPings[cell] = now2
@@ -2265,33 +2589,57 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     }
 
     private fun handleUp() {
-        if (dragChain.size >= 3) {
-            pendingChain = dragChain.toList()
-            popCells.clear()
-            popCells.addAll(pendingChain.map { (r, c) -> AnimCell(r, c, board.grid[r][c].type) })
-            val now = SystemClock.elapsedRealtime()
-            animStartMs = now; animPhase = AnimPhase.POPPING
-            lastActionMs = now; hintCells = emptyList()
-            if (pendingChain.size > prefs.bestChainLength) prefs.bestChainLength = pendingChain.size
-            if (prefs.soundEnabled)  soundEngine.playPopClear()
-            if (prefs.hapticEnabled) hapticEngine.pop()
-            val label = when (pendingChain.size) {
-                4    -> "NICE!"
-                5    -> "GREAT!"
-                6    -> "AMAZING!"
-                7    -> "WOW!"
-                in 8..Int.MAX_VALUE -> "INCREDIBLE!"
-                else -> null
-            }
-            label?.let {
-                val cx = pendingChain.map { (r, c) -> boardLeft + c * cellSize + cellSize/2f }.average().toFloat()
-                val cy = pendingChain.map { (r, c) -> boardTop  + r * cellSize + cellSize/2f }.average().toFloat()
-                val colors = intArrayOf(
-                    Color.rgb(255, 80, 60), Color.rgb(255, 180, 0),
-                    Color.rgb(80, 210, 80), Color.rgb(60, 160, 255), Color.rgb(200, 80, 255)
-                )
-                val col = colors[(pendingChain.size - 4).coerceIn(0, colors.size - 1)]
-                synchronized(floatLabels) { floatLabels.add(FloatLabel(it, cx, cy, col, now)) }
+        val chain = dragChain.toList()
+        if (chain.size >= 3) {
+            val result = board.peekChainClear(chain)
+            if (result != null) {
+                pendingResult = result
+                isCascade     = false
+                cascadeCount  = 0
+
+                // Include both the player's chain AND any power-up bonus cells in the
+                // pop animation so everything lights up at once before the clear fires.
+                popCells.clear()
+                val allPop = result.chainCells + result.bonusCells
+                popCells.addAll(allPop.map { (r, c) ->
+                    AnimCell(r, c, board.grid[r][c].type, isGolden = board.grid[r][c].isGolden)
+                })
+
+                val now = SystemClock.elapsedRealtime()
+                animStartMs = now; animPhase = AnimPhase.POPPING
+                lastActionMs = now; hintCells = emptyList()
+
+                val chainLen = result.chainCells.size
+                if (chainLen > prefs.bestChainLength) prefs.bestChainLength = chainLen
+                if (chainLen >= 6) {
+                    chainFlashMs    = now
+                    chainFlashColor = result.chainType.bodyColor
+                }
+                if (prefs.soundEnabled)  soundEngine.playPopClear()
+                if (prefs.hapticEnabled) hapticEngine.pop()
+
+                // Floating label for big chains
+                val label = when {
+                    result.powerUp == PowerUp.COLOR_BURST -> "COLOR BURST!"
+                    result.powerUp == PowerUp.ROW_BLAST   -> "ROW BLAST!"
+                    result.powerUp == PowerUp.BOMB        -> "BOOM!"
+                    chainLen == 4 -> "NICE!"
+                    chainLen == 5 -> "GREAT!"
+                    chainLen == 6 -> "AMAZING!"
+                    chainLen == 7 -> "WOW!"
+                    chainLen >= 8 -> "INCREDIBLE!"
+                    else          -> null
+                }
+                label?.let {
+                    val cx = allPop.map { (_, c) -> boardLeft + c * cellSize + cellSize / 2f }.average().toFloat()
+                    val cy = allPop.map { (r, _) -> boardTop  + r * cellSize + cellSize / 2f }.average().toFloat()
+                    val colors = intArrayOf(
+                        Color.rgb(255, 80, 60), Color.rgb(255, 180, 0),
+                        Color.rgb(80, 210, 80), Color.rgb(60, 160, 255), Color.rgb(200, 80, 255)
+                    )
+                    val col = colors[(chainLen - 4).coerceIn(0, colors.size - 1)]
+                    synchronized(floatLabels) { floatLabels.add(FloatLabel(it, cx, cy, col, now)) }
+                }
             }
         }
         dragChain.clear(); chainPings.clear(); selRow = -1; selCol = -1

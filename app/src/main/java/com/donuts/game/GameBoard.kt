@@ -14,6 +14,11 @@ class GameBoard(
     val targetScore: Int = 1000,
     val sandbox: Boolean = false
 ) {
+    companion object {
+        /** Chance that a freshly spawned (gravity-fill) cell is golden. */
+        const val GOLDEN_CHANCE = 0.04
+    }
+
     val grid: Array<Array<GameCell>> = Array(rows) { r ->
         Array(cols) { c -> GameCell(DonutType.random(), r, c) }
     }
@@ -63,26 +68,23 @@ class GameBoard(
         return choices.randomOrNull() ?: DonutType.random()
     }
 
+    /**
+     * Spawn a fresh cell at [row],[col] with a [GOLDEN_CHANCE] chance of being
+     * golden.  Used only during gravity fills so the starting board is always
+     * golden-free.
+     */
+    private fun spawnCell(row: Int, col: Int): GameCell =
+        GameCell(DonutType.random(), row, col, isGolden = Math.random() < GOLDEN_CHANCE)
+
     // -----------------------------------------------------------------------
     // Player action – swap two adjacent cells
     // -----------------------------------------------------------------------
 
-    /**
-     * Attempts to swap the cells at (r1,c1) and (r2,c2).
-     *
-     * Rules:
-     *  - Cells must be orthogonally adjacent.
-     *  - The swap must produce at least one match.
-     *  - Costs one move even if cascades follow.
-     *
-     * @return true if the swap was valid and executed.
-     */
     fun swap(r1: Int, c1: Int, r2: Int, c2: Int): Boolean {
         if (!adjacent(r1, c1, r2, c2)) return false
-
         doSwap(r1, c1, r2, c2)
         if (findMatches().isEmpty()) {
-            doSwap(r1, c1, r2, c2)   // revert
+            doSwap(r1, c1, r2, c2)
             return false
         }
         movesLeft--
@@ -137,11 +139,13 @@ class GameBoard(
     }
 
     // -----------------------------------------------------------------------
-    // Remove matches, apply gravity, refill – one pass
+    // Remove matches, apply gravity, refill – one cascade pass
     // -----------------------------------------------------------------------
 
     /**
      * Clears all current matches, drops surviving donuts, fills from the top.
+     * Surviving cells keep their [GameCell.isGolden] flag; new cells spawn with
+     * a small golden chance via [spawnCell].
      *
      * @return Points scored this pass, or 0 if no matches existed.
      */
@@ -149,24 +153,20 @@ class GameBoard(
         val matches = findMatches()
         if (matches.isEmpty()) return 0
 
-        // Score: bonus for larger matches (cascades don't add to donutsCleared —
-        // only clearChain counts what the player explicitly dragged)
-        val pts = matches.sumOf { pointsFor(matches.size) }
+        // One call to pointsFor() for the whole match set, then multiply by cell count —
+        // identical in value to the previous sumOf but clearly expresses the intent.
+        val pts = matches.size * pointsFor(matches.size)
         score += pts
 
-        // Mark matched cells as empty (null type placeholder: we rebuild below)
-        val surviving = Array(rows) { r ->
-            (0 until cols).map { c -> if (Pair(r, c) !in matches) grid[r][c].type else null }
-        }
-
-        // Apply gravity column-by-column: existing donuts sink, new fill from top
+        // Apply gravity column-by-column, preserving golden status of survivors.
         for (c in 0 until cols) {
-            val column = (0 until rows).mapNotNull { r -> surviving[r][c] }.toMutableList()
-            // column has surviving donuts from top-to-bottom; pad the top with new
-            while (column.size < rows) column.add(0, DonutType.random())
-            for (r in 0 until rows) {
-                grid[r][c] = GameCell(column[r], r, c)
-            }
+            val surviving = (0 until rows)
+                .filter { r -> Pair(r, c) !in matches }
+                .map { r -> grid[r][c] }
+            val newCount = rows - surviving.size
+            val newCells = (0 until newCount).map { spawnCell(0, c) }
+            val column = newCells + surviving
+            for (r in 0 until rows) grid[r][c] = column[r].copy(row = r, drawOffY = 0f)
         }
 
         return pts
@@ -174,16 +174,11 @@ class GameBoard(
 
     /**
      * Resolves all cascading matches until the board is stable.
-     *
-     * @return Total points scored across all cascades.
+     * (Kept for utility; GameView drives the animated cascade loop itself.)
      */
     fun resolveAll(): Int {
-        var total = 0
-        var pts: Int
-        do {
-            pts = resolveOnce()
-            total += pts
-        } while (pts > 0)
+        var total = 0; var pts: Int
+        do { pts = resolveOnce(); total += pts } while (pts > 0)
         return total
     }
 
@@ -240,32 +235,100 @@ class GameBoard(
     // -----------------------------------------------------------------------
 
     /**
-     * Clears a player-drawn chain of same-type donuts (minimum 3).
-     * Scores the chain, decrements moves, then applies gravity.
+     * Pre-computes the full outcome of clearing [cells] without mutating the board.
      *
-     * @return true if the chain was valid and cleared.
+     * Golden cells ([GameCell.isGolden] == true) are treated as wild — they match
+     * whatever type the rest of the chain uses.
+     *
+     * Power-up bonuses based on chain length:
+     *   5–6  → BOMB       : 3×3 area around chain mid-point
+     *   7–8  → ROW_BLAST  : entire row of chain mid-point
+     *   9+   → COLOR_BURST: every remaining cell of the chain type
+     *
+     * @return A [ChainResult] describing all cells to clear, or null if the chain
+     *         is invalid (< 3 cells, or mixed types without golden wildcards).
      */
-    fun clearChain(cells: List<Pair<Int, Int>>): Boolean {
-        if (cells.size < 3) return false
-        val type = grid[cells[0].first][cells[0].second].type
-        if (cells.any { (r, c) -> grid[r][c].type != type }) return false
+    fun peekChainClear(cells: List<Pair<Int, Int>>): ChainResult? {
+        if (cells.size < 3) return null
 
-        cells.forEach { (r, c) ->
+        // Determine chain type from the first non-golden cell; fall back to first cell's type
+        // if every cell happens to be golden.
+        val chainType = cells.firstOrNull { (r, c) -> !grid[r][c].isGolden }
+            ?.let { (r, c) -> grid[r][c].type }
+            ?: cells.first().let { (r, c) -> grid[r][c].type }
+
+        // Validate: every non-golden cell must match chainType.
+        if (cells.any { (r, c) -> !grid[r][c].isGolden && grid[r][c].type != chainType }) return null
+
+        val cellSet = cells.toSet()
+
+        val powerUp: PowerUp
+        val bonusCells: List<Pair<Int, Int>>
+        when {
+            cells.size >= 9 -> {
+                powerUp = PowerUp.COLOR_BURST
+                bonusCells = (0 until rows).flatMap { r -> (0 until cols).map { c -> Pair(r, c) } }
+                    .filter { (r, c) -> Pair(r, c) !in cellSet && grid[r][c].type == chainType }
+            }
+            cells.size >= 7 -> {
+                powerUp = PowerUp.ROW_BLAST
+                val (mr, _) = cells[cells.size / 2]
+                bonusCells = (0 until cols).map { c -> Pair(mr, c) }
+                    .filter { it !in cellSet }
+            }
+            cells.size >= 5 -> {
+                powerUp = PowerUp.BOMB
+                val (mr, mc) = cells[cells.size / 2]
+                bonusCells = (-1..1).flatMap { dr -> (-1..1).map { dc -> Pair(mr + dr, mc + dc) } }
+                    .filter { (r, c) ->
+                        r in 0 until rows && c in 0 until cols && Pair(r, c) !in cellSet
+                    }
+            }
+            else -> {
+                powerUp = PowerUp.NONE
+                bonusCells = emptyList()
+            }
+        }
+
+        return ChainResult(cells, bonusCells, powerUp, chainType)
+    }
+
+    /**
+     * Applies a pre-computed [ChainResult] to the board: clears all affected cells,
+     * updates score and [donutsCleared] counts, decrements moves, then applies
+     * gravity and refills with [spawnCell] (preserving golden on survivors).
+     *
+     * Call [peekChainClear] first to obtain the result, then pass it here once the
+     * pop animation has finished.
+     */
+    fun clearChain(result: ChainResult): Boolean {
+        val allSet = (result.chainCells + result.bonusCells).toSet()
+
+        // Update per-type cleared counts for all cells (chain + bonus).
+        result.chainCells.forEach { (r, c) ->
             donutsCleared[grid[r][c].type] = (donutsCleared[grid[r][c].type] ?: 0) + 1
         }
+        result.bonusCells.forEach { (r, c) ->
+            donutsCleared[grid[r][c].type] = (donutsCleared[grid[r][c].type] ?: 0) + 1
+        }
+
         if (!sandbox) {
-            score += cells.size * pointsFor(cells.size)
+            score += result.chainCells.size * pointsFor(result.chainCells.size)
+            if (result.bonusCells.isNotEmpty()) score += result.bonusCells.size * 50
             movesLeft--
         }
 
-        val cellSet = cells.toSet()
+        // Apply gravity column-by-column, preserving golden status of survivors.
         for (c in 0 until cols) {
-            val column = (0 until rows)
-                .mapNotNull { r -> if (Pair(r, c) !in cellSet) grid[r][c].type else null }
-                .toMutableList()
-            while (column.size < rows) column.add(0, DonutType.random())
-            for (r in 0 until rows) grid[r][c] = GameCell(column[r], r, c)
+            val surviving = (0 until rows)
+                .filter { r -> Pair(r, c) !in allSet }
+                .map { r -> grid[r][c] }
+            val newCount = rows - surviving.size
+            val newCells = (0 until newCount).map { spawnCell(0, c) }
+            val column = newCells + surviving
+            for (r in 0 until rows) grid[r][c] = column[r].copy(row = r, drawOffY = 0f)
         }
+
         return true
     }
 

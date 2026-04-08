@@ -5,9 +5,14 @@ import android.graphics.*
 import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
+import androidx.core.content.res.ResourcesCompat
 import kotlin.math.*
 
 class MainView(context: Context, private val onPlay: () -> Unit) : View(context) {
+
+    private val boldTypeface: Typeface =
+        try { ResourcesCompat.getFont(context, R.font.fredoka_one) ?: Typeface.DEFAULT_BOLD }
+        catch (e: Exception) { Typeface.DEFAULT_BOLD }
 
     private var w = 0f
     private var h = 0f
@@ -33,7 +38,7 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
     // Paints
     private val fillP   = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val strokeP = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
-    private val textP   = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; typeface = Typeface.DEFAULT_BOLD }
+    private val textP   = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; typeface = boldTypeface }
     private val bgPaint = Paint()
 
     init { postInvalidateOnAnimation() }
@@ -318,11 +323,13 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         strokeP.color = Color.argb(90, 255, 255, 255); strokeP.strokeWidth = 2f
         canvas.drawRoundRect(playRect, rx, rx, strokeP)
 
-        textP.textSize = 34f; textP.textAlign = Paint.Align.CENTER
+        textP.textSize = 42f; textP.textAlign = Paint.Align.CENTER
+        textP.letterSpacing = 0.10f
         textP.color = Color.argb(80, 0, 0, 0)
-        canvas.drawText("PLAY", playRect.centerX() + 2f, playRect.centerY() + 13f + 2f, textP)
+        canvas.drawText("PLAY", playRect.centerX() + 2f, playRect.centerY() + 15f + 2f, textP)
         textP.color = Color.WHITE
-        canvas.drawText("PLAY", playRect.centerX(), playRect.centerY() + 13f, textP)
+        canvas.drawText("PLAY", playRect.centerX(), playRect.centerY() + 15f, textP)
+        textP.letterSpacing = 0f
 
         canvas.restore()
     }
@@ -331,8 +338,8 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
     // Subtitle
     // -----------------------------------------------------------------------
     private fun drawSubtitle(canvas: Canvas) {
-        textP.textSize = 17f; textP.textAlign = Paint.Align.CENTER
-        textP.color = Color.argb(100, 120, 60, 10)
+        textP.textSize = 22f; textP.textAlign = Paint.Align.CENTER
+        textP.color = Color.argb(110, 120, 60, 10)
         // Centered in the space below the play button
         val subtitleY = playRect.bottom + (h - playRect.bottom) * 0.52f
         canvas.drawText("✦  Connect matching pieces  ·  Infinite play  ✦", w / 2f, subtitleY, textP)
