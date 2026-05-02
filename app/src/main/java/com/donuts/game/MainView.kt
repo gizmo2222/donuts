@@ -338,8 +338,8 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
     // Subtitle
     // -----------------------------------------------------------------------
     private fun drawSubtitle(canvas: Canvas) {
-        textP.textSize = 22f; textP.textAlign = Paint.Align.CENTER
-        textP.color = Color.argb(110, 120, 60, 10)
+        textP.textSize = 27f; textP.textAlign = Paint.Align.CENTER
+        textP.color = Color.argb(150, 120, 60, 10)
         // Centered in the space below the play button
         val subtitleY = playRect.bottom + (h - playRect.bottom) * 0.52f
         canvas.drawText("✦  Connect matching pieces  ·  Infinite play  ✦", w / 2f, subtitleY, textP)

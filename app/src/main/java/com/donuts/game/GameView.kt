@@ -25,7 +25,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private var boardLeft = 0f
     private var boardTop  = 0f
     private val hudHeight = 220f
-    private val counterH  = 210f
+    private val counterH  = 270f
 
     private var resetBtnRect    = RectF()
     private var settingsBtnRect = RectF()
@@ -299,17 +299,21 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val w = surfaceW.toFloat(); val h = surfaceH.toFloat()
         if (w == 0f || h == 0f) return
 
-        // Board size: constrained by width and by height (leaving room for counter)
-        val boardPx = min(w, h - counterH) * 0.94f
+        // Buttons sit just above the board with a comfortable gap
+        val btnH      = 100f
+        val btnGap    = 26f
+        val btnBlockH = btnH + btnGap   // total vertical height consumed by the button strip
+
+        // Board size: constrained by width; height leaves room for buttons above and counter below
+        val boardPx = min(w, h - btnBlockH - counterH) * 0.94f
         cellSize    = boardPx / board.cols
         boardLeft   = (w - boardPx) / 2f
 
-        // Center the board+counter block on screen; never start above hudHeight minimum
-        boardTop    = ((h - boardPx - counterH) / 2f).coerceAtLeast(hudHeight)
+        // Center the ENTIRE UI block (buttons + board + counter) on screen vertically
+        val totalBlockH = btnBlockH + boardPx + counterH
+        boardTop = ((h - totalBlockH) / 2f + btnBlockH).coerceAtLeast(hudHeight)
 
-        // Buttons sit just above the board with a comfortable gap
-        val btnH = 100f
-        val btnY = boardTop - btnH - 26f
+        val btnY = boardTop - btnH - btnGap
         val sbEnd = boardLeft + board.cols * cellSize
         // Left: RESET alone
         resetBtnRect    = RectF(boardLeft, btnY, boardLeft + 230f, btnY + btnH)
@@ -1537,7 +1541,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val beat = if (counterPulseMs >= 0) {
             val t = ((now - counterPulseMs).toFloat() / COUNTER_PULSE_MS).coerceIn(0f, 1f)
             if (t >= 1f) { counterPulseMs = -1L; 1f }
-            else 1f + sin(t * PI.toFloat()) * 0.045f
+            else 1f + sin(t * PI.toFloat()) * 0.085f
         } else 1f
         canvas.save()
         canvas.scale(beat, beat, surfaceW / 2f, midY)
@@ -1550,30 +1554,30 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         fillPaint.color = theme.panelBg; fillPaint.alpha = 255
         canvas.drawRoundRect(RectF(pl, stripY + 8f, pr, stripY + counterH - 4f), 18f, 18f, fillPaint)
 
-        // "CLEARED" — small header label at top of panel (caption before the value)
-        textPaint.textSize      = 24f
+        // "CLEARED" — header label at top of panel
+        textPaint.textSize      = 30f
         textPaint.textAlign     = Paint.Align.CENTER
-        textPaint.letterSpacing = 0.12f
+        textPaint.letterSpacing = 0.14f
         textPaint.color         = Color.argb(80, 0, 0, 0)
-        canvas.drawText("CLEARED  \u2746", surfaceW / 2f + 1f, stripY + 36f + 1f, textPaint)
+        canvas.drawText("CLEARED  \u2746", surfaceW / 2f + 1f, stripY + 48f + 1f, textPaint)
         textPaint.color         = theme.textSecondary
-        canvas.drawText("CLEARED  \u2746", surfaceW / 2f, stripY + 36f, textPaint)
+        canvas.drawText("CLEARED  \u2746", surfaceW / 2f, stripY + 48f, textPaint)
         textPaint.letterSpacing = 0f
 
         // --- Digit-flip number ---
-        val digitSz = 96f
+        val digitSz = 116f
         textPaint.textSize = digitSz
         val cellW  = textPaint.measureText("0") * 1.18f   // fixed per-digit width
         val numStr = displayedCount.toString()
         val totalW = numStr.length * cellW
         val startX = surfaceW / 2f - totalW / 2f + cellW / 2f
-        val baseY  = stripY + 150f                         // shifted down to leave room for header label
+        val baseY  = stripY + 192f                         // shifted down to leave room for header label
         val pivotY = baseY - digitSz * 0.36f               // visual centre of digit
 
         textOutlinePaint.textSize    = digitSz
         textOutlinePaint.textAlign   = Paint.Align.CENTER
         textOutlinePaint.typeface    = boldTypeface
-        textOutlinePaint.strokeWidth = 4f
+        textOutlinePaint.strokeWidth = 5f
 
         for ((idx, ch) in numStr.withIndex()) {
             val pos  = numStr.length - 1 - idx             // 0 = ones place
@@ -1613,18 +1617,18 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         // Subtle separator between digits and best-score footer
         strokePaint.color       = Color.argb(30, 28, 12, 0)
         strokePaint.strokeWidth = 1.5f
-        canvas.drawLine(pl + 28f, stripY + 174f, pr - 28f, stripY + 174f, strokePaint)
+        canvas.drawLine(pl + 28f, stripY + 218f, pr - 28f, stripY + 218f, strokePaint)
 
         // "best" — personal record anchored to bottom of panel
         val bestScore = if (board.cols == 6) prefs.highScore6x6 else prefs.highScore8x8
         if (bestScore > 0) {
-            textPaint.textSize      = 26f
+            textPaint.textSize      = 28f
             textPaint.textAlign     = Paint.Align.CENTER
             textPaint.letterSpacing = 0.06f
             textPaint.color         = Color.argb(80, 0, 0, 0)
-            canvas.drawText("best  \u00B7  $bestScore", surfaceW / 2f + 1f, stripY + 196f + 1f, textPaint)
+            canvas.drawText("best  \u00B7  $bestScore", surfaceW / 2f + 1f, stripY + 250f + 1f, textPaint)
             textPaint.color         = theme.textSecondary
-            canvas.drawText("best  \u00B7  $bestScore", surfaceW / 2f, stripY + 196f, textPaint)
+            canvas.drawText("best  \u00B7  $bestScore", surfaceW / 2f, stripY + 250f, textPaint)
             textPaint.letterSpacing = 0f
         }
 
