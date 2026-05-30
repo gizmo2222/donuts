@@ -293,7 +293,17 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         surfaceW = w; surfaceH = h; computeLayout()
     }
 
-    override fun surfaceDestroyed(holder: SurfaceHolder) {}
+    override fun surfaceDestroyed(holder: SurfaceHolder) {
+        // Stop the render loop when the surface goes away (e.g. the app is backgrounded)
+        // so we don't keep a thread spinning — and draining battery — with nothing to
+        // draw to. The thread is recreated in surfaceCreated when we return.
+        val t = renderThread
+        renderThread = null
+        t?.running = false
+        while (t != null) {
+            try { t.join(); break } catch (_: InterruptedException) { /* retry join */ }
+        }
+    }
 
     private fun computeLayout() {
         val w = surfaceW.toFloat(); val h = surfaceH.toFloat()
@@ -433,7 +443,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     }
 
     private fun rebuildBoard() {
-        board = GameBoard(rows = prefs.gridSize, cols = prefs.gridSize, sandbox = true)
+        board = GameBoard(rows = prefs.gridSize, cols = prefs.gridSize)
         animPhase = AnimPhase.IDLE
         popCells.clear(); dropCells.clear()
         dragChain.clear(); selRow = -1; selCol = -1
@@ -836,13 +846,13 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
         // Chunky drop shadow — offset further for cartoon depth
         shadowPaint.color = Color.argb(80, 0, 0, 0)
-        canvas.drawRoundRect(RectF(boardLeft, boardTop + 14f, boardR + 6f, boardB + 14f), 24f, 24f, shadowPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(boardLeft, boardTop + 14f, boardR + 6f, boardB + 14f) }, 24f, 24f, shadowPaint)
         // Thick dark cartoon border
         fillPaint.color = Color.argb(220, 28, 12, 0)
-        canvas.drawRoundRect(RectF(boardLeft - 12f, boardTop - 12f, boardR + 12f, boardB + 12f), 28f, 28f, fillPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(boardLeft - 12f, boardTop - 12f, boardR + 12f, boardB + 12f) }, 28f, 28f, fillPaint)
         // Board fill
         fillPaint.color = theme.boardBg; fillPaint.alpha = 255
-        canvas.drawRoundRect(RectF(boardLeft - 4f, boardTop - 4f, boardR + 4f, boardB + 4f), 22f, 22f, fillPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(boardLeft - 4f, boardTop - 4f, boardR + 4f, boardB + 4f) }, 22f, 22f, fillPaint)
 
         // Polka-dot texture — subtle circles at cell intersections
         val dotR = cellSize * 0.06f
@@ -1548,11 +1558,11 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
         // Panel shell
         shadowPaint.color = Color.argb(50, 0, 0, 0)
-        canvas.drawRoundRect(RectF(pl + 2f, stripY + 12f, pr + 2f, stripY + counterH - 2f), 18f, 18f, shadowPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(pl + 2f, stripY + 12f, pr + 2f, stripY + counterH - 2f) }, 18f, 18f, shadowPaint)
         fillPaint.color = Color.argb(180, 28, 12, 0)
-        canvas.drawRoundRect(RectF(pl - 4f, stripY + 4f, pr + 4f, stripY + counterH), 20f, 20f, fillPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(pl - 4f, stripY + 4f, pr + 4f, stripY + counterH) }, 20f, 20f, fillPaint)
         fillPaint.color = theme.panelBg; fillPaint.alpha = 255
-        canvas.drawRoundRect(RectF(pl, stripY + 8f, pr, stripY + counterH - 4f), 18f, 18f, fillPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(pl, stripY + 8f, pr, stripY + counterH - 4f) }, 18f, 18f, fillPaint)
 
         // "CLEARED" — header label at top of panel
         textPaint.textSize      = 30f
@@ -1586,8 +1596,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
             // Dark cell background — makes it look like a scoreboard slot
             fillPaint.color = Color.argb(55, 28, 12, 0)
-            canvas.drawRoundRect(RectF(x - cellW * 0.46f, pivotY - digitSz * 0.54f,
-                                       x + cellW * 0.46f, pivotY + digitSz * 0.54f), 8f, 8f, fillPaint)
+            canvas.drawRoundRect(scratchRectF.apply { set(x - cellW * 0.46f, pivotY - digitSz * 0.54f,
+                                       x + cellW * 0.46f, pivotY + digitSz * 0.54f) }, 8f, 8f, fillPaint)
 
             val (displayCh, scaleY) = if (flip != null) {
                 val t  = ((now - flip.startMs).toFloat() / DIGIT_FLIP_MS).coerceIn(0f, 1f)
@@ -2662,7 +2672,10 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         @Volatile var running = true
         override fun run() {
             while (running) {
-                val canvas = holder.lockCanvas() ?: continue
+                // Don't busy-spin while the surface is being (re)created — pace the
+                // retry at the same ~60 fps cadence as a normal frame.
+                val canvas = holder.lockCanvas()
+                if (canvas == null) { sleep(16L); continue }
                 try { synchronized(holder) { drawFrame(canvas) } }
                 finally { holder.unlockCanvasAndPost(canvas) }
                 sleep(16L)

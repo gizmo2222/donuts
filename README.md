@@ -26,7 +26,7 @@ Occasionally a **golden** piece drops in during a refill — it glows and can be
 
 ### Cascades
 
-When cleared pieces cause new matches to form, they auto-pop in sequence. Each cascade shows a **Combo ×N** label so you can track the chain reaction.
+When cleared pieces cause new matches to form, they auto-pop in sequence. Each cascade shows a **Combo ×N** label so you can track the chain reaction — and every cascade pop counts toward your cleared total.
 
 ## Themes
 
@@ -119,9 +119,10 @@ donuts/
 - Thread safety: touch events synchronized on the surface `holder`; float labels on their own lock
 - Icons drawn with a two-pass cartoon technique (dark stroke outline + color fill)
 - 3D sheen via `canvas.clipPath()` with an upper-left oval highlight
-- Render loop is allocation-free: scratch `Path`/`RectF` objects reused each frame, trig tables precomputed at init time
+- Render loop is allocation-free: scratch `Path`/`RectF` objects reused every frame (board background, counter, and all pieces), trig tables precomputed at init time
+- Render thread is frame-paced at ~60 fps and **stops on `surfaceDestroyed`** (app backgrounded) so it never spins with nothing to draw
 - Power-ups computed via `peekChainClear()` (pure/non-mutating) before board mutation so bonus cells animate correctly
-- Cascades animate one pass at a time (POPPING → DROPPING → repeat) rather than resolving all at once
+- Cascades animate one pass at a time (POPPING → DROPPING → repeat) rather than resolving all at once; every cascade pop counts toward the cleared total, milestones, and stickers
 
 ## Requirements
 

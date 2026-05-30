@@ -6,12 +6,6 @@ import androidx.appcompat.app.AppCompatActivity
 
 class GameActivity : AppCompatActivity() {
 
-    companion object {
-        const val EXTRA_MOVES   = "extra_moves"
-        const val EXTRA_TARGET  = "extra_target"
-        const val EXTRA_SANDBOX = "extra_sandbox"
-    }
-
     private lateinit var gameView: GameView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -21,15 +15,13 @@ class GameActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val prefs = Prefs(this)
-        val board = GameBoard(rows = prefs.gridSize, cols = prefs.gridSize, sandbox = true)
+        val board = GameBoard(rows = prefs.gridSize, cols = prefs.gridSize)
         gameView  = GameView(this, board, prefs)
 
         setContentView(gameView)
     }
 
-    override fun onPause() {
-        super.onPause()
-        // Thread will keep running but that's fine for a simple game.
-        // A production app would pause the RenderThread here.
-    }
+    // The render thread is started in GameView.surfaceCreated and stopped in
+    // surfaceDestroyed, which fires when the activity is backgrounded — so there is
+    // nothing extra to pause here.
 }
