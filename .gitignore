@@ -12,3 +12,6 @@ app/release/
 .cxx
 local.properties
 app/build/
+
+# Loose screenshots (not part of the app)
+photo_*.jpg
