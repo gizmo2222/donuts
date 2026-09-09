@@ -6,6 +6,8 @@ import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
 import androidx.core.content.res.ResourcesCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import kotlin.math.*
 
 class MainView(context: Context, private val onPlay: () -> Unit) : View(context) {
@@ -20,6 +22,11 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
     private var logoCY  = 0f
     private var logoR   = 0f
     private var playRect = RectF()
+
+    // Density-independent unit (see UiScale) and window insets
+    private val uiScale = UiScale(context)
+    private var u = 1f
+    private var insetL = 0; private var insetT = 0; private var insetR = 0; private var insetB = 0
 
     private var playPressMs = -1L
     private val PRESS_MS    = 140L
@@ -41,24 +48,40 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
     private val textP   = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; typeface = boldTypeface }
     private val bgPaint = Paint()
 
-    init { postInvalidateOnAnimation() }
+    init {
+        postInvalidateOnAnimation()
+        ViewCompat.setOnApplyWindowInsetsListener(this) { _, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            insetL = bars.left; insetT = bars.top; insetR = bars.right; insetB = bars.bottom
+            if (w > 0f && h > 0f) relayout()
+            insets
+        }
+    }
 
     override fun onSizeChanged(W: Int, H: Int, oW: Int, oH: Int) {
         w = W.toFloat(); h = H.toFloat()
-        logoR   = min(w, h) * 0.20f
-        logoCX  = w / 2f
-        // Logo sits at 34% — gives the title+button area room to breathe below
-        logoCY  = h * 0.34f
-        // Title clears logo bottom: logoCY + logoR*1.82 ensures text-top clears logo circle
+        relayout()
+    }
+
+    /** Lays the screen out inside the safe area (insets excluded), in design-dp. */
+    private fun relayout() {
+        uiScale.update(w.toInt(), h.toInt()); u = uiScale.u
+        val safeL = insetL.toFloat();    val safeT = insetT.toFloat()
+        val safeW = w - insetL - insetR; val safeH = h - insetT - insetB
+
+        logoR  = min(safeW, safeH) * 0.20f
+        logoCX = safeL + safeW / 2f
+        // Logo sits at 34% of the safe height, leaving room for title + button below
+        logoCY = safeT + safeH * 0.34f
         val line1Y = logoCY + logoR * 1.82f
         val line2Y = line1Y + logoR * 0.56f
-        // Button anchored below subtitle — not hardcoded to screen height
-        val btnW = min(w * 0.62f, 320f)
-        val btnH = 90f
-        val btnY = (line2Y + logoR * 0.72f).coerceAtMost(h * 0.76f)
-        playRect = RectF(w / 2f - btnW / 2f, btnY, w / 2f + btnW / 2f, btnY + btnH)
+        // Play: big and thumb-friendly. 72dp tall, ~70% of the width, capped at 300dp.
+        val btnW = min(safeW * 0.70f, 300f * u)
+        val btnH = 72f * u
+        val btnY = (line2Y + logoR * 0.72f).coerceAtMost(safeT + safeH - btnH - 80f * u)
+        playRect = RectF(logoCX - btnW / 2f, btnY, logoCX + btnW / 2f, btnY + btnH)
 
-        // Gradient background
         bgPaint.shader = LinearGradient(0f, 0f, 0f, h, bgTop, bgBot, Shader.TileMode.CLAMP)
     }
 
@@ -85,11 +108,12 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
     // -----------------------------------------------------------------------
     private fun drawDotGrid(canvas: Canvas) {
         fillP.color = Color.argb(22, 160, 80, 10)
-        val sp = 38f
+        val sp = 20f * u
+        val dotR = 1.5f * u
         var y = sp
         while (y < h) {
             var x = sp
-            while (x < w) { canvas.drawCircle(x, y, 2.5f, fillP); x += sp }
+            while (x < w) { canvas.drawCircle(x, y, dotR, fillP); x += sp }
             y += sp
         }
     }
@@ -266,11 +290,11 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         // Measure full width to center
         var totalW = 0f
         word1.forEach { ch -> totalW += textP.measureText(ch.toString()) }
-        var charX = w / 2f - totalW / 2f
+        var charX = logoCX - totalW / 2f
         for ((i, ch) in word1.withIndex()) {
             val waveY = sin(elapsed * 3.0f + i * 0.7f) * logoR * 0.07f
             textP.color = Color.argb(90, 0, 0, 0)
-            canvas.drawText(ch.toString(), charX + 2f, line1Y + waveY + 2f, textP)
+            canvas.drawText(ch.toString(), charX + 1.5f * u, line1Y + waveY + 1.5f * u, textP)
             textP.color = brownDark
             canvas.drawText(ch.toString(), charX, line1Y + waveY, textP)
             charX += textP.measureText(ch.toString())
@@ -282,11 +306,11 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         val word2 = "for Steven"
         var totalW2 = 0f
         word2.forEach { ch -> totalW2 += textP.measureText(ch.toString()) }
-        var charX2 = w / 2f - totalW2 / 2f
+        var charX2 = logoCX - totalW2 / 2f
         for ((i, ch) in word2.withIndex()) {
             val waveY = sin(elapsed * 2.4f + i * 0.55f + 1.2f) * logoR * 0.05f
             textP.color = Color.argb(85, 0, 0, 0)
-            canvas.drawText(ch.toString(), charX2 + 2f, line2Y + waveY + 2f, textP)
+            canvas.drawText(ch.toString(), charX2 + 1.5f * u, line2Y + waveY + 1.5f * u, textP)
             textP.color = caramel
             canvas.drawText(ch.toString(), charX2, line2Y + waveY, textP)
             charX2 += textP.measureText(ch.toString())
@@ -304,31 +328,39 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
     }
 
     private fun drawPlayButton(canvas: Canvas, scale: Float) {
-        val rx = 24f
+        val rx = 16f * u
         canvas.save()
         canvas.scale(scale, scale, playRect.centerX(), playRect.centerY())
 
+        // Drop shadow
         fillP.color = Color.argb(80, 0, 0, 0)
-        canvas.drawRoundRect(RectF(playRect.left + 4f, playRect.top + 7f, playRect.right + 4f, playRect.bottom + 7f), rx, rx, fillP)
+        canvas.drawRoundRect(RectF(playRect.left + 2f * u, playRect.top + 4f * u, playRect.right + 2f * u, playRect.bottom + 4f * u), rx, rx, fillP)
+        // Cartoon border
+        val bd = 2.5f * u
         fillP.color = Color.argb(210, 28, 12, 0)
-        canvas.drawRoundRect(RectF(playRect.left - 4f, playRect.top - 4f, playRect.right + 4f, playRect.bottom + 4f), rx + 4f, rx + 4f, fillP)
+        canvas.drawRoundRect(RectF(playRect.left - bd, playRect.top - bd, playRect.right + bd, playRect.bottom + bd), rx + bd, rx + bd, fillP)
+        // Fill
         fillP.color = warmPink; fillP.alpha = 255
         canvas.drawRoundRect(playRect, rx, rx, fillP)
+        // Top-half highlight
         canvas.save()
         canvas.clipRect(playRect.left, playRect.top, playRect.right, playRect.centerY())
         fillP.color = Color.argb(65, 255, 255, 255)
         canvas.drawRoundRect(playRect, rx, rx, fillP)
         canvas.restore()
         strokeP.style = Paint.Style.STROKE
-        strokeP.color = Color.argb(90, 255, 255, 255); strokeP.strokeWidth = 2f
+        strokeP.color = Color.argb(90, 255, 255, 255); strokeP.strokeWidth = 1.5f * u
         canvas.drawRoundRect(playRect, rx, rx, strokeP)
 
-        textP.textSize = 42f; textP.textAlign = Paint.Align.CENTER
+        // Label: 30dp, scaled with the button
+        val sz = 30f * u
+        textP.textSize = sz; textP.textAlign = Paint.Align.CENTER
         textP.letterSpacing = 0.10f
+        val ty = playRect.centerY() + sz * 0.36f
         textP.color = Color.argb(80, 0, 0, 0)
-        canvas.drawText("PLAY", playRect.centerX() + 2f, playRect.centerY() + 15f + 2f, textP)
+        canvas.drawText("PLAY", playRect.centerX() + 1.5f * u, ty + 1.5f * u, textP)
         textP.color = Color.WHITE
-        canvas.drawText("PLAY", playRect.centerX(), playRect.centerY() + 15f, textP)
+        canvas.drawText("PLAY", playRect.centerX(), ty, textP)
         textP.letterSpacing = 0f
 
         canvas.restore()
@@ -338,11 +370,12 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
     // Subtitle
     // -----------------------------------------------------------------------
     private fun drawSubtitle(canvas: Canvas) {
-        textP.textSize = 27f; textP.textAlign = Paint.Align.CENTER
+        textP.textSize = 15f * u; textP.textAlign = Paint.Align.CENTER
         textP.color = Color.argb(150, 120, 60, 10)
-        // Centered in the space below the play button
-        val subtitleY = playRect.bottom + (h - playRect.bottom) * 0.52f
-        canvas.drawText("✦  Connect matching pieces  ·  Infinite play  ✦", w / 2f, subtitleY, textP)
+        // Centered in the space between the play button and the bottom of the safe area
+        val safeBottom = h - insetB
+        val subtitleY  = playRect.bottom + (safeBottom - playRect.bottom) * 0.52f
+        canvas.drawText("\u2726  Connect matching pieces  \u00B7  Infinite play  \u2726", logoCX, subtitleY, textP)
     }
 
     // -----------------------------------------------------------------------

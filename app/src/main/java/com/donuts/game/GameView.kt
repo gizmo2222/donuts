@@ -7,6 +7,8 @@ import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.core.content.res.ResourcesCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import kotlin.math.*
 
 class GameView(context: Context, initialBoard: GameBoard, private val prefs: Prefs) :
@@ -24,8 +26,15 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private var cellSize  = 0f
     private var boardLeft = 0f
     private var boardTop  = 0f
-    private val hudHeight = 220f
-    private val counterH  = 270f
+    private var counterH  = 0f
+
+    // Density-independent unit: pixels per design-dp, boosted a little on large screens
+    // so chrome and text grow with the device instead of staying phone-sized.
+    private val uiScale = UiScale(context)
+    private var u = 1f
+
+    // Window insets (status bar, gesture bar, display cutout). Layout stays inside them.
+    private var insetL = 0; private var insetT = 0; private var insetR = 0; private var insetB = 0
 
     private var resetBtnRect    = RectF()
     private var settingsBtnRect = RectF()
@@ -39,7 +48,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private val gridRects         = Array(2) { RectF() }
     private var settingsCloseRect = RectF()
 
-    private val settingsSc = 1.5f   // draw-time scale for all settings text/icons
+    private var settingsSc = 1f     // < 1 only when the full-size settings panel cannot fit the screen
 
     private val hintOptions = longArrayOf(3_000L, 5_000L, 10_000L, 0L)
     private val hintLabels  = arrayOf("3s", "5s", "10s", "Off")
@@ -284,7 +293,18 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // -----------------------------------------------------------------------
     @Volatile private var renderThread: RenderThread? = null
 
-    init { holder.addCallback(this); isFocusable = true }
+    init {
+        holder.addCallback(this); isFocusable = true
+        ViewCompat.setOnApplyWindowInsetsListener(this) { _, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            if (bars.left != insetL || bars.top != insetT || bars.right != insetR || bars.bottom != insetB) {
+                insetL = bars.left; insetT = bars.top; insetR = bars.right; insetB = bars.bottom
+                synchronized(holder) { computeLayout() }
+            }
+            insets
+        }
+    }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
         boardEntryMs = SystemClock.elapsedRealtime()
@@ -292,7 +312,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     }
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, w: Int, h: Int) {
-        surfaceW = w; surfaceH = h; computeLayout()
+        synchronized(holder) { surfaceW = w; surfaceH = h; computeLayout() }
     }
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
@@ -310,126 +330,131 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private fun computeLayout() {
         val w = surfaceW.toFloat(); val h = surfaceH.toFloat()
         if (w == 0f || h == 0f) return
+        uiScale.update(surfaceW, surfaceH)
+        u = uiScale.u
 
-        // Buttons sit just above the board with a comfortable gap
-        val btnH      = 100f
-        val btnGap    = 26f
-        val btnBlockH = btnH + btnGap   // total vertical height consumed by the button strip
+        // Safe area: never lay content under the status bar, gesture bar, or a cutout.
+        val safeL = insetL.toFloat();    val safeT = insetT.toFloat()
+        val safeW = w - insetL - insetR; val safeH = h - insetT - insetB
+        val margin = 12f * u
 
-        // Board size: constrained by width; height leaves room for buttons above and counter below
-        val boardPx = min(w, h - btnBlockH - counterH) * 0.94f
-        cellSize    = boardPx / board.cols
-        boardLeft   = (w - boardPx) / 2f
+        // Chrome in design-dp
+        val titleH    = 44f * u          // "Donuts / for Steven" drawn above the button row
+        val btnH      = 60f * u
+        val btnGap    = 12f * u
+        val btnBlockH = titleH + btnH + btnGap
+        counterH      = 128f * u
 
-        // Center the ENTIRE UI block (buttons + board + counter) on screen vertically
+        // Board: fills the safe width, but never taller than the space left after the
+        // button strip above and the counter below.
+        val boardPx = min(safeW - margin * 2f, safeH - margin * 2f - btnBlockH - counterH)
+        cellSize  = boardPx / board.cols
+        boardLeft = safeL + (safeW - boardPx) / 2f
+
+        // Centre the whole block (buttons + board + counter) inside the safe area
         val totalBlockH = btnBlockH + boardPx + counterH
-        boardTop = ((h - totalBlockH) / 2f + btnBlockH).coerceAtLeast(hudHeight)
+        boardTop = safeT + (safeH - totalBlockH) / 2f + btnBlockH
 
-        val btnY = boardTop - btnH - btnGap
-        val sbEnd = boardLeft + board.cols * cellSize
-        // Left: RESET alone
-        resetBtnRect    = RectF(boardLeft, btnY, boardLeft + 230f, btnY + btnH)
-        // Centre: stickers 🏅 — anchored to screen midpoint
-        stickersBtnRect = RectF(w / 2f - 65f, btnY, w / 2f + 65f, btnY + btnH)
-        // Right cluster: ♪ · ≋ · ⚙ — 10px gaps
-        settingsBtnRect = RectF(sbEnd - 100f, btnY, sbEnd,        btnY + btnH)
-        hapticBtnRect   = RectF(sbEnd - 210f, btnY, sbEnd - 110f, btnY + btnH)
-        soundBtnRect    = RectF(sbEnd - 320f, btnY, sbEnd - 220f, btnY + btnH)
+        // HUD row: RESET (2 units), stickers (1), sound / haptic / settings (1 each).
+        // The unit derives from board width so the row always fits; capped at 64dp.
+        val btnY  = boardTop - btnH - btnGap
+        val sbEnd = boardLeft + boardPx
+        val gap   = 8f * u
+        val side  = ((boardPx - gap * 5f) / 6f).coerceAtMost(64f * u)
+        resetBtnRect    = RectF(boardLeft, btnY, boardLeft + side * 2f, btnY + btnH)
+        // Right cluster packs inward from the board's right edge so it can never collide
+        fun slot(i: Int) = sbEnd - side * (i + 1) - gap * i
+        settingsBtnRect = RectF(slot(0), btnY, slot(0) + side, btnY + btnH)
+        hapticBtnRect   = RectF(slot(1), btnY, slot(1) + side, btnY + btnH)
+        soundBtnRect    = RectF(slot(2), btnY, slot(2) + side, btnY + btnH)
+        stickersBtnRect = RectF(slot(3), btnY, slot(3) + side, btnY + btnH)
 
-        // Settings panel — width fits screen with margin; height computed from content
-        val sc     = 1.5f
-        val pad    = 24f * sc
-        val thBtnH = 90f * sc
-        val hBtnH  = 80f * sc
-        val gBtnH  = 80f * sc
-        val closeH = 80f * sc
+        layoutSettingsPanel(safeL, safeT, safeW, safeH)
+        layoutStickersPanel(safeL, safeT, safeW, safeH)
+    }
 
-        val packBtnH   = 80f * sc
-        val hapticBtnH = 80f * sc
-        // Stack content to find required panel height:
-        // title (156*sc) + themeRow1 + gap + themeRow2 + gap + hintRow + gap + gridRow + gap + packRow + gap + hapticRow + gap + close + bottomPad
-        val requiredPh = 156f*sc +
-            thBtnH + 10f*sc + thBtnH +   // two theme rows
-            62f*sc + hBtnH +              // hint section
-            62f*sc + gBtnH +              // grid section
-            62f*sc + packBtnH +           // sound pack section
-            62f*sc + hapticBtnH +         // haptic theme section
-            62f*sc + closeH + pad         // close + bottom padding
-        val pw = min(w - 32f, 660f)
-        val ph = requiredPh.coerceAtMost(h - 32f)
-        val pl = (w - pw) / 2f
-        val pt = (h - ph) / 2f
+    /**
+     * Settings panel: sized in design-dp, then uniformly shrunk ([settingsSc] < 1) when the
+     * full-size panel would not fit the safe height, so small phones keep every control.
+     */
+    private fun layoutSettingsPanel(safeL: Float, safeT: Float, safeW: Float, safeH: Float) {
+        val pw     = min(safeW - 24f * u, 480f * u)
+        val availH = safeH - 24f * u
+        settingsSc = 1f
+        val ph = placeSettings(pw, safeL, safeT, safeW, safeH)
+        if (ph > availH) {
+            settingsSc = availH / ph
+            placeSettings(pw, safeL, safeT, safeW, safeH)
+        }
+    }
+
+    private fun placeSettings(pw: Float, safeL: Float, safeT: Float, safeW: Float, safeH: Float): Float {
+        val k      = u * settingsSc
+        val pad    = 16f * k
+        val titleH = 72f * k
+        val thBtnH = 64f * k
+        val rowH   = 56f * k
+        val secGap = 40f * k      // room for a section label above each row
+        val closeH = 56f * k
+        val ph = titleH + thBtnH * 2f + 8f * k + (secGap + rowH) * 4f + secGap + closeH + pad
+        val pl = safeL + (safeW - pw) / 2f
+        val pt = safeT + (safeH - ph) / 2f
         panelRect = RectF(pl, pt, pl + pw, pt + ph)
 
-        val thBtnW = (pw - pad * 3) / 2f
-        val thRow1 = pt + 156f * sc
-        val thRow2 = thRow1 + thBtnH + 10f * sc
-        themeRects[0] = RectF(pl + pad,              thRow1, pl + pad + thBtnW,    thRow1 + thBtnH)
-        themeRects[1] = RectF(pl + pad * 2 + thBtnW, thRow1, pl + pw - pad,        thRow1 + thBtnH)
-        themeRects[2] = RectF(pl + pad,              thRow2, pl + pad + thBtnW,    thRow2 + thBtnH)
-        themeRects[3] = RectF(pl + pad * 2 + thBtnW, thRow2, pl + pw - pad,        thRow2 + thBtnH)
+        val thBtnW = (pw - pad * 3f) / 2f
+        val thRow1 = pt + titleH
+        val thRow2 = thRow1 + thBtnH + 8f * k
+        themeRects[0].set(pl + pad,               thRow1, pl + pad + thBtnW, thRow1 + thBtnH)
+        themeRects[1].set(pl + pad * 2f + thBtnW, thRow1, pl + pw - pad,     thRow1 + thBtnH)
+        themeRects[2].set(pl + pad,               thRow2, pl + pad + thBtnW, thRow2 + thBtnH)
+        themeRects[3].set(pl + pad * 2f + thBtnW, thRow2, pl + pw - pad,     thRow2 + thBtnH)
 
-        val hBtnW = (pw - pad * 5) / 4f
-        val hTop  = thRow2 + thBtnH + 62f * sc
-        for (i in 0 until 4) {
-            val x = pl + pad + i * (hBtnW + pad)
-            hintRects[i] = RectF(x, hTop, x + hBtnW, hTop + hBtnH)
+        fun row(rects: Array<RectF>, top: Float) {
+            val n  = rects.size
+            val bw = (pw - pad * (n + 1)) / n
+            for (i in 0 until n) {
+                val x = pl + pad + i * (bw + pad)
+                rects[i].set(x, top, x + bw, top + rowH)
+            }
         }
-
-        val gBtnW = (pw - pad * 3) / 2f
-        val gTop  = hTop + hBtnH + 62f * sc
-        for (i in 0 until 2) {
-            val x = pl + pad + i * (gBtnW + pad)
-            gridRects[i] = RectF(x, gTop, x + gBtnW, gTop + gBtnH)
-        }
-
-        // Sound Pack buttons (4 in a row)
-        val pBtnW = (pw - pad * 5) / 4f
-        val pTop  = gTop + gBtnH + 62f * sc
-        for (i in 0 until 4) {
-            val x = pl + pad + i * (pBtnW + pad)
-            packRects[i] = RectF(x, pTop, x + pBtnW, pTop + packBtnH)
-        }
-
-        // Haptic Theme buttons (3 in a row)
-        val hThBtnW = (pw - pad * 4) / 3f
-        val hThTop  = pTop + packBtnH + 62f * sc
-        for (i in 0 until 3) {
-            val x = pl + pad + i * (hThBtnW + pad)
-            hapticRects[i] = RectF(x, hThTop, x + hThBtnW, hThTop + hapticBtnH)
-        }
+        val hTop   = thRow2 + thBtnH + secGap
+        val gTop   = hTop + rowH + secGap
+        val pTop   = gTop + rowH + secGap
+        val hThTop = pTop + rowH + secGap
+        row(hintRects, hTop); row(gridRects, gTop); row(packRects, pTop); row(hapticRects, hThTop)
 
         settingsCloseRect = RectF(pl + pad, pt + ph - closeH - pad, pl + pw - pad, pt + ph - pad)
+        return ph
+    }
 
-        // Sticker panel layout — 12 tiles, 4 rows × 3 cols
-        // Panel fills width minus 40px margin (20 each side) and height minus 80px (40 each side)
-        val spW   = w - 40f
-        val spPad = 18f
-        val spTitleH    = 116f
-        val spStatsH    = 52f
-        val spCloseH    = 88f
-        // Tile size fills remaining height or width, whichever is tighter
-        val tileFromW   = (spW - spPad * 4f) / 3f
-        val tileFromH   = (h - 80f - spTitleH - spStatsH - spCloseH - spPad * 7f) / 4f
-        val stickerBtnSide = min(tileFromW, tileFromH).coerceAtLeast(80f)
-        val spContentH  = spTitleH + 4f * stickerBtnSide + 3f * spPad + spStatsH + spCloseH + spPad * 3f
-        val spH = spContentH.coerceAtMost(h - 80f)
-        val spL = (w - spW) / 2f
-        val spT = (h - spH) / 2f
+    /** Sticker panel: 4 rows of 3 tiles sized by whichever of width or height is tighter. */
+    private fun layoutStickersPanel(safeL: Float, safeT: Float, safeW: Float, safeH: Float) {
+        val spW      = min(safeW - 24f * u, 560f * u)
+        val spPad    = 10f * u
+        val spTitleH = 56f * u
+        val spStatsH = 28f * u
+        val spCloseH = 56f * u
+        val tileFromW = (spW - spPad * 4f) / 3f
+        val tileFromH = (safeH - 24f * u - spTitleH - spStatsH - spCloseH - spPad * 7f) / 4f
+        val side = min(tileFromW, tileFromH)
+        val spH  = spTitleH + side * 4f + spPad * 3f + spStatsH + spCloseH + spPad * 3f
+        val spL  = safeL + (safeW - spW) / 2f
+        val spT  = safeT + (safeH - spH) / 2f
         stickerPanelRect = RectF(spL, spT, spL + spW, spT + spH)
-        val stRow1Y = spT + spTitleH
+        val gridW  = side * 3f + spPad * 2f
+        val gridX0 = spL + (spW - gridW) / 2f
+        val row1Y  = spT + spTitleH
         for (i in 0 until 12) {
             val col = i % 3; val row = i / 3
-            val sx = spL + spPad + col * (stickerBtnSide + spPad)
-            val sy = stRow1Y + row * (stickerBtnSide + spPad)
-            stickerRects[i] = RectF(sx, sy, sx + stickerBtnSide, sy + stickerBtnSide)
+            val sx = gridX0 + col * (side + spPad)
+            val sy = row1Y + row * (side + spPad)
+            stickerRects[i].set(sx, sy, sx + side, sy + side)
         }
-        // Bottom bar: "Done ✓" (wide, green) left · "Reset" (narrow, red) right
-        val spResetW  = 130f
-        val spDoneW   = spW - spPad * 3f - spResetW
+        // Bottom bar: "Done" (wide, green) left, "Reset" (narrow, red) right
+        val spResetW  = 72f * u
         val closeRowY = stickerPanelRect.bottom - spCloseH - spPad
-        stickersCloseRect = RectF(spL + spPad,                  closeRowY, spL + spPad + spDoneW, stickerPanelRect.bottom - spPad)
-        stickersResetRect = RectF(spL + spW - spPad - spResetW, closeRowY, spL + spW - spPad,     stickerPanelRect.bottom - spPad)
+        stickersCloseRect = RectF(spL + spPad, closeRowY, spL + spW - spPad * 2f - spResetW, stickerPanelRect.bottom - spPad)
+        stickersResetRect = RectF(spL + spW - spPad - spResetW, closeRowY, spL + spW - spPad, stickerPanelRect.bottom - spPad)
     }
 
     private fun saveSession() {
@@ -745,24 +770,24 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val titleX = surfaceW / 2f
 
         // "for Steven" baseline sits just above the buttons; "Donuts" above that
-        val sz2    = 26f
-        val line2Y = resetBtnRect.top - 14f
-        val sz1    = 36f
-        val line1Y = line2Y - sz2 - 10f
+        val sz2    = 14f * u
+        val line2Y = resetBtnRect.top - 8f * u
+        val sz1    = 20f * u
+        val line1Y = line2Y - sz2 - 6f * u
 
         textPaint.textAlign = Paint.Align.CENTER
 
         // "Donuts"
         textPaint.color    = Color.argb(90, 0, 0, 0)
         textPaint.textSize = sz1
-        canvas.drawText("Donuts", titleX + 2f, line1Y + 2f, textPaint)
+        canvas.drawText("Donuts", titleX + 1.5f * u, line1Y + 1.5f * u, textPaint)
         textPaint.color = theme.textPrimary
         canvas.drawText("Donuts", titleX, line1Y, textPaint)
 
         // "for Steven"
         textPaint.color    = Color.argb(90, 0, 0, 0)
         textPaint.textSize = sz2
-        canvas.drawText("for Steven", titleX + 2f, line2Y + 2f, textPaint)
+        canvas.drawText("for Steven", titleX + 1.5f * u, line2Y + 1.5f * u, textPaint)
         textPaint.color = theme.textSecondary
         canvas.drawText("for Steven", titleX, line2Y, textPaint)
 
@@ -778,11 +803,11 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
         val soundLabel  = if (prefs.soundEnabled)  "\uD83D\uDD0A" else "\uD83D\uDD07"  // 🔊 / 🔇
         val hapticLabel = if (prefs.hapticEnabled) "\uD83D\uDCF3" else "\uD83D\uDCF1"  // 📳 / 📱
-        drawPrettyButton(canvas, resetBtnRect,    theme.resetBtn,    "RESET",      36f, resetScale)
-        drawPrettyButton(canvas, stickersBtnRect, theme.settingsBtn, "\uD83C\uDFC5", 36f, stickerScale)  // 🏅
-        drawPrettyButton(canvas, soundBtnRect,    soundColor,        soundLabel,   38f, soundScale)
-        drawPrettyButton(canvas, hapticBtnRect,   hapticColor,       hapticLabel,  38f, hapticScale)
-        drawPrettyButton(canvas, settingsBtnRect, theme.settingsBtn, "\u2699",     38f, settingsScale)
+        drawPrettyButton(canvas, resetBtnRect,    theme.resetBtn,    "RESET",      18f * u, resetScale)
+        drawPrettyButton(canvas, stickersBtnRect, theme.settingsBtn, "\uD83C\uDFC5", 22f * u, stickerScale)  // 🏅
+        drawPrettyButton(canvas, soundBtnRect,    soundColor,        soundLabel,   22f * u, soundScale)
+        drawPrettyButton(canvas, hapticBtnRect,   hapticColor,       hapticLabel,  22f * u, hapticScale)
+        drawPrettyButton(canvas, settingsBtnRect, theme.settingsBtn, "\u2699",     22f * u, settingsScale)
     }
 
     /** Returns a scale factor that dips to 0.93 at tap then recovers to 1.0 over PRESS_MS. */
@@ -794,21 +819,22 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     }
 
     private fun drawPrettyButton(canvas: Canvas, rect: RectF, baseColor: Int, label: String, labelSize: Float, scale: Float = 1f) {
-        val rx = 20f
+        val rx = 12f * u
         canvas.save()
         canvas.scale(scale, scale, rect.centerX(), rect.centerY())
 
         // Drop shadow
         shadowPaint.color = Color.argb(90, 0, 0, 0)
         canvas.drawRoundRect(
-            RectF(rect.left + 4f, rect.top + 7f, rect.right + 4f, rect.bottom + 7f),
+            scratchRectF.apply { set(rect.left + 2f * u, rect.top + 4f * u, rect.right + 2f * u, rect.bottom + 4f * u) },
             rx, rx, shadowPaint
         )
         // Cartoon border
+        val bd = 2f * u
         fillPaint.color = Color.argb(200, 30, 15, 0)
         canvas.drawRoundRect(
-            RectF(rect.left - 3f, rect.top - 3f, rect.right + 3f, rect.bottom + 3f),
-            rx + 3f, rx + 3f, fillPaint
+            scratchRectF.apply { set(rect.left - bd, rect.top - bd, rect.right + bd, rect.bottom + bd) },
+            rx + bd, rx + bd, fillPaint
         )
         // Base fill
         fillPaint.color = baseColor; fillPaint.alpha = 255
@@ -821,17 +847,19 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         canvas.restore()
         // Inner border
         strokePaint.color       = Color.argb(100, 255, 255, 255)
-        strokePaint.strokeWidth = 2f; strokePaint.alpha = 255
+        strokePaint.strokeWidth = 1.5f * u; strokePaint.alpha = 255
         canvas.drawRoundRect(rect, rx, rx, strokePaint)
-        // Label shadow
-        textPaint.color         = Color.argb(80, 0, 0, 0)
+        // Label: shrinks to fit the button width so long labels never overflow
         textPaint.textSize      = labelSize
         textPaint.textAlign     = Paint.Align.CENTER
         textPaint.letterSpacing = 0.06f
-        canvas.drawText(label, rect.centerX() + 2f, rect.centerY() + labelSize * 0.36f + 2f, textPaint)
-        // Label
+        val maxW = rect.width() - 8f * u
+        while (textPaint.textSize > 8f * u && textPaint.measureText(label) > maxW) textPaint.textSize *= 0.92f
+        val sz = textPaint.textSize
+        textPaint.color = Color.argb(80, 0, 0, 0)
+        canvas.drawText(label, rect.centerX() + 1.5f * u, rect.centerY() + sz * 0.36f + 1.5f * u, textPaint)
         textPaint.color = Color.WHITE
-        canvas.drawText(label, rect.centerX(), rect.centerY() + labelSize * 0.36f, textPaint)
+        canvas.drawText(label, rect.centerX(), rect.centerY() + sz * 0.36f, textPaint)
         textPaint.letterSpacing = 0f
 
         canvas.restore()
@@ -843,37 +871,35 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private fun drawBoardBackground(canvas: Canvas) {
         val boardR = boardLeft + board.cols * cellSize
         val boardB = boardTop  + board.rows * cellSize
-        val boardW = boardR - boardLeft
-        val boardH = boardB - boardTop
 
-        // Chunky drop shadow — offset further for cartoon depth
+        // Chunky drop shadow, offset for cartoon depth
         shadowPaint.color = Color.argb(80, 0, 0, 0)
-        canvas.drawRoundRect(scratchRectF.apply { set(boardLeft, boardTop + 14f, boardR + 6f, boardB + 14f) }, 24f, 24f, shadowPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(boardLeft, boardTop + 8f * u, boardR + 4f * u, boardB + 8f * u) }, 14f * u, 14f * u, shadowPaint)
         // Thick dark cartoon border
+        val bd = 7f * u
         fillPaint.color = Color.argb(220, 28, 12, 0)
-        canvas.drawRoundRect(scratchRectF.apply { set(boardLeft - 12f, boardTop - 12f, boardR + 12f, boardB + 12f) }, 28f, 28f, fillPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(boardLeft - bd, boardTop - bd, boardR + bd, boardB + bd) }, 16f * u, 16f * u, fillPaint)
         // Board fill
+        val fi = 2f * u
         fillPaint.color = theme.boardBg; fillPaint.alpha = 255
-        canvas.drawRoundRect(scratchRectF.apply { set(boardLeft - 4f, boardTop - 4f, boardR + 4f, boardB + 4f) }, 22f, 22f, fillPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(boardLeft - fi, boardTop - fi, boardR + fi, boardB + fi) }, 13f * u, 13f * u, fillPaint)
 
-        // Polka-dot texture — subtle circles at cell intersections
+        // Polka-dot texture: subtle circles at cell intersections
         val dotR = cellSize * 0.06f
         fillPaint.color = Color.argb(28, 28, 12, 0)
         canvas.save()
-        canvas.clipRect(boardLeft - 4f, boardTop - 4f, boardR + 4f, boardB + 4f)
+        canvas.clipRect(boardLeft - fi, boardTop - fi, boardR + fi, boardB + fi)
         for (r in 0..board.rows) {
             for (c in 0..board.cols) {
-                val dx = boardLeft + c * cellSize
-                val dy = boardTop  + r * cellSize
-                canvas.drawCircle(dx, dy, dotR, fillPaint)
+                canvas.drawCircle(boardLeft + c * cellSize, boardTop + r * cellSize, dotR, fillPaint)
             }
         }
         canvas.restore()
         fillPaint.alpha = 255
 
-        // Cell grid — soft rounded dots instead of hard lines
+        // Cell grid: faint lines
         strokePaint.color       = Color.argb(22, 28, 12, 0)
-        strokePaint.strokeWidth = 1f
+        strokePaint.strokeWidth = max(1f, 0.6f * u)
         for (r in 1 until board.rows) {
             val y = boardTop + r * cellSize
             canvas.drawLine(boardLeft, y, boardR, y, strokePaint)
@@ -1544,66 +1570,71 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // -----------------------------------------------------------------------
     private fun drawCounter(canvas: Canvas, now: Long) {
         val stripY = boardTop + board.rows * cellSize
-        val midY   = stripY + counterH / 2f
+        val top    = stripY + 6f * u                    // gap below the board
+        val bottom = stripY + counterH
+        val midY   = (top + bottom) / 2f
+        val ph     = bottom - top
         val cw     = board.cols * cellSize * 0.88f
-        val pl     = surfaceW / 2f - cw / 2f
-        val pr     = surfaceW / 2f + cw / 2f
+        val cx     = boardLeft + board.cols * cellSize / 2f
+        val pl     = cx - cw / 2f
+        val pr     = cx + cw / 2f
 
-        // Heartbeat — quick scale-pulse when score increments
+        // Heartbeat: quick scale-pulse when score increments
         val beat = if (counterPulseMs >= 0) {
             val t = ((now - counterPulseMs).toFloat() / COUNTER_PULSE_MS).coerceIn(0f, 1f)
             if (t >= 1f) { counterPulseMs = -1L; 1f }
             else 1f + sin(t * PI.toFloat()) * 0.085f
         } else 1f
         canvas.save()
-        canvas.scale(beat, beat, surfaceW / 2f, midY)
+        canvas.scale(beat, beat, cx, midY)
 
         // Panel shell
+        val rx = 11f * u; val bd = 2f * u
         shadowPaint.color = Color.argb(50, 0, 0, 0)
-        canvas.drawRoundRect(scratchRectF.apply { set(pl + 2f, stripY + 12f, pr + 2f, stripY + counterH - 2f) }, 18f, 18f, shadowPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(pl + 1f * u, top + 5f * u, pr + 1f * u, bottom + 1f * u) }, rx, rx, shadowPaint)
         fillPaint.color = Color.argb(180, 28, 12, 0)
-        canvas.drawRoundRect(scratchRectF.apply { set(pl - 4f, stripY + 4f, pr + 4f, stripY + counterH) }, 20f, 20f, fillPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(pl - bd, top - bd, pr + bd, bottom + bd) }, rx + bd, rx + bd, fillPaint)
         fillPaint.color = theme.panelBg; fillPaint.alpha = 255
-        canvas.drawRoundRect(scratchRectF.apply { set(pl, stripY + 8f, pr, stripY + counterH - 4f) }, 18f, 18f, fillPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(pl, top, pr, bottom) }, rx, rx, fillPaint)
 
-        // "CLEARED" — header label at top of panel
-        textPaint.textSize      = 30f
+        // "CLEARED" header label at top of panel
+        textPaint.textSize      = ph * 0.13f
         textPaint.textAlign     = Paint.Align.CENTER
         textPaint.letterSpacing = 0.14f
         textPaint.color         = Color.argb(80, 0, 0, 0)
-        canvas.drawText("CLEARED  \u2746", surfaceW / 2f + 1f, stripY + 48f + 1f, textPaint)
+        canvas.drawText("CLEARED  \u2746", cx + 1f * u, top + ph * 0.20f + 1f * u, textPaint)
         textPaint.color         = theme.textSecondary
-        canvas.drawText("CLEARED  \u2746", surfaceW / 2f, stripY + 48f, textPaint)
+        canvas.drawText("CLEARED  \u2746", cx, top + ph * 0.20f, textPaint)
         textPaint.letterSpacing = 0f
 
         // --- Digit-flip number ---
-        val digitSz = 116f
+        val digitSz = ph * 0.46f
         textPaint.textSize = digitSz
         val cellW  = textPaint.measureText("0") * 1.18f   // fixed per-digit width
         val numStr = displayedCount.toString()
         val totalW = numStr.length * cellW
-        val startX = surfaceW / 2f - totalW / 2f + cellW / 2f
-        val baseY  = stripY + 192f                         // shifted down to leave room for header label
+        val startX = cx - totalW / 2f + cellW / 2f
+        val baseY  = top + ph * 0.68f
         val pivotY = baseY - digitSz * 0.36f               // visual centre of digit
 
         textOutlinePaint.textSize    = digitSz
         textOutlinePaint.textAlign   = Paint.Align.CENTER
         textOutlinePaint.typeface    = boldTypeface
-        textOutlinePaint.strokeWidth = 5f
+        textOutlinePaint.strokeWidth = 2.5f * u
 
         for ((idx, ch) in numStr.withIndex()) {
             val pos  = numStr.length - 1 - idx             // 0 = ones place
             val x    = startX + idx * cellW
             val flip = digitFlips[pos]
 
-            // Dark cell background — makes it look like a scoreboard slot
+            // Dark cell background so it looks like a scoreboard slot
             fillPaint.color = Color.argb(55, 28, 12, 0)
             canvas.drawRoundRect(scratchRectF.apply { set(x - cellW * 0.46f, pivotY - digitSz * 0.54f,
-                                       x + cellW * 0.46f, pivotY + digitSz * 0.54f) }, 8f, 8f, fillPaint)
+                                       x + cellW * 0.46f, pivotY + digitSz * 0.54f) }, 5f * u, 5f * u, fillPaint)
 
             val (displayCh, scaleY) = if (flip != null) {
                 val t  = ((now - flip.startMs).toFloat() / DIGIT_FLIP_MS).coerceIn(0f, 1f)
-                val sy = abs(1f - t * 2f)                  // 1 → 0 at mid → 1
+                val sy = abs(1f - t * 2f)                  // 1 -> 0 at mid -> 1
                 val dc = if (t < 0.5f) flip.from else flip.to
                 if (t >= 1f) digitFlips.remove(pos)
                 Pair(dc, sy)
@@ -1616,7 +1647,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             // Shadow
             textPaint.color     = Color.argb(80, 0, 0, 0)
             textPaint.textAlign = Paint.Align.CENTER
-            canvas.drawText("$displayCh", x + 4f, baseY + 4f, textPaint)
+            canvas.drawText("$displayCh", x + 2f * u, baseY + 2f * u, textPaint)
             // Fill
             textPaint.color = theme.textPrimary
             canvas.drawText("$displayCh", x, baseY, textPaint)
@@ -1628,19 +1659,19 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
         // Subtle separator between digits and best-score footer
         strokePaint.color       = Color.argb(30, 28, 12, 0)
-        strokePaint.strokeWidth = 1.5f
-        canvas.drawLine(pl + 28f, stripY + 218f, pr - 28f, stripY + 218f, strokePaint)
+        strokePaint.strokeWidth = max(1f, 0.8f * u)
+        canvas.drawLine(pl + 16f * u, top + ph * 0.78f, pr - 16f * u, top + ph * 0.78f, strokePaint)
 
-        // "best" — personal record anchored to bottom of panel
+        // "best": personal record anchored to bottom of panel
         val bestScore = if (board.cols == 6) prefs.highScore6x6 else prefs.highScore8x8
         if (bestScore > 0) {
-            textPaint.textSize      = 28f
+            textPaint.textSize      = ph * 0.12f
             textPaint.textAlign     = Paint.Align.CENTER
             textPaint.letterSpacing = 0.06f
             textPaint.color         = Color.argb(80, 0, 0, 0)
-            canvas.drawText("best  \u00B7  $bestScore", surfaceW / 2f + 1f, stripY + 250f + 1f, textPaint)
+            canvas.drawText("best  \u00B7  $bestScore", cx + 1f * u, top + ph * 0.92f + 1f * u, textPaint)
             textPaint.color         = theme.textSecondary
-            canvas.drawText("best  \u00B7  $bestScore", surfaceW / 2f, stripY + 250f, textPaint)
+            canvas.drawText("best  \u00B7  $bestScore", cx, top + ph * 0.92f, textPaint)
             textPaint.letterSpacing = 0f
         }
 
@@ -1660,19 +1691,19 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 val alpha = if (t > 0.6f) ((1f - (t - 0.6f) / 0.4f) * 255).toInt().coerceIn(0, 255) else 255
                 val rise  = cellSize * 1.8f * t
                 val scale = if (t < 0.12f) (t / 0.12f) * 1.3f else 1.3f - (t - 0.12f) * 0.3f
-                val sz    = 52f * scale
+                val sz    = 28f * u * scale
                 canvas.save()
                 canvas.translate(fl.cx, fl.cy - rise)
                 // Shadow
                 textPaint.color     = Color.argb((alpha * 0.4f).toInt(), 0, 0, 0)
                 textPaint.textSize  = sz
                 textPaint.textAlign = Paint.Align.CENTER
-                canvas.drawText(fl.text, 3f, 3f + sz * 0.36f, textPaint)
+                canvas.drawText(fl.text, 2f * u, 2f * u + sz * 0.36f, textPaint)
                 // Outline
                 textOutlinePaint.color         = Color.argb((alpha * 0.8f).toInt(), 28, 12, 0)
                 textOutlinePaint.textSize      = sz
                 textOutlinePaint.textAlign     = Paint.Align.CENTER
-                textOutlinePaint.strokeWidth   = 7f
+                textOutlinePaint.strokeWidth   = 4f * u
                 textOutlinePaint.typeface      = boldTypeface
                 textOutlinePaint.letterSpacing = 0.08f
                 canvas.drawText(fl.text, 0f, sz * 0.36f, textOutlinePaint)
@@ -1764,27 +1795,27 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             else -> (((CELEBRATE_MS - elapsed) / FADE_MS) * 255).toInt()
         }.coerceIn(0, 255)
         val slideT = easeOutQuint((elapsed / SLIDE_MS).coerceIn(0f, 1f))
-        val bw = min(board.cols * cellSize * 0.88f, 420f)
-        val bh = 100f
+        val bw = min(board.cols * cellSize * 0.88f, 300f * u)
+        val bh = 60f * u
         val bx = surfaceW / 2f - bw / 2f
-        val startY = boardTop - bh - 20f
-        val endY   = boardTop + 18f
+        val startY = boardTop - bh - 12f * u
+        val endY   = boardTop + 12f * u
         val by = startY + (endY - startY) * slideT
 
         // Shadow
         fillPaint.color = Color.argb((bannerAlpha * 0.35f).toInt(), 0, 0, 0)
-        canvas.drawRoundRect(RectF(bx + 5f, by + 8f, bx + bw + 5f, by + bh + 8f), 24f, 24f, fillPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(bx + 3f * u, by + 5f * u, bx + bw + 3f * u, by + bh + 5f * u) }, 14f * u, 14f * u, fillPaint)
         // Dark border
         fillPaint.color = Color.argb(bannerAlpha, 28, 12, 0)
-        canvas.drawRoundRect(RectF(bx - 6f, by - 6f, bx + bw + 6f, by + bh + 6f), 28f, 28f, fillPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(bx - 4f * u, by - 4f * u, bx + bw + 4f * u, by + bh + 4f * u) }, 16f * u, 16f * u, fillPaint)
         // Fill — warm gold
         fillPaint.color = Color.argb(bannerAlpha, 255, 210, 50)
-        canvas.drawRoundRect(RectF(bx, by, bx + bw, by + bh), 22f, 22f, fillPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + bw, by + bh) }, 13f * u, 13f * u, fillPaint)
         // Top sheen
         canvas.save()
         canvas.clipRect(bx, by, bx + bw, by + bh * 0.45f)
         fillPaint.color = Color.argb((bannerAlpha * 0.35f).toInt(), 255, 255, 255)
-        canvas.drawRoundRect(RectF(bx, by, bx + bw, by + bh), 22f, 22f, fillPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + bw, by + bh) }, 13f * u, 13f * u, fillPaint)
         canvas.restore()
 
         // Text — milestone number large, label small
@@ -1794,10 +1825,10 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             else                  -> "$celebrateCount CLEARED!"
         }
         textPaint.textAlign     = Paint.Align.CENTER
-        textPaint.textSize      = 36f
+        textPaint.textSize      = 20f * u
         textPaint.letterSpacing = 0.06f
         textPaint.color         = Color.argb((bannerAlpha * 0.5f).toInt(), 0, 0, 0)
-        canvas.drawText(label, surfaceW / 2f + 2f, by + bh * 0.62f + 2f, textPaint)
+        canvas.drawText(label, surfaceW / 2f + 1.5f * u, by + bh * 0.62f + 1.5f * u, textPaint)
         textPaint.color = Color.argb(bannerAlpha, 90, 40, 0)
         canvas.drawText(label, surfaceW / 2f, by + bh * 0.62f, textPaint)
         textPaint.letterSpacing = 0f
@@ -1895,15 +1926,15 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         }
 
         // Instruction text
-        textPaint.textSize  = 36f
+        textPaint.textSize  = 22f * u
         textPaint.textAlign = Paint.Align.CENTER
         textPaint.color = Color.argb(80, 0, 0, 0)
-        canvas.drawText("Draw through 3 matching pieces!", surfaceW / 2f + 2f, dy - r * 2.6f + 2f, textPaint)
+        canvas.drawText("Draw through 3 matching pieces!", surfaceW / 2f + 1.5f * u, dy - r * 2.6f + 1.5f * u, textPaint)
         textPaint.color = Color.WHITE
         canvas.drawText("Draw through 3 matching pieces!", surfaceW / 2f, dy - r * 2.6f, textPaint)
 
         // Tap to play
-        textPaint.textSize = 28f
+        textPaint.textSize = 16f * u
         textPaint.color    = Color.argb(200, 255, 255, 255)
         canvas.drawText("Tap anywhere to play!", surfaceW / 2f, dy + r * 2.8f, textPaint)
     }
@@ -1916,44 +1947,47 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val elapsed = (now - noMovesWarningMs).toFloat()
         // Fade in over 300ms
         val alpha = ((elapsed / 300f).coerceIn(0f, 1f) * 220).toInt()
-        // Progress bar filling left→right over NO_MOVES_DELAY_MS
+        // Progress bar filling left to right over NO_MOVES_DELAY_MS
         val progress = (elapsed / NO_MOVES_DELAY_MS).coerceIn(0f, 1f)
 
         val boardCX = boardLeft + board.cols * cellSize / 2f
         val boardCY = boardTop  + board.rows * cellSize / 2f
-        val bw = min(board.cols * cellSize * 0.82f, 380f)
-        val bh = 108f
+        val bw = min(board.cols * cellSize * 0.82f, 280f * u)
+        val bh = 64f * u
         val bx = boardCX - bw / 2f
         val by = boardCY - bh / 2f
+        val bd = 4f * u
 
         // Dark cartoon border
         fillPaint.color = Color.argb(alpha, 28, 12, 0)
-        canvas.drawRoundRect(RectF(bx - 6f, by - 6f, bx + bw + 6f, by + bh + 6f), 26f, 26f, fillPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(bx - bd, by - bd, bx + bw + bd, by + bh + bd) }, 16f * u, 16f * u, fillPaint)
         // Panel fill
         fillPaint.color = Color.argb(alpha, 255, 230, 80)
-        canvas.drawRoundRect(RectF(bx, by, bx + bw, by + bh), 20f, 20f, fillPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + bw, by + bh) }, 12f * u, 12f * u, fillPaint)
         // Top highlight
         canvas.save()
         canvas.clipRect(bx, by, bx + bw, by + bh * 0.45f)
         fillPaint.color = Color.argb((alpha * 0.30f).toInt(), 255, 255, 255)
-        canvas.drawRoundRect(RectF(bx, by, bx + bw, by + bh), 20f, 20f, fillPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + bw, by + bh) }, 12f * u, 12f * u, fillPaint)
         canvas.restore()
-        // Progress bar (shows countdown to shuffle)
-        val pbH = 12f; val pbPad = 18f
+        // Progress bar (countdown to shuffle)
+        val pbH = 6f * u; val pbPad = 10f * u
         val pbY = by + bh - pbH - pbPad
         fillPaint.color = Color.argb((alpha * 0.25f).toInt(), 28, 12, 0)
-        canvas.drawRoundRect(RectF(bx + pbPad, pbY, bx + bw - pbPad, pbY + pbH), pbH/2, pbH/2, fillPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(bx + pbPad, pbY, bx + bw - pbPad, pbY + pbH) }, pbH / 2, pbH / 2, fillPaint)
         fillPaint.color = Color.argb(alpha, 200, 120, 0)
-        canvas.drawRoundRect(RectF(bx + pbPad, pbY, bx + pbPad + (bw - pbPad*2) * progress, pbY + pbH), pbH/2, pbH/2, fillPaint)
+        canvas.drawRoundRect(scratchRectF.apply { set(bx + pbPad, pbY, bx + pbPad + (bw - pbPad * 2) * progress, pbY + pbH) }, pbH / 2, pbH / 2, fillPaint)
 
-        // Text — shadow then fill
+        // Text: shadow then fill; shrinks to fit the banner width
         val lineY = by + bh * 0.46f
-        textPaint.textSize  = 34f
+        val msg   = "No matches \u2014 shuffling!"
+        textPaint.textSize  = 18f * u
         textPaint.textAlign = Paint.Align.CENTER
+        while (textPaint.textSize > 8f * u && textPaint.measureText(msg) > bw - 16f * u) textPaint.textSize *= 0.92f
         textPaint.color = Color.argb(alpha / 2, 0, 0, 0)
-        canvas.drawText("No matches — shuffling!", boardCX + 2f, lineY + 2f, textPaint)
+        canvas.drawText(msg, boardCX + 1.5f * u, lineY + 1.5f * u, textPaint)
         textPaint.color = Color.argb(alpha, 100, 48, 0)
-        canvas.drawText("No matches — shuffling!", boardCX, lineY, textPaint)
+        canvas.drawText(msg, boardCX, lineY, textPaint)
     }
 
     // -----------------------------------------------------------------------
@@ -1991,18 +2025,18 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         canvas.translate(0f, slideY)
 
         // ---- Panel shell ----
-        val pr = 36f
+        val pr = 22f * u; val bd = 6f * u; val ring = 3f * u
         fillPaint.color = Color.argb(230, 28, 12, 0)
         canvas.drawRoundRect(
-            RectF(stickerPanelRect.left - 10f, stickerPanelRect.top - 10f,
-                  stickerPanelRect.right + 10f, stickerPanelRect.bottom + 10f),
-            pr + 10f, pr + 10f, fillPaint)
+            RectF(stickerPanelRect.left - bd, stickerPanelRect.top - bd,
+                  stickerPanelRect.right + bd, stickerPanelRect.bottom + bd),
+            pr + bd, pr + bd, fillPaint)
         strokePaint.color = Color.argb(200, 255, 255, 255)
-        strokePaint.strokeWidth = 5f; strokePaint.alpha = 255
+        strokePaint.strokeWidth = ring; strokePaint.alpha = 255
         canvas.drawRoundRect(
-            RectF(stickerPanelRect.left - 5f, stickerPanelRect.top - 5f,
-                  stickerPanelRect.right + 5f, stickerPanelRect.bottom + 5f),
-            pr + 5f, pr + 5f, strokePaint)
+            RectF(stickerPanelRect.left - ring, stickerPanelRect.top - ring,
+                  stickerPanelRect.right + ring, stickerPanelRect.bottom + ring),
+            pr + ring, pr + ring, strokePaint)
         fillPaint.color = theme.panelBg; fillPaint.alpha = 255
         canvas.drawRoundRect(stickerPanelRect, pr, pr, fillPaint)
         canvas.save()
@@ -2014,14 +2048,14 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
         // ---- Title ----
         val titleX = stickerPanelRect.centerX()
-        val titleY = stickerPanelRect.top + 78f
+        val titleY = stickerPanelRect.top + 36f * u
         textPaint.textAlign = Paint.Align.CENTER
-        textPaint.color = Color.argb(100, 0, 0, 0); textPaint.textSize = 58f
-        canvas.drawText("My Stickers", titleX + 3f, titleY + 4f, textPaint)
+        textPaint.color = Color.argb(100, 0, 0, 0); textPaint.textSize = 28f * u
+        canvas.drawText("My Stickers", titleX + 2f * u, titleY + 2.5f * u, textPaint)
         textPaint.color = theme.textPrimary
         canvas.drawText("My Stickers", titleX, titleY, textPaint)
-        textOutlinePaint.color = Color.argb(80, 0, 0, 0); textOutlinePaint.strokeWidth = 6f
-        textOutlinePaint.textSize = 58f; textOutlinePaint.textAlign = Paint.Align.CENTER
+        textOutlinePaint.color = Color.argb(80, 0, 0, 0); textOutlinePaint.strokeWidth = 3f * u
+        textOutlinePaint.textSize = 28f * u; textOutlinePaint.textAlign = Paint.Align.CENTER
         textOutlinePaint.typeface = boldTypeface
         canvas.drawText("My Stickers", titleX, titleY, textOutlinePaint)
 
@@ -2033,7 +2067,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             val rect    = stickerRects[i]
             val earned  = isStickerEarned(i)
             val color   = STICKER_COLORS[i]
-            val r       = 16f
+            val r       = 10f * u
             val cx      = rect.centerX()
             val cy      = rect.centerY()
 
@@ -2044,19 +2078,22 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 val glowA   = (80 + (pulse * 100).toInt()).coerceIn(0, 255)
                 val glowR   = Color.red(color); val glowG = Color.green(color); val glowB = Color.blue(color)
                 strokePaint.color       = Color.argb(glowA, glowR, glowG, glowB)
-                strokePaint.strokeWidth = 8f; strokePaint.alpha = glowA
+                strokePaint.strokeWidth = 4f * u; strokePaint.alpha = glowA
+                val g = 4f * u
                 canvas.drawRoundRect(
-                    RectF(rect.left - 6f, rect.top - 6f, rect.right + 6f, rect.bottom + 6f),
-                    r + 6f, r + 6f, strokePaint)
+                    RectF(rect.left - g, rect.top - g, rect.right + g, rect.bottom + g),
+                    r + g, r + g, strokePaint)
                 // Gold border
                 fillPaint.color = Color.argb(220, 28, 12, 0)
-                canvas.drawRoundRect(RectF(rect.left-6f, rect.top-6f, rect.right+6f, rect.bottom+6f), r+6f, r+6f, fillPaint)
-                strokePaint.color = Color.rgb(255, 215, 50); strokePaint.strokeWidth = 4f; strokePaint.alpha = 255
-                canvas.drawRoundRect(RectF(rect.left-4f, rect.top-4f, rect.right+4f, rect.bottom+4f), r+4f, r+4f, strokePaint)
+                canvas.drawRoundRect(RectF(rect.left-g, rect.top-g, rect.right+g, rect.bottom+g), r+g, r+g, fillPaint)
+                val g2 = 2.5f * u
+                strokePaint.color = Color.rgb(255, 215, 50); strokePaint.strokeWidth = 2.5f * u; strokePaint.alpha = 255
+                canvas.drawRoundRect(RectF(rect.left-g2, rect.top-g2, rect.right+g2, rect.bottom+g2), r+g2, r+g2, strokePaint)
             } else {
                 // Plain dark border
                 fillPaint.color = Color.argb(140, 28, 12, 0)
-                canvas.drawRoundRect(RectF(rect.left-4f, rect.top-4f, rect.right+4f, rect.bottom+4f), r+4f, r+4f, fillPaint)
+                val g2 = 2.5f * u
+                canvas.drawRoundRect(RectF(rect.left-g2, rect.top-g2, rect.right+g2, rect.bottom+g2), r+g2, r+g2, fillPaint)
             }
 
             // Tile body — warm parchment for unearned (not cold grey) so it reads as collectible, not broken
@@ -2103,9 +2140,9 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 textPaint.color = Color.WHITE
                 canvas.drawText(STICKER_NAMES[i], cx, rect.bottom - rect.height() * 0.09f, textPaint)
                 // Earned checkmark badge — top right
-                val bx = rect.right - 1f; val by = rect.top + 1f; val br2 = 11f
+                val bx = rect.right - 1f; val by = rect.top + 1f; val br2 = 8f * u
                 fillPaint.color = Color.argb(220, 28, 12, 0)
-                canvas.drawCircle(bx, by, br2 + 2f, fillPaint)
+                canvas.drawCircle(bx, by, br2 + 1.5f * u, fillPaint)
                 fillPaint.color = Color.rgb(80, 210, 80)
                 canvas.drawCircle(bx, by, br2, fillPaint)
                 textPaint.textSize = br2 * 1.4f; textPaint.color = Color.WHITE
@@ -2129,15 +2166,15 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         }
 
         // ---- Stats line ----
-        val statsY = stickerRects[11].bottom + 28f
+        val statsY = stickerRects[11].bottom + 18f * u
         val lifetime = prefs.lifetimeDonuts + board.donutsCleared.values.sum()
-        textPaint.textSize = 28f; textPaint.textAlign = Paint.Align.CENTER
+        textPaint.textSize = 14f * u; textPaint.textAlign = Paint.Align.CENTER
         textPaint.color = theme.textSecondary
         canvas.drawText(
             "$lifetime donuts lifetime  \u00B7  $earnedCount of 12 stickers",
             stickerPanelRect.centerX(), statsY, textPaint)
 
-        drawPrettyButton(canvas, stickersCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 32f)
+        drawPrettyButton(canvas, stickersCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 18f * u)
 
         // Reset button — two-tap confirm: first tap → amber "Sure?"; second tap → executes
         val confirmActive = stickerResetConfirmMs >= 0 &&
@@ -2145,14 +2182,14 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         if (stickerResetConfirmMs >= 0 && !confirmActive) stickerResetConfirmMs = -1L
         val resetBtnColor = if (confirmActive) Color.rgb(220, 130, 30) else Color.rgb(200, 70, 50)
         val resetBtnLabel = if (confirmActive) "Sure?" else "Reset"
-        drawPrettyButton(canvas, stickersResetRect, resetBtnColor, resetBtnLabel, 26f)
+        drawPrettyButton(canvas, stickersResetRect, resetBtnColor, resetBtnLabel, 14f * u)
         // Countdown bar drains left→right while confirm is pending
         if (confirmActive) {
             val progress = 1f - (now - stickerResetConfirmMs).toFloat() / STICKER_RESET_CONFIRM_MS
-            val bx = stickersResetRect.left  + 10f
-            val bw = stickersResetRect.width() - 20f
-            val by = stickersResetRect.bottom - 12f
-            val bh = 5f
+            val bx = stickersResetRect.left  + 6f * u
+            val bw = stickersResetRect.width() - 12f * u
+            val by = stickersResetRect.bottom - 8f * u
+            val bh = 3f * u
             fillPaint.color = Color.argb(60, 28, 12, 0)
             canvas.drawRoundRect(RectF(bx, by, bx + bw, by + bh), bh / 2, bh / 2, fillPaint)
             fillPaint.color = Color.argb(220, 255, 200, 60)
@@ -2175,20 +2212,22 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         canvas.save()
         canvas.translate(0f, slideY)
 
-        val pr = 36f   // panel corner radius
+        val k  = u * settingsSc      // everything inside the panel scales with the fit factor
+        val pr = 22f * k             // panel corner radius
+        val bd = 6f * k; val ring = 3f * k
 
-        // Thick dark cartoon outline (10px on each side)
+        // Thick dark cartoon outline
         fillPaint.color = Color.argb(230, 28, 12, 0)
         canvas.drawRoundRect(
-            RectF(panelRect.left - 10f, panelRect.top - 10f, panelRect.right + 10f, panelRect.bottom + 10f),
-            pr + 10f, pr + 10f, fillPaint
+            RectF(panelRect.left - bd, panelRect.top - bd, panelRect.right + bd, panelRect.bottom + bd),
+            pr + bd, pr + bd, fillPaint
         )
         // Bright accent ring inside the dark border
         strokePaint.color       = Color.argb(200, 255, 255, 255)
-        strokePaint.strokeWidth = 5f; strokePaint.alpha = 255
+        strokePaint.strokeWidth = ring; strokePaint.alpha = 255
         canvas.drawRoundRect(
-            RectF(panelRect.left - 5f, panelRect.top - 5f, panelRect.right + 5f, panelRect.bottom + 5f),
-            pr + 5f, pr + 5f, strokePaint
+            RectF(panelRect.left - ring, panelRect.top - ring, panelRect.right + ring, panelRect.bottom + ring),
+            pr + ring, pr + ring, strokePaint
         )
         // Panel fill
         fillPaint.color = theme.panelBg; fillPaint.alpha = 255
@@ -2201,24 +2240,24 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         canvas.restore()
 
         val pl = panelRect.left; val pw = panelRect.width(); val pt = panelRect.top
-        val sc = settingsSc
+        val pad = 16f * k
 
         // ---- Title ----
-        val titleX = pl + pw / 2f; val titleY = pt + 76f * sc; val titleSz = 54f * sc
+        val titleX = pl + pw / 2f; val titleY = pt + 46f * k; val titleSz = 30f * k
         textPaint.color = Color.argb(100, 0, 0, 0)
         textPaint.textSize = titleSz; textPaint.textAlign = Paint.Align.CENTER
-        canvas.drawText("Settings", titleX + 4f, titleY + 5f, textPaint)
+        canvas.drawText("Settings", titleX + 2f * k, titleY + 2.5f * k, textPaint)
         textPaint.color = theme.textPrimary
         canvas.drawText("Settings", titleX, titleY, textPaint)
         textOutlinePaint.color = Color.argb(90, 0, 0, 0)
-        textOutlinePaint.strokeWidth = 5f * sc
+        textOutlinePaint.strokeWidth = 2.5f * k
         textOutlinePaint.textSize    = titleSz
         textOutlinePaint.textAlign   = Paint.Align.CENTER
         textOutlinePaint.typeface    = boldTypeface
         canvas.drawText("Settings", titleX, titleY, textOutlinePaint)
 
         // ---- Theme section ----
-        drawSectionLabel(canvas, "Theme", pl + 24f * sc, themeRects[0].top - 10f * sc)
+        drawSectionLabel(canvas, "Theme", pl + pad, themeRects[0].top - 8f * k)
 
         val swatchTypes = DonutType.values()
         for (i in 0 until 4) {
@@ -2226,33 +2265,33 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             val rect = themeRects[i]
             val sel  = i == prefs.themeIndex
 
-            // Dark cartoon border — thicker on selected
-            val borderPad = if (sel) 9f else 7f
+            // Dark cartoon border, thicker on selected
+            val borderPad = if (sel) 4.5f * k else 3.5f * k
             fillPaint.color = Color.argb(220, 28, 12, 0)
             canvas.drawRoundRect(
                 RectF(rect.left - borderPad, rect.top - borderPad, rect.right + borderPad, rect.bottom + borderPad),
-                26f, 26f, fillPaint
+                14f * k, 14f * k, fillPaint
             )
             // Selected: gold outer ring
             if (sel) {
-                strokePaint.color = Color.rgb(255, 215, 50); strokePaint.strokeWidth = 5f; strokePaint.alpha = 255
+                strokePaint.color = Color.rgb(255, 215, 50); strokePaint.strokeWidth = 2.5f * k; strokePaint.alpha = 255
                 canvas.drawRoundRect(
-                    RectF(rect.left - borderPad + 2f, rect.top - borderPad + 2f,
-                          rect.right + borderPad - 2f, rect.bottom + borderPad - 2f),
-                    24f, 24f, strokePaint
+                    RectF(rect.left - borderPad + 1f * k, rect.top - borderPad + 1f * k,
+                          rect.right + borderPad - 1f * k, rect.bottom + borderPad - 1f * k),
+                    13f * k, 13f * k, strokePaint
                 )
             }
-            // Button fill — use theme bg
+            // Button fill: use theme bg
             fillPaint.color = t.bg; fillPaint.alpha = 255
-            canvas.drawRoundRect(rect, 20f, 20f, fillPaint)
+            canvas.drawRoundRect(rect, 11f * k, 11f * k, fillPaint)
             // Top highlight
             canvas.save()
             canvas.clipRect(rect.left, rect.top, rect.right, rect.centerY())
             fillPaint.color = Color.argb(55, 255, 255, 255)
-            canvas.drawRoundRect(rect, 20f, 20f, fillPaint)
+            canvas.drawRoundRect(rect, 11f * k, 11f * k, fillPaint)
             canvas.restore()
 
-            // Mini piece swatches — 3 small colored circles using the theme's piece palette
+            // Mini piece swatches: 3 small colored circles using the theme's piece palette
             val swatchR   = rect.height() * 0.16f
             val swatchY   = rect.top + rect.height() * 0.38f
             val swatchGap = swatchR * 2.6f
@@ -2277,63 +2316,65 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
             // Theme name below swatches
             textPaint.color    = Color.argb(80, 0, 0, 0)
-            textPaint.textSize = 26f * sc; textPaint.textAlign = Paint.Align.CENTER
+            textPaint.textSize = 15f * k; textPaint.textAlign = Paint.Align.CENTER
             val nameY = rect.bottom - rect.height() * 0.12f
-            canvas.drawText(t.name, rect.centerX() + 2f, nameY + 2f, textPaint)
+            canvas.drawText(t.name, rect.centerX() + 1f * k, nameY + 1f * k, textPaint)
             textPaint.color = t.textPrimary
             canvas.drawText(t.name, rect.centerX(), nameY, textPaint)
 
-            // Selected checkmark badge — top-right corner
-            if (sel) {
-                val badgeX = rect.right - 2f; val badgeY = rect.top + 2f; val badgeR = 16f * sc
-                fillPaint.color = Color.argb(220, 28, 12, 0)
-                canvas.drawCircle(badgeX, badgeY, badgeR + 3f, fillPaint)
-                fillPaint.color = Color.rgb(80, 200, 80)
-                canvas.drawCircle(badgeX, badgeY, badgeR, fillPaint)
-                textPaint.textSize  = badgeR * 1.3f; textPaint.textAlign = Paint.Align.CENTER
-                textPaint.color     = Color.WHITE
-                canvas.drawText("✓", badgeX, badgeY + badgeR * 0.42f, textPaint)
-            }
+            // Selected checkmark badge, top-right corner
+            if (sel) drawCheckBadge(canvas, rect.right - 1f, rect.top + 1f, 11f * k)
         }
 
         // ---- Hint Delay section ----
-        drawSectionLabel(canvas, "Hint Delay", pl + 24f * sc, hintRects[0].top - 10f * sc)
+        drawSectionLabel(canvas, "Hint Delay", pl + pad, hintRects[0].top - 8f * k)
         val currentHint = prefs.hintDelayMs
         for (i in 0 until 4) {
             drawSettingsBtn(canvas, hintRects[i], hintLabels[i], hintOptions[i] == currentHint)
         }
 
         // ---- Grid Size section ----
-        drawSectionLabel(canvas, "Grid Size", pl + 24f * sc, gridRects[0].top - 10f * sc)
+        drawSectionLabel(canvas, "Grid Size", pl + pad, gridRects[0].top - 8f * k)
         for (i in 0 until 2) {
             drawSettingsBtn(canvas, gridRects[i], gridLabels[i], gridOptions[i] == prefs.gridSize)
         }
 
         // ---- Sound Pack section ----
-        drawSectionLabel(canvas, "Sound Pack", pl + 24f * sc, packRects[0].top - 10f * sc)
+        drawSectionLabel(canvas, "Sound Pack", pl + pad, packRects[0].top - 8f * k)
         for (i in 0 until 4) {
             drawSettingsBtn(canvas, packRects[i], packLabels[i], packOptions[i] == prefs.soundPackIndex)
         }
 
         // ---- Haptic Style section ----
-        drawSectionLabel(canvas, "Haptic Style", pl + 24f * sc, hapticRects[0].top - 10f * sc)
+        drawSectionLabel(canvas, "Haptic Style", pl + pad, hapticRects[0].top - 8f * k)
         for (i in 0 until 3) {
             drawSettingsBtn(canvas, hapticRects[i], hapticLabels[i], hapticOptions[i] == prefs.hapticTheme)
         }
 
-        // Close — celebratory green "Done ✓"
-        drawPrettyButton(canvas, settingsCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 32f * sc)
+        // Close: celebratory green "Done"
+        drawPrettyButton(canvas, settingsCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 18f * k)
 
         canvas.restore()
     }
 
+    /** Small green check badge used on selected settings buttons. */
+    private fun drawCheckBadge(canvas: Canvas, bx: Float, by: Float, br: Float) {
+        fillPaint.color = Color.argb(210, 28, 12, 0)
+        canvas.drawCircle(bx, by, br + br * 0.2f, fillPaint)
+        fillPaint.color = Color.rgb(80, 200, 80); fillPaint.alpha = 255
+        canvas.drawCircle(bx, by, br, fillPaint)
+        textPaint.textSize  = br * 1.3f; textPaint.textAlign = Paint.Align.CENTER
+        textPaint.color     = Color.WHITE
+        canvas.drawText("\u2713", bx, by + br * 0.42f, textPaint)
+    }
+
     /** Draws a section label with a chunky left accent bar — bold and readable. */
     private fun drawSectionLabel(canvas: Canvas, text: String, x: Float, baselineY: Float) {
-        val sc       = settingsSc
-        val labelSz  = 28f * sc
-        val barW     = 8f * sc
-        val barPad   = 4f * sc
-        val textX    = x + barW + 12f
+        val k        = u * settingsSc
+        val labelSz  = 15f * k
+        val barW     = 5f * k
+        val barPad   = 2f * k
+        val textX    = x + barW + 8f * k
 
         textPaint.textSize  = labelSz
         textPaint.textAlign = Paint.Align.LEFT
@@ -2341,7 +2382,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val barTop = baselineY - labelSz * 0.88f
         val barBot = baselineY + labelSz * 0.18f
 
-        // Accent bar — dark border then theme color
+        // Accent bar: dark border then theme color
         fillPaint.color = Color.argb(200, 28, 12, 0)
         canvas.drawRoundRect(RectF(x - barPad, barTop - barPad, x + barW + barPad, barBot + barPad),
             barW / 2f + barPad, barW / 2f + barPad, fillPaint)
@@ -2353,58 +2394,53 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val upper = text.uppercase()
         textPaint.letterSpacing = 0.10f
         textPaint.color = Color.argb(70, 0, 0, 0)
-        canvas.drawText(upper, textX + 2f, baselineY + 2f, textPaint)
+        canvas.drawText(upper, textX + 1f * k, baselineY + 1f * k, textPaint)
         textPaint.color = theme.textPrimary
         canvas.drawText(upper, textX, baselineY, textPaint)
         textPaint.letterSpacing = 0f
     }
 
     private fun drawSettingsBtn(canvas: Canvas, rect: RectF, label: String, selected: Boolean) {
-        val borderPad = if (selected) 8f else 6f
+        val k = u * settingsSc
+        val borderPad = if (selected) 4f * k else 3f * k
         // Dark cartoon border
         fillPaint.color = Color.argb(210, 28, 12, 0)
         canvas.drawRoundRect(
             RectF(rect.left - borderPad, rect.top - borderPad, rect.right + borderPad, rect.bottom + borderPad),
-            26f, 26f, fillPaint
+            14f * k, 14f * k, fillPaint
         )
         // Gold ring on selected
         if (selected) {
-            strokePaint.color = Color.rgb(255, 215, 50); strokePaint.strokeWidth = 4f; strokePaint.alpha = 255
+            strokePaint.color = Color.rgb(255, 215, 50); strokePaint.strokeWidth = 2.5f * k; strokePaint.alpha = 255
             canvas.drawRoundRect(
-                RectF(rect.left - borderPad + 2f, rect.top - borderPad + 2f,
-                      rect.right + borderPad - 2f, rect.bottom + borderPad - 2f),
-                24f, 24f, strokePaint
+                RectF(rect.left - borderPad + 1f * k, rect.top - borderPad + 1f * k,
+                      rect.right + borderPad - 1f * k, rect.bottom + borderPad - 1f * k),
+                13f * k, 13f * k, strokePaint
             )
         }
         // Fill
         fillPaint.color = if (selected) theme.btnSelected else theme.btnUnselected; fillPaint.alpha = 255
-        canvas.drawRoundRect(rect, 22f, 22f, fillPaint)
+        canvas.drawRoundRect(rect, 12f * k, 12f * k, fillPaint)
         // Top highlight
         canvas.save()
         canvas.clipRect(rect.left, rect.top, rect.right, rect.centerY())
         fillPaint.color = Color.argb(if (selected) 70 else 35, 255, 255, 255)
-        canvas.drawRoundRect(rect, 22f, 22f, fillPaint)
+        canvas.drawRoundRect(rect, 12f * k, 12f * k, fillPaint)
         canvas.restore()
-        val sc = settingsSc
-        textPaint.color         = Color.argb(80, 0, 0, 0)
-        textPaint.textSize      = 30f * sc
+        // Label: shrinks to fit so long words never spill past the button
+        textPaint.textSize      = 18f * k
         textPaint.textAlign     = Paint.Align.CENTER
         textPaint.letterSpacing = 0.04f
-        canvas.drawText(label, rect.centerX() + 2f, rect.centerY() + 10f * sc + 2f, textPaint)
+        val maxW = rect.width() - 8f * k
+        while (textPaint.textSize > 8f * k && textPaint.measureText(label) > maxW) textPaint.textSize *= 0.92f
+        val ty = rect.centerY() + textPaint.textSize * 0.36f
+        textPaint.color = Color.argb(80, 0, 0, 0)
+        canvas.drawText(label, rect.centerX() + 1f * k, ty + 1f * k, textPaint)
         textPaint.color = Color.WHITE
-        canvas.drawText(label, rect.centerX(), rect.centerY() + 10f * sc, textPaint)
+        canvas.drawText(label, rect.centerX(), ty, textPaint)
         textPaint.letterSpacing = 0f
         // Checkmark badge on selected
-        if (selected) {
-            val bx = rect.right - 1f; val by = rect.top + 1f; val br = 13f * sc
-            fillPaint.color = Color.argb(210, 28, 12, 0)
-            canvas.drawCircle(bx, by, br + 3f, fillPaint)
-            fillPaint.color = Color.rgb(80, 200, 80); fillPaint.alpha = 255
-            canvas.drawCircle(bx, by, br, fillPaint)
-            textPaint.textSize  = br * 1.3f; textPaint.textAlign = Paint.Align.CENTER
-            textPaint.color     = Color.WHITE
-            canvas.drawText("✓", bx, by + br * 0.42f, textPaint)
-        }
+        if (selected) drawCheckBadge(canvas, rect.right - 1f, rect.top + 1f, 9f * k)
     }
 
     // -----------------------------------------------------------------------
