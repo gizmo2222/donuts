@@ -1,0 +1,22 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"F:/dev/donuts\" && git add -A && git diff --staged --quiet || (git commit -m \"Update $(date '+%Y-%m-%d %H:%M:%S')\" && git push origin master) 2>/dev/null || true",
+            "statusMessage": "Pushing to GitHub..."
+          },
+          {
+            "type": "command",
+            "command": "cd \"F:/dev/donuts\" && ./gradlew.bat bundleRelease 2>/dev/null || true",
+            "statusMessage": "Building release AAB...",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}

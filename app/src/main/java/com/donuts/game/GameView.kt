@@ -282,11 +282,13 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // -----------------------------------------------------------------------
     // Lifecycle
     // -----------------------------------------------------------------------
+    @Volatile private var renderThread: RenderThread? = null
+
     init { holder.addCallback(this); isFocusable = true }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
         boardEntryMs = SystemClock.elapsedRealtime()
-        RenderThread(holder).start()
+        renderThread = RenderThread(holder).also { it.start() }
     }
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, w: Int, h: Int) {
