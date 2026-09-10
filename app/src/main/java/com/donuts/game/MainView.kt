@@ -97,7 +97,8 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         drawLogo(canvas, logoCX, logoCY + bounce)
 
         drawTitle(canvas, elapsed)
-        drawPlayButton(canvas, buttonPressScale(now))
+        // Gentle breathing invites the tap
+        drawPlayButton(canvas, buttonPressScale(now) * (1f + 0.025f * sin(elapsed * 2.6f)))
 
         postInvalidateOnAnimation()
     }
