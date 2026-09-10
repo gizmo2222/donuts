@@ -60,23 +60,52 @@ Requires a device or emulator running **Android 8.0 (API 26)** or higher.
 # Output: app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### Release build
+### Release build (Google Play)
 
-Add signing credentials to `local.properties` (this file is gitignored — never commit it):
+Signing credentials live in `local.properties`, which is gitignored and must never be committed:
 
 ```properties
-KEYSTORE_PATH=/path/to/donuts-release.jks
+KEYSTORE_PATH=F:/dev/donuts/donuts-release.jks
 KEYSTORE_PASSWORD=your_password
 KEY_ALIAS=donuts
 KEY_PASSWORD=your_password
 ```
 
-Then build:
+Then, from PowerShell in the project root:
 
-```bash
-./gradlew bundleRelease
-# Output: app/build/outputs/bundle/release/app-release.aab
+```powershell
+.\release.ps1
 ```
+
+The script picks Android Studio's bundled JDK, checks the credentials are present, prints the version it is
+building, runs `bundleRelease`, and stops with a red **BUILD FAILED** if anything goes wrong. On success it
+prints the path of the signed bundle:
+
+```
+app\build\outputs\bundle\release\app-release.aab
+```
+
+To check that the keystore password you have is the right one before building, run this and type the
+password when prompted (it lists the key alias on success, `keystore password was incorrect` otherwise):
+
+```powershell
+& "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -list -keystore donuts-release.jks
+```
+
+### Release checklist
+
+1. Bump `versionCode` (must be higher than the last upload) and `versionName` in `app/build.gradle`.
+2. Install the debug build on a real phone (`.\gradlew.bat installDebug`) and play through the first-launch
+   demo and a milestone. Debug builds log `fps` once a second under the `Donuts` logcat tag.
+3. Run `.\release.ps1` and confirm it ends with **BUILD SUCCESSFUL**.
+4. Play Console: Donuts for Steven, then Release, then Production (or Internal testing first). Create a new
+   release, upload the `.aab`, write the release notes, review, roll out.
+5. Commit and push the version bump.
+
+If the upload-key password is lost: Play App Signing holds the real app signing key, so the upload key can be
+replaced. Create a new keystore with `keytool -genkeypair`, export its certificate with `keytool -exportcert
+-rfc`, and in Play Console go to Setup, then App signing, then **Request upload key reset**, and attach the
+certificate. Point `local.properties` at the new keystore once Google confirms.
 
 ## Project structure
 
