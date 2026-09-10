@@ -25,6 +25,10 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
 
     // Density-independent unit (see UiScale) and window insets
     private val uiScale = UiScale(context)
+    private val reducedMotion: Boolean = try {
+        android.provider.Settings.Global.getFloat(context.contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    } catch (_: Exception) { false }
     private var u = 1f
     private var insetL = 0; private var insetT = 0; private var insetR = 0; private var insetB = 0
 
@@ -98,7 +102,8 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
 
         drawTitle(canvas, elapsed)
         // Gentle breathing invites the tap
-        drawPlayButton(canvas, buttonPressScale(now) * (1f + 0.025f * sin(elapsed * 2.6f)))
+        val breathe = if (reducedMotion) 1f else 1f + 0.025f * sin(elapsed * 2.6f)
+        drawPlayButton(canvas, buttonPressScale(now) * breathe)
 
         postInvalidateOnAnimation()
     }

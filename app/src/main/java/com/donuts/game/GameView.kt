@@ -69,8 +69,6 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // -----------------------------------------------------------------------
     // Touch / drag
     // -----------------------------------------------------------------------
-    private var selRow = -1
-    private var selCol = -1
     private val dragChain = mutableListOf<Pair<Int, Int>>()
 
     // Returns the type of the chain: first non-golden cell's type, or first cell's type
@@ -105,8 +103,6 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // Cascade counter — how many auto-resolve passes have fired after the player's clear.
     private var cascadeCount    = 0
     private var isCascade       = false
-    private var cascadeLabelMs  = -1L
-    private val CASCADE_LABEL_MS = 1000L
 
     // -----------------------------------------------------------------------
     // UI Animations
@@ -128,12 +124,6 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private var stickersCloseRect = RectF()
 
     // 12 stickers — 4 rows × 3 cols
-    private val STICKER_SYMS   = arrayOf(
-        "\uD83C\uDF69", "\u2B50",        "\uD83D\uDC51",  // 🍩 ⭐ 👑  row 1: Donut Collector
-        "\uD83D\uDD17", "\u26A1",        "\uD83C\uDF1F",  // 🔗 ⚡ 🌟  row 2: Chain Builder
-        "\uD83C\uDFAF", "\uD83C\uDFC6",  "\uD83D\uDC8E",  // 🎯 🏆 💎  row 3: High Scorer
-        "\u2728",        "\uD83D\uDD2D",  "\u2764"         // 🔀 🔭 ❤   row 4: Special
-    )
     private val STICKER_NAMES  = arrayOf(
         "Donut Taster",   "Donut Lover",   "Donut King",
         "Chain Starter",  "Chain Champ",   "Chain Hero",
@@ -200,7 +190,6 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private val PING_MS = 220L
     // Big center count pop
     private var centerPingMs    = -1L
-    private var centerPingCount = 0
 
     // Milestone celebration
     private val MILESTONES = intArrayOf(10, 25, 50, 100, 200, 500)
@@ -371,15 +360,18 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     }
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
+        // Bank this board's progress before the app goes to the background
+        synchronized(holder) { saveSession() }
         // Stop the render loop when the surface goes away (e.g. the app is backgrounded)
         // so we don't keep a thread spinning — and draining battery — with nothing to
         // draw to. The thread is recreated in surfaceCreated when we return.
         val t = renderThread
         renderThread = null
         t?.running = false
-        while (t != null) {
-            try { t.join(); break } catch (_: InterruptedException) { /* retry join */ }
-        }
+        // Wait briefly for the frame in flight, but never pin the UI thread on the GPU: if the
+        // hardware canvas is stuck in a swap, the thread ends by itself once the surface is
+        // gone (lockFrame fails and the loop sees running == false).
+        try { t?.join(600L) } catch (_: InterruptedException) { }
     }
 
     private fun computeLayout() {
@@ -491,10 +483,14 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         stickersCloseRect = RectF(spL + spPad, closeRowY, spL + spW - spPad, stickerPanelRect.bottom - spPad)
     }
 
+    // Donuts of the current board already folded into lifetimeDonuts, so saveSession can run
+    // any number of times (on background, on board-size change, on New game) without double counting.
+    private var sessionSaved = 0
+
     private fun saveSession() {
         val sessionTotal = board.donutsCleared.values.sum()
-        if (sessionTotal == 0) return
-        prefs.lifetimeDonuts = prefs.lifetimeDonuts + sessionTotal
+        val delta = sessionTotal - sessionSaved
+        if (delta > 0) { prefs.lifetimeDonuts = prefs.lifetimeDonuts + delta; sessionSaved = sessionTotal }
         val hs = if (board.cols == 6) prefs.highScore6x6 else prefs.highScore8x8
         if (sessionTotal > hs) {
             if (board.cols == 6) prefs.highScore6x6 = sessionTotal
@@ -502,15 +498,19 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         }
     }
 
+    // Donuts popped ever: what is banked plus what this board has added since the last save
+    private fun lifetimeDonuts(): Int = prefs.lifetimeDonuts + (board.donutsCleared.values.sum() - sessionSaved)
+
     private fun rebuildBoard() {
+        saveSession()
+        sessionSaved = 0
         board = GameBoard(rows = prefs.gridSize, cols = prefs.gridSize)
         animPhase = AnimPhase.IDLE
         popCells.clear(); dropCells.clear()
-        dragChain.clear(); selRow = -1; selCol = -1
+        dragChain.clear()
         pendingResult  = null
         cascadeCount   = 0
         isCascade      = false
-        cascadeLabelMs = -1L
         hintCells = emptyList()
         tutorialCells = emptyList()
         displayedCount = 0
@@ -656,7 +656,6 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                     synchronized(floatLabels) {
                         floatLabels.add(FloatLabel(comboLabel, cx, cy, Color.rgb(255, 220, 40), now))
                     }
-                    cascadeLabelMs = now
                     if (prefs.soundEnabled)  soundEngine.playPopClear()
                     if (prefs.hapticEnabled) hapticEngine.pop()
                 } else {
@@ -1806,8 +1805,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         canvas.drawRoundRect(scratchRectF.apply { set(cx - r - 3f * u, cy - r - 3f * u, cx + r + 3f * u, cy + r + 3f * u) }, r * 0.28f, r * 0.28f, fillPaint)
         fillPaint.color = STICKER_COLORS[i]; fillPaint.alpha = 255
         canvas.drawRoundRect(scratchRectF.apply { set(cx - r, cy - r, cx + r, cy + r) }, r * 0.25f, r * 0.25f, fillPaint)
-        textPaint.textSize = r * 1.1f; textPaint.textAlign = Paint.Align.CENTER; textPaint.color = Color.WHITE
-        canvas.drawText(STICKER_SYMS[i], cx, cy + r * 0.40f, textPaint)
+        drawStickerArt(canvas, i, cx, cy, r * 1.5f)
         if (t < 0.45f) {
             val sz = 22f * u
             textPaint.textSize = sz
@@ -1988,7 +1986,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // -----------------------------------------------------------------------
     /** Returns true if sticker i has been earned. */
     private fun isStickerEarned(i: Int): Boolean {
-        val lifetime  = prefs.lifetimeDonuts + board.donutsCleared.values.sum()
+        val lifetime  = lifetimeDonuts()
         val bestScore = max(prefs.highScore6x6, prefs.highScore8x8)
         return when (i) {
             0  -> lifetime >= 10
@@ -2116,15 +2114,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             fillPaint.alpha = 255; strokePaint.alpha = 255
 
             if (earned) {
-                // Symbol — large, visually centered in the tile
-                val symSz      = rect.height() * 0.50f
-                val symBaseline = cy + symSz * 0.36f
-                textPaint.textSize  = symSz
-                textPaint.textAlign = Paint.Align.CENTER
-                textPaint.color     = Color.argb(70, 0, 0, 0)
-                canvas.drawText(STICKER_SYMS[i], cx + 2f, symBaseline + 2f, textPaint)
-                textPaint.color = Color.WHITE
-                canvas.drawText(STICKER_SYMS[i], cx, symBaseline, textPaint)
+                // Art in the same outline style as the pieces
+                drawStickerArt(canvas, i, cx, cy - rect.height() * 0.07f, rect.height() * 0.58f)
                 // Name — bottom
                 val nameSz = rect.height() * 0.150f
                 textPaint.textSize = nameSz
@@ -2160,7 +2151,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
         // ---- Stats line ----
         val statsY = stickerRects[11].bottom + 18f * u
-        val lifetime = prefs.lifetimeDonuts + board.donutsCleared.values.sum()
+        val lifetime = lifetimeDonuts()
         textPaint.textSize = 14f * u; textPaint.textAlign = Paint.Align.CENTER
         textPaint.color = theme.textSecondary
         canvas.drawText(
@@ -2373,10 +2364,19 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 }
                 MotionEvent.ACTION_MOVE   -> handleMove(event)
                 MotionEvent.ACTION_UP     -> handleUp()
-                MotionEvent.ACTION_CANCEL -> { dragChain.clear(); selRow = -1; selCol = -1 }
+                MotionEvent.ACTION_CANCEL -> { dragChain.clear() }
             }
         }
         return true
+    }
+
+    // System Back: close an open panel first; false means nothing was open
+    fun onBackPressed(): Boolean {
+        synchronized(holder) {
+            if (settingsOpen) { settingsOpen = false; resetConfirmMs = -1L; return true }
+            if (stickersOpen) { stickersOpen = false; return true }
+        }
+        return false
     }
 
     private fun handleSettingsTouch(x: Float, y: Float) {
@@ -2411,6 +2411,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private fun startOver() {
         val now = SystemClock.elapsedRealtime()
         saveSession()
+        sessionSaved = 0
         board.reset()
         displayedCount   = 0
         prevDisplayCount = -1
@@ -2420,11 +2421,9 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         particles.clear()
         synchronized(floatLabels) { floatLabels.clear() }
         dragChain.clear(); chainPings.clear()
-        selRow = -1; selCol = -1
         pendingResult    = null
         cascadeCount     = 0
         isCascade        = false
-        cascadeLabelMs   = -1L
         counterPulseMs   = -1L
         chainFlashMs     = -1L
         shuffleAnimMs    = -1L
@@ -2442,10 +2441,9 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val col = cellCol(event.x); val row = cellRow(event.y)
         if (inBounds(row, col)) {
             val now2 = SystemClock.elapsedRealtime()
-            selRow = row; selCol = col
             dragChain.add(Pair(row, col))
             chainPings[Pair(row, col)] = now2
-            centerPingMs = now2; centerPingCount = 1
+            centerPingMs = now2
         }
     }
 
@@ -2457,7 +2455,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             chainPings.remove(dragChain.last())
             dragChain.removeAt(dragChain.size - 1)
             val now2 = SystemClock.elapsedRealtime()
-            centerPingMs = now2; centerPingCount = dragChain.size
+            centerPingMs = now2
             return
         }
         if (cell in dragChain) return
@@ -2471,7 +2469,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val now2 = SystemClock.elapsedRealtime()
         dragChain.add(cell)
         chainPings[cell] = now2
-        centerPingMs = now2; centerPingCount = dragChain.size
+        centerPingMs = now2
         if (prefs.soundEnabled)  soundEngine.playConnectBlip(dragChain.size)
         if (prefs.hapticEnabled) hapticEngine.tick()
     }
@@ -2529,7 +2527,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 }
             }
         }
-        dragChain.clear(); chainPings.clear(); selRow = -1; selCol = -1
+        dragChain.clear(); chainPings.clear()
     }
 
     private fun cellCol(x: Float) = ((x - boardLeft) / cellSize).toInt()
@@ -2537,6 +2535,115 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private fun inBounds(r: Int, c: Int) = r in 0 until board.rows && c in 0 until board.cols
     private fun adjacent8(r1: Int, c1: Int, r2: Int, c2: Int) =
         abs(r1 - r2) <= 1 && abs(c1 - c2) <= 1 && !(r1 == r2 && c1 == c2)
+
+    // -----------------------------------------------------------------------
+    // Sticker art: drawn with the pieces' own sprites and outline style, no system emoji.
+    // -----------------------------------------------------------------------
+    private fun drawStickerArt(canvas: Canvas, i: Int, cx: Float, cy: Float, size: Float) {
+        val r = size * 0.30f
+        when (i) {
+            0  -> drawPiece(canvas, cx, cy, r * 1.15f, DonutType.STRAWBERRY, false)
+            1  -> {
+                drawPiece(canvas, cx - r * 0.72f, cy + r * 0.22f, r * 0.95f, DonutType.CHOCOLATE, false)
+                drawPiece(canvas, cx + r * 0.72f, cy - r * 0.22f, r * 0.95f, DonutType.STRAWBERRY, false)
+            }
+            2  -> {
+                drawPiece(canvas, cx, cy + r * 0.30f, r * 1.05f, DonutType.VANILLA, false)
+                drawCrown(canvas, cx, cy - r * 1.05f, r * 1.0f)
+            }
+            3, 4, 5 -> drawChainArt(canvas, cx, cy, size, (4 + (i - 3) * 2).toString())
+            6, 7, 8 -> drawBatchArt(canvas, cx, cy, size, intArrayOf(20, 60, 200)[i - 6].toString())
+            9  -> {
+                drawBall(canvas, cx, cy, r * 1.05f, false, 255)
+                strokePaint.color = Color.argb(220, 255, 210, 30); strokePaint.strokeWidth = r * 0.16f
+                scratchRectF.set(cx - r * 1.5f, cy - r * 1.5f, cx + r * 1.5f, cy + r * 1.5f)
+                for (k in 0 until 4) canvas.drawArc(scratchRectF, k * 90f + 15f, 60f, false, strokePaint)
+                strokePaint.alpha = 255
+            }
+            10 -> drawMiniBoard(canvas, cx, cy, size)
+            else -> drawHeart(canvas, cx, cy + r * 0.1f, r * 1.25f)
+        }
+    }
+
+    private fun drawOutlinedText(canvas: Canvas, text: String, x: Float, y: Float, sz: Float, fill: Int) {
+        textPaint.textSize = sz; textPaint.textAlign = Paint.Align.CENTER
+        textOutlinePaint.textSize = sz; textOutlinePaint.textAlign = Paint.Align.CENTER
+        textOutlinePaint.typeface = boldTypeface; textOutlinePaint.strokeWidth = sz * 0.16f
+        textOutlinePaint.color = Color.argb(255, 28, 12, 0)
+        canvas.drawText(text, x, y + sz * 0.36f, textOutlinePaint)
+        textPaint.color = fill
+        canvas.drawText(text, x, y + sz * 0.36f, textPaint)
+    }
+
+    // A string with a donut at each end and the chain length in the middle
+    private fun drawChainArt(canvas: Canvas, cx: Float, cy: Float, size: Float, label: String) {
+        val half = size * 0.62f
+        chainOutlinePaint.strokeWidth = size * 0.11f; chainOutlinePaint.color = Color.argb(230, 28, 12, 0)
+        canvas.drawLine(cx - half, cy, cx + half, cy, chainOutlinePaint)
+        chainLinePaint.strokeWidth = size * 0.05f; chainLinePaint.color = Color.WHITE
+        canvas.drawLine(cx - half, cy, cx + half, cy, chainLinePaint)
+        drawPiece(canvas, cx - half, cy, size * 0.20f, DonutType.MATCHA, false)
+        drawPiece(canvas, cx + half, cy, size * 0.20f, DonutType.MATCHA, false)
+        drawOutlinedText(canvas, label, cx, cy, size * 0.62f, Color.WHITE)
+    }
+
+    // A tray with a big number on it
+    private fun drawBatchArt(canvas: Canvas, cx: Float, cy: Float, size: Float, label: String) {
+        val w = size * 0.62f; val h = size * 0.42f; val bd = size * 0.045f
+        fillPaint.color = Color.argb(255, 28, 12, 0)
+        canvas.drawRoundRect(scratchRectF.apply { set(cx - w - bd, cy - h - bd, cx + w + bd, cy + h + bd) }, size * 0.16f, size * 0.16f, fillPaint)
+        fillPaint.color = Color.rgb(245, 210, 165)
+        canvas.drawRoundRect(scratchRectF.apply { set(cx - w, cy - h, cx + w, cy + h) }, size * 0.13f, size * 0.13f, fillPaint)
+        drawPiece(canvas, cx - w + size * 0.05f, cy - h + size * 0.02f, size * 0.15f, DonutType.STRAWBERRY, false)
+        drawOutlinedText(canvas, label, cx + size * 0.04f, cy + size * 0.02f, size * 0.50f, Color.WHITE)
+    }
+
+    private fun drawCrown(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        val w = r * 0.95f; val h = r * 0.45f
+        scratchPath.rewind()
+        scratchPath.moveTo(cx - w, cy + h)
+        scratchPath.lineTo(cx - w, cy - h * 0.5f)
+        scratchPath.lineTo(cx - w * 0.5f, cy + h * 0.05f)
+        scratchPath.lineTo(cx, cy - h)
+        scratchPath.lineTo(cx + w * 0.5f, cy + h * 0.05f)
+        scratchPath.lineTo(cx + w, cy - h * 0.5f)
+        scratchPath.lineTo(cx + w, cy + h)
+        scratchPath.close()
+        outlinePaint.color = Color.argb(255, 28, 12, 0); outlinePaint.strokeWidth = r * 0.22f
+        canvas.drawPath(scratchPath, outlinePaint)
+        fillPaint.color = Color.rgb(255, 215, 50); fillPaint.alpha = 255
+        canvas.drawPath(scratchPath, fillPaint)
+        fillPaint.color = Color.rgb(235, 25, 80)
+        canvas.drawCircle(cx, cy + h * 0.45f, r * 0.14f, fillPaint)
+    }
+
+    private fun drawMiniBoard(canvas: Canvas, cx: Float, cy: Float, size: Float) {
+        val half = size * 0.50f; val bd = size * 0.05f
+        fillPaint.color = Color.argb(255, 28, 12, 0)
+        canvas.drawRoundRect(scratchRectF.apply { set(cx - half - bd, cy - half - bd, cx + half + bd, cy + half + bd) }, size * 0.16f, size * 0.16f, fillPaint)
+        fillPaint.color = theme.boardBg
+        canvas.drawRoundRect(scratchRectF.apply { set(cx - half, cy - half, cx + half, cy + half) }, size * 0.13f, size * 0.13f, fillPaint)
+        val d = half * 0.5f; val pr = size * 0.19f
+        drawPiece(canvas, cx - d, cy - d, pr, DonutType.STRAWBERRY, false)
+        drawPiece(canvas, cx + d, cy - d, pr, DonutType.BLUEBERRY, false)
+        drawPiece(canvas, cx - d, cy + d, pr, DonutType.VANILLA, false)
+        drawPiece(canvas, cx + d, cy + d, pr, DonutType.MATCHA, false)
+    }
+
+    private fun drawHeart(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        scratchPath.rewind()
+        scratchPath.moveTo(cx, cy + r * 0.95f)
+        scratchPath.cubicTo(cx - r * 1.6f, cy - r * 0.1f, cx - r * 0.9f, cy - r * 1.15f, cx, cy - r * 0.45f)
+        scratchPath.cubicTo(cx + r * 0.9f, cy - r * 1.15f, cx + r * 1.6f, cy - r * 0.1f, cx, cy + r * 0.95f)
+        scratchPath.close()
+        outlinePaint.color = Color.argb(255, 28, 12, 0); outlinePaint.strokeWidth = r * 0.22f
+        canvas.drawPath(scratchPath, outlinePaint)
+        fillPaint.color = Color.rgb(235, 25, 80); fillPaint.alpha = 255
+        canvas.drawPath(scratchPath, fillPaint)
+        fillPaint.color = Color.argb(160, 255, 255, 255)
+        canvas.drawCircle(cx - r * 0.45f, cy - r * 0.45f, r * 0.18f, fillPaint)
+        fillPaint.alpha = 255
+    }
 
     // -----------------------------------------------------------------------
     // Render thread
@@ -2558,7 +2665,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 }
                 hwFailures++
             }
-            return holder.lockCanvas()
+            return try { holder.lockCanvas() } catch (_: Exception) { null }
         }
         private var lockNs = 0L; private var drawNs = 0L; private var postNs = 0L
         override fun run() {
@@ -2571,7 +2678,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 try { synchronized(holder) { drawFrame(canvas) } }
                 finally {
                     val t2 = System.nanoTime()
-                    holder.unlockCanvasAndPost(canvas)
+                    // The surface can vanish under us while we hold a canvas; that is not fatal
+                    try { holder.unlockCanvasAndPost(canvas) } catch (_: Exception) { }
                     val t3 = System.nanoTime()
                     if (debuggable) {
                         lockNs += t1 - t0; drawNs += t2 - t1; postNs += t3 - t2

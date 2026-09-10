@@ -2,6 +2,7 @@ package com.donuts.game
 
 import android.os.Bundle
 import android.view.WindowManager
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 
 class GameActivity : AppCompatActivity() {
@@ -19,9 +20,19 @@ class GameActivity : AppCompatActivity() {
         gameView  = GameView(this, board, prefs)
 
         setContentView(gameView)
+
+        // Back closes an open panel first; only a second Back leaves the game
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (!gameView.onBackPressed()) {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
     }
 
     // The render thread is started in GameView.surfaceCreated and stopped in
-    // surfaceDestroyed, which fires when the activity is backgrounded — so there is
+    // surfaceDestroyed, which fires when the activity is backgrounded, so there is
     // nothing extra to pause here.
 }

@@ -108,16 +108,17 @@ donuts/
 
 ## Tech notes
 
-- Fully canvas-drawn — no XML layouts for the game or home screen
-- `SurfaceView` with a dedicated render thread at ~60 fps
-- All animations are time-based (`SystemClock.elapsedRealtime()`) with `easeOutQuint`
+- Fully canvas-drawn: no XML layouts for the game or home screen
+- `SurfaceView` rendered through a GPU-backed canvas (`lockHardwareCanvas`, API 26+) with a software fallback; the render thread paces itself to a 16 ms budget and stops on `surfaceDestroyed`
+- Every size is expressed in design-dp through `UiScale` (density, boosted up to 1.5x on tablets); layout stays inside the window insets
+- Pieces are painted once per layout into sprite bitmaps and blitted per frame; the vector painters (six donut silhouettes and the ball) only run when sprites are rebuilt
+- Render loop is allocation-free: scratch `Path`/`RectF` objects reused every frame, trig tables precomputed at init time
+- All animations are time-based (`SystemClock.elapsedRealtime()`) with `easeOutQuint`; confetti physics is time-based too, so it is correct at any frame rate
+- Reduced motion is honoured through the system animator scale
 - Thread safety: touch events synchronized on the surface `holder`; float labels on their own lock
-- Icons drawn with a two-pass cartoon technique (dark stroke outline + color fill)
-- 3D sheen via `canvas.clipPath()` with an upper-left oval highlight
-- Render loop is allocation-free: scratch `Path`/`RectF` objects reused every frame (board background, counter, and all pieces), trig tables precomputed at init time
-- Render thread is frame-paced at ~60 fps and **stops on `surfaceDestroyed`** (app backgrounded) so it never spins with nothing to draw
 - Power-ups computed via `peekChainClear()` (pure/non-mutating) before board mutation so bonus cells animate correctly
-- Cascades animate one pass at a time (POPPING → DROPPING → repeat) rather than resolving all at once; every cascade pop counts toward the cleared total, milestones, and stickers
+- Cascades animate one pass at a time (POPPING then DROPPING, repeated); every cascade pop counts toward the total, milestones, and stickers
+- Debug builds log `fps`, canvas path, and lock/draw/post times once a second under the `Donuts` tag
 
 ## Requirements
 

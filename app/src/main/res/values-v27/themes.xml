@@ -8,6 +8,8 @@
         <item name="colorOnSecondary">@color/white</item>
         <item name="android:statusBarColor">@color/cream</item>
         <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@color/cream</item>
+        <item name="android:windowLightNavigationBar">true</item>
         <item name="android:windowBackground">@color/cream</item>
     </style>
 </resources>
