@@ -112,7 +112,14 @@ upload key can be replaced:
    valid after their waiting period.
 3. Put the new details in `local.properties`: `KEYSTORE_PATH=F:/dev/donuts/donuts-upload.jks`,
    `KEY_ALIAS=upload`, and the new password as both `KEYSTORE_PASSWORD` and `KEY_PASSWORD`.
-4. Run `.elease.ps1` as usual.
+4. Run `.
+elease.ps1` as usual.
+
+## Automatic push
+
+A git `post-commit` hook (in `.git/hooks/post-commit`, not versioned) pushes every commit on `master` to
+GitHub immediately. Commits are still made deliberately, one per unit of work; only the push is automatic.
+If the push fails (offline), the hook prints a warning and the commit waits for the next `git push`.
 
 ## Project structure
 
