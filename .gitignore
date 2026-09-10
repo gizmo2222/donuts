@@ -15,3 +15,6 @@ app/build/
 
 # Loose screenshots (not part of the app)
 photo_*.jpg
+
+# Public certificate exported for a Play upload-key reset
+upload_certificate.pem

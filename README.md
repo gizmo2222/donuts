@@ -99,10 +99,20 @@ means it is correct; `keystore password was incorrect` means it is not.
    release, upload the `.aab`, write the release notes, review, roll out.
 5. Commit and push the version bump.
 
-If the upload-key password is lost: Play App Signing holds the real app signing key, so the upload key can be
-replaced. Create a new keystore with `keytool -genkeypair`, export its certificate with `keytool -exportcert
--rfc`, and in Play Console go to Setup, then App signing, then **Request upload key reset**, and attach the
-certificate. Point `local.properties` at the new keystore once Google confirms.
+### Lost the upload-key password?
+
+The password cannot be recovered from the keystore, but Play App Signing holds the real app-signing key, so the
+upload key can be replaced:
+
+1. Run `new-upload-key.cmd` (double-click it, or run it from Command Prompt or PowerShell). Choose a new
+   password, type it when asked, and store it in a password manager. It creates `donuts-upload.jks` and
+   `upload_certificate.pem`.
+2. In Play Console open the app, then Setup, then App signing, then **Request upload key reset**. Give the
+   reason (lost key) and attach `upload_certificate.pem`. Google emails the account owner; the new key becomes
+   valid after their waiting period.
+3. Put the new details in `local.properties`: `KEYSTORE_PATH=F:/dev/donuts/donuts-upload.jks`,
+   `KEY_ALIAS=upload`, and the new password as both `KEYSTORE_PASSWORD` and `KEY_PASSWORD`.
+4. Run `.elease.ps1` as usual.
 
 ## Project structure
 
