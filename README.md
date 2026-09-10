@@ -85,12 +85,9 @@ prints the path of the signed bundle:
 app\build\outputs\bundle\release\app-release.aab
 ```
 
-To check that the keystore password you have is the right one before building, run this and type the
-password when prompted (it lists the key alias on success, `keystore password was incorrect` otherwise):
-
-```powershell
-& "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -list -keystore donuts-release.jks
-```
+To check that a password opens the keystore before building, run `check-keystore.cmd` (double-click it, or run
+it from Command Prompt or PowerShell) and type the password when asked. A line ending in `PrivateKeyEntry`
+means it is correct; `keystore password was incorrect` means it is not.
 
 ### Release checklist
 
