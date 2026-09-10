@@ -107,7 +107,7 @@ upload key can be replaced:
 1. Run `new-upload-key.cmd` (double-click it, or run it from Command Prompt or PowerShell). Choose a new
    password, type it when asked, and store it in a password manager. It creates `donuts-upload.jks` and
    `upload_certificate.pem`.
-2. In Play Console open the app, then Setup, then App signing, then **Request upload key reset**. Give the
+2. In Play Console open the app, then **Protected with Play**, then **Play Store protection**, then **Manage Play app signing**. In the **Upload key certificate** section click **Request upload key reset**. Give the
    reason (lost key) and attach `upload_certificate.pem`. Google emails the account owner; the new key becomes
    valid after their waiting period.
 3. Put the new details in `local.properties`: `KEYSTORE_PATH=F:/dev/donuts/donuts-upload.jks`,

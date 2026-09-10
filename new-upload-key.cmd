@@ -27,7 +27,7 @@ echo Step 2 of 2: exporting the public certificate. Type the same password again
 if errorlevel 1 ( echo. & echo Certificate export failed. & goto :end )
 echo.
 echo Done. Attach upload_certificate.pem to the "Request upload key reset" form in Play Console
-echo (Setup, then App signing). When Google confirms, put in local.properties:
+echo (Protected with Play, Play Store protection, Manage Play app signing). When Google confirms, put in local.properties:
 echo   KEYSTORE_PATH=F:/dev/donuts/donuts-upload.jks
 echo   KEY_ALIAS=upload
 echo   KEYSTORE_PASSWORD and KEY_PASSWORD = the password you just chose
