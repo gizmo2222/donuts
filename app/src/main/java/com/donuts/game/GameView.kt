@@ -270,9 +270,50 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // -----------------------------------------------------------------------
     // Precomputed trigonometry — computed once at class init, never recalculated.
     // -----------------------------------------------------------------------
-    // 5 sprinkle dots at 72° intervals starting at 18°
-    private val sprinkleCos = FloatArray(5) { cos(Math.toRadians(it * 72.0 + 18.0)).toFloat() }
-    private val sprinkleSin = FloatArray(5) { sin(Math.toRadians(it * 72.0 + 18.0)).toFloat() }
+    // 24 points around a circle (15 degree steps) for drippy glaze and sprinkle placement
+    private val c24 = FloatArray(24) { cos(Math.toRadians(it * 15.0)).toFloat() }
+    private val s24 = FloatArray(24) { sin(Math.toRadians(it * 15.0)).toFloat() }
+    // Glaze radius multiplier per point: > 1 makes a drip. Bottom of the ring is indices 3..9.
+    private val dripMul = floatArrayOf(1f,1f,1f,1.05f,1.14f,1f,1.18f,1f,1.13f,1.04f,1f,1f,1f,1f,1f,1f,1f,1f,1f,1f,1f,1f,1f,1f)
+    // Six rainbow sprinkles: angle index into c24/s24, distance from centre, rotation, colour
+    private val sprinkleA   = intArrayOf(1, 5, 9, 13, 17, 21)
+    private val sprinkleD   = floatArrayOf(0.58f, 0.50f, 0.60f, 0.52f, 0.57f, 0.49f)
+    private val sprinkleRot = floatArrayOf(20f, 70f, -35f, 50f, -60f, 10f)
+    private val SPRINKLE_COLORS = intArrayOf(
+        Color.WHITE, Color.rgb(255, 230, 60), Color.rgb(80, 200, 255),
+        Color.rgb(120, 230, 90), Color.rgb(200, 160, 255), Color.WHITE)
+    // 48 points (7.5 degree steps) with an 8-lobe scallop multiplier for the flower ring
+    private val c48 = FloatArray(48) { cos(Math.toRadians(it * 7.5)).toFloat() }
+    private val s48 = FloatArray(48) { sin(Math.toRadians(it * 7.5)).toFloat() }
+    private val scallopMul = FloatArray(48) { (0.88 + 0.12 * cos(Math.toRadians(it * 7.5 * 8.0))).toFloat() }
+    // Sesame seeds on the matcha dip (x, y as fractions of r; rotation degrees)
+    private val seedX   = floatArrayOf(-0.45f, -0.08f, 0.32f, 0.56f, -0.62f)
+    private val seedY   = floatArrayOf(-0.55f, -0.68f, -0.58f, -0.32f, -0.22f)
+    private val seedRot = floatArrayOf(20f, -30f, 10f, 40f, -15f)
+    // Powdered sugar on the jelly bun (x, y, radius as fractions of r)
+    private val sugarX = floatArrayOf(-0.55f, -0.30f, -0.05f, -0.42f, -0.18f, 0.15f, -0.62f)
+    private val sugarY = floatArrayOf(-0.35f, -0.62f, -0.48f, -0.05f, -0.22f, -0.70f, 0.10f)
+    private val sugarR = floatArrayOf(0.09f, 0.11f, 0.08f, 0.07f, 0.10f, 0.07f, 0.06f)
+    // 5-point star (10 vertices) and 8-tooth gear (32 vertices) for the HUD icons
+    private val starCos = FloatArray(10) { cos(Math.toRadians(-90.0 + it * 36.0)).toFloat() }
+    private val starSin = FloatArray(10) { sin(Math.toRadians(-90.0 + it * 36.0)).toFloat() }
+    private val gearCos = FloatArray(32) { cos(Math.toRadians(it * 11.25)).toFloat() }
+    private val gearSin = FloatArray(32) { sin(Math.toRadians(it * 11.25)).toFloat() }
+    // Sprinkles scattered behind everything: the bakery-counter feel, faint so the board stays the hero
+    private val backdropN     = 40
+    private val backdropX     = FloatArray(backdropN)
+    private val backdropY     = FloatArray(backdropN)
+    private val backdropRot   = FloatArray(backdropN)
+    private val backdropColor = IntArray(backdropN)
+    init {
+        val rnd = java.util.Random(7L)
+        val palette = DonutType.values()
+        for (i in 0 until backdropN) {
+            backdropX[i] = rnd.nextFloat(); backdropY[i] = rnd.nextFloat()
+            backdropRot[i] = rnd.nextFloat() * 180f
+            backdropColor[i] = palette[i % palette.size].glazeColor
+        }
+    }
     // 8 vertices of the ✦ spark drawn on golden cells (45° intervals, -90° start)
     private val sparkCos = FloatArray(8) { cos(Math.toRadians(it * 45.0 - 90.0)).toFloat() }
     private val sparkSin = FloatArray(8) { sin(Math.toRadians(it * 45.0 - 90.0)).toFloat() }
@@ -460,6 +501,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         if (cellSize == 0f) return
         val now = SystemClock.elapsedRealtime()
         canvas.drawColor(theme.bg)
+        drawBackdrop(canvas)
         advanceAnimation(now)
         updateHint(now)
         advanceSettingsAnim(now)
@@ -734,10 +776,64 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // HUD
     // -----------------------------------------------------------------------
     private fun drawHUD(canvas: Canvas, now: Long) {
-        val settingsScale = buttonPressScale(now, settingsPressMs)
-        val stickerScale  = buttonPressScale(now, stickersPressMs)
-        drawPrettyButton(canvas, stickersBtnRect, theme.chrome, "\uD83C\uDFC5", 22f * u, stickerScale)
-        drawPrettyButton(canvas, settingsBtnRect, theme.chrome, "\u2699",       22f * u, settingsScale)
+        drawIconButton(canvas, stickersBtnRect, theme.chrome, buttonPressScale(now, stickersPressMs), 0)
+        drawIconButton(canvas, settingsBtnRect, theme.chrome, buttonPressScale(now, settingsPressMs), 1)
+    }
+
+    private fun drawBackdrop(canvas: Canvas) {
+        val w = surfaceW.toFloat(); val h = surfaceH.toFloat()
+        val sw = 14f * u; val sh = 5f * u
+        for (i in 0 until backdropN) {
+            val x = backdropX[i] * w; val y = backdropY[i] * h
+            canvas.save(); canvas.rotate(backdropRot[i], x, y)
+            fillPaint.color = backdropColor[i]; fillPaint.alpha = 60
+            canvas.drawRoundRect(scratchRectF.apply { set(x - sw / 2f, y - sh / 2f, x + sw / 2f, y + sh / 2f) }, sh / 2f, sh / 2f, fillPaint)
+            canvas.restore()
+        }
+        fillPaint.alpha = 255
+    }
+
+    // Chunky button with a hand-drawn icon instead of a system emoji: 0 = star (stickers), 1 = gear (settings)
+    private fun drawIconButton(canvas: Canvas, rect: RectF, color: Int, scale: Float, icon: Int) {
+        drawPrettyButton(canvas, rect, color, "", 1f, scale)
+        val cx = rect.centerX(); val cy = rect.centerY(); val r = rect.height() * 0.30f
+        canvas.save(); canvas.scale(scale, scale, cx, cy)
+        if (icon == 0) drawStarIcon(canvas, cx, cy, r) else drawGearIcon(canvas, cx, cy, r)
+        canvas.restore()
+    }
+
+    private fun drawStarIcon(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        scratchPath.rewind()
+        for (i in 0 until 10) {
+            val rr = if (i % 2 == 0) r else r * 0.46f
+            val x = cx + rr * starCos[i]; val y = cy + rr * starSin[i]
+            if (i == 0) scratchPath.moveTo(x, y) else scratchPath.lineTo(x, y)
+        }
+        scratchPath.close()
+        outlinePaint.color = Color.argb(255, 28, 12, 0); outlinePaint.strokeWidth = r * 0.30f
+        canvas.drawPath(scratchPath, outlinePaint)
+        fillPaint.color = Color.rgb(255, 215, 50); fillPaint.alpha = 255
+        canvas.drawPath(scratchPath, fillPaint)
+        fillPaint.color = Color.argb(150, 255, 255, 255)
+        canvas.drawCircle(cx - r * 0.22f, cy - r * 0.30f, r * 0.16f, fillPaint)
+        fillPaint.alpha = 255
+    }
+
+    private fun drawGearIcon(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        scratchPath.rewind()
+        for (i in 0 until 32) {
+            val rr = if ((i / 2) % 2 == 0) r else r * 0.74f      // pairs of points give flat-topped teeth
+            val x = cx + rr * gearCos[i]; val y = cy + rr * gearSin[i]
+            if (i == 0) scratchPath.moveTo(x, y) else scratchPath.lineTo(x, y)
+        }
+        scratchPath.close()
+        outlinePaint.color = Color.argb(255, 28, 12, 0); outlinePaint.strokeWidth = r * 0.24f
+        canvas.drawPath(scratchPath, outlinePaint)
+        fillPaint.color = Color.rgb(255, 250, 240); fillPaint.alpha = 255
+        canvas.drawPath(scratchPath, fillPaint)
+        canvas.drawCircle(cx, cy, r * 0.30f, outlinePaint)
+        fillPaint.color = theme.chrome
+        canvas.drawCircle(cx, cy, r * 0.30f, fillPaint)
     }
 
     /** Returns a scale factor that dips to 0.93 at tap then recovers to 1.0 over PRESS_MS. */
@@ -944,7 +1040,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 val finalScale = (if (inChain) breatheScale * pingScale else breatheScale) * shuffleScale
                 val pieceR = cellSize * 0.43f * finalScale
 
-                drawPiece(canvas, cx, cy, pieceR, board.grid[r][c].type, inChain)
+                if (board.grid[r][c].isGolden) drawBall(canvas, cx, cy, pieceR, inChain, 255)
+                else drawPiece(canvas, cx, cy, pieceR, board.grid[r][c].type, inChain)
 
                 // Golden shimmer overlay — rotating gold ring + warm tint
                 if (board.grid[r][c].isGolden) {
@@ -1013,7 +1110,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 val cy = boardTop  + cell.row * cellSize + cellSize / 2f
                 canvas.save()
                 canvas.scale(scaleX, scaleY, cx, cy)
-                drawPiece(canvas, cx, cy, cellSize * 0.43f, cell.type, false, alpha)
+                if (cell.isGolden) drawBall(canvas, cx, cy, cellSize * 0.43f, false, alpha)
+                else drawPiece(canvas, cx, cy, cellSize * 0.43f, cell.type, false, alpha)
                 canvas.restore()
             }
             // Expanding burst ring — gold for bonus cells (power-up), white for chain cells
@@ -1044,8 +1142,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 val startY = boardTop  + cell.fromRow * cellSize + cellSize / 2f
                 val endY   = boardTop  + cell.row     * cellSize + cellSize / 2f
                 val cy     = startY + (endY - startY) * eased
-                drawPiece(canvas, cx, cy, cellSize * 0.43f, cell.type, false)
-                if (cell.isGolden) drawGoldenOverlay(canvas, cx, cy, cellSize * 0.43f, now)
+                if (cell.isGolden) { drawBall(canvas, cx, cy, cellSize * 0.43f, false, 255); drawGoldenOverlay(canvas, cx, cy, cellSize * 0.43f, now) }
+                else drawPiece(canvas, cx, cy, cellSize * 0.43f, cell.type, false)
             }
         }
     }
@@ -1060,32 +1158,19 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private fun drawGoldenOverlay(canvas: Canvas, cx: Float, cy: Float, r: Float, now: Long) {
         // Slow spin: one full rotation every 2400 ms
         val spinAngle = (now % 2400L) / 2400f * 360f
-
-        // Outer dashed-looking gold ring (drawn as a stroked arc sweep — full circle)
-        strokePaint.color       = Color.argb(200, 255, 210, 30)
+        strokePaint.color = Color.argb(200, 255, 210, 30)
         strokePaint.strokeWidth = r * 0.13f
-        strokePaint.alpha       = 200
         canvas.save()
         canvas.rotate(spinAngle, cx, cy)
-        // Draw 4 arcs spaced 90° apart to fake a dashed ring
-        for (i in 0 until 4) {
-            canvas.drawArc(
-                RectF(cx - r * 1.10f, cy - r * 1.10f, cx + r * 1.10f, cy + r * 1.10f),
-                i * 90f, 60f, false, strokePaint
-            )
-        }
+        scratchRectF.set(cx - r * 1.14f, cy - r * 1.14f, cx + r * 1.14f, cy + r * 1.14f)
+        for (i in 0 until 4) canvas.drawArc(scratchRectF, i * 90f, 60f, false, strokePaint)
         canvas.restore()
         strokePaint.alpha = 255
-
-        // Inner warm gold tint — very subtle fill overlay
-        fillPaint.color = Color.argb(55, 255, 200, 0)
-        canvas.drawCircle(cx, cy, r * 0.90f, fillPaint)
-
-        // Small ✦ star spark at top-left — reuse scratchPath + precomputed sparkCos/sparkSin.
+        // Small spark at top-left
         val sparkR  = r * 0.22f
-        val sparkCx = cx - r * 0.52f
-        val sparkCy = cy - r * 0.52f
-        fillPaint.color = Color.argb(220, 255, 240, 80)
+        val sparkCx = cx - r * 0.62f
+        val sparkCy = cy - r * 0.62f
+        fillPaint.color = Color.argb(230, 255, 240, 80)
         scratchPath.rewind()
         for (i in 0 until 8) {
             val sr = if (i % 2 == 0) sparkR else sparkR * 0.38f
@@ -1101,11 +1186,240 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // -----------------------------------------------------------------------
     // drawPiece dispatcher
     // -----------------------------------------------------------------------
+    // -----------------------------------------------------------------------
+    // Pieces: six donuts, six silhouettes. Colour is never the only difference.
+    // -----------------------------------------------------------------------
     private fun drawPiece(
         canvas: Canvas, cx: Float, cy: Float,
         radius: Float, type: DonutType, selected: Boolean, alpha: Int = 255
     ) {
-        drawDonutShape(canvas, cx, cy, radius, type, selected, alpha)
+        when (type) {
+            DonutType.STRAWBERRY -> drawDrippyRing(canvas, cx, cy, radius, type, selected, alpha)
+            DonutType.CHOCOLATE  -> drawStripedRing(canvas, cx, cy, radius, type, selected, alpha)
+            DonutType.BLUEBERRY  -> drawJellyBun(canvas, cx, cy, radius, type, selected, alpha)
+            DonutType.VANILLA    -> drawFlowerRing(canvas, cx, cy, radius, type, selected, alpha)
+            DonutType.MATCHA     -> drawHalfDipRing(canvas, cx, cy, radius, type, selected, alpha)
+            DonutType.CARAMEL    -> drawSquareDonut(canvas, cx, cy, radius, type, selected, alpha)
+        }
+    }
+
+    // Shared round base: selection halo, dark outline, drop shadow, dough body.
+    private fun ringBase(canvas: Canvas, cx: Float, cy: Float, r: Float, body: Int, selected: Boolean, alpha: Int) {
+        val ow = r * 0.18f
+        if (selected) {
+            fillPaint.color = Color.argb(alpha, 255, 255, 255)
+            canvas.drawCircle(cx, cy, r + ow + cellSize * 0.07f, fillPaint)
+        }
+        fillPaint.color = Color.argb(alpha, 28, 12, 0)
+        canvas.drawCircle(cx, cy, r + ow, fillPaint)
+        fillPaint.color = Color.argb(alpha / 3, 0, 0, 0)
+        canvas.drawCircle(cx + r * 0.06f, cy + r * 0.12f, r, fillPaint)
+        fillPaint.color = body; fillPaint.alpha = alpha
+        canvas.drawCircle(cx, cy, r, fillPaint)
+    }
+
+    private fun drawHole(canvas: Canvas, cx: Float, cy: Float, hr: Float, alpha: Int) {
+        fillPaint.color = theme.holeColor; fillPaint.alpha = alpha
+        canvas.drawCircle(cx, cy, hr, fillPaint)
+        outlinePaint.color = Color.argb(alpha / 2, 255, 255, 255); outlinePaint.strokeWidth = hr * 0.15f
+        canvas.drawCircle(cx, cy, hr, outlinePaint)
+        outlinePaint.color = Color.argb(alpha / 2, 28, 12, 0)
+        canvas.drawCircle(cx, cy, hr * 1.06f, outlinePaint)
+        fillPaint.alpha = 255
+    }
+
+    // Strawberry: pink ring, red glaze that drips at the bottom, rainbow sprinkles.
+    private fun drawDrippyRing(canvas: Canvas, cx: Float, cy: Float, r: Float, type: DonutType, selected: Boolean, alpha: Int) {
+        ringBase(canvas, cx, cy, r, type.bodyColor, selected, alpha)
+        scratchPath2.rewind()
+        for (i in 0 until 24) {
+            val gr = r * 0.80f * dripMul[i]
+            val x = cx + gr * c24[i]; val y = cy + gr * s24[i]
+            if (i == 0) scratchPath2.moveTo(x, y) else scratchPath2.lineTo(x, y)
+        }
+        scratchPath2.close()
+        fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
+        canvas.drawPath(scratchPath2, fillPaint)
+        canvas.save(); canvas.clipPath(scratchPath2)
+        addSheen(canvas, cx, cy, r * 0.82f, alpha)
+        canvas.restore()
+        val sw = r * 0.24f; val sh = r * 0.09f
+        for (i in 0 until 6) {
+            val sx = cx + r * sprinkleD[i] * c24[sprinkleA[i]]
+            val sy = cy + r * sprinkleD[i] * s24[sprinkleA[i]]
+            canvas.save(); canvas.rotate(sprinkleRot[i], sx, sy)
+            fillPaint.color = SPRINKLE_COLORS[i]; fillPaint.alpha = alpha
+            canvas.drawRoundRect(scratchRectF.apply { set(sx - sw / 2f, sy - sh / 2f, sx + sw / 2f, sy + sh / 2f) }, sh / 2f, sh / 2f, fillPaint)
+            canvas.restore()
+        }
+        drawHole(canvas, cx, cy, r * 0.34f, alpha)
+    }
+
+    // Chocolate: dark glaze with three cream stripes.
+    private fun drawStripedRing(canvas: Canvas, cx: Float, cy: Float, r: Float, type: DonutType, selected: Boolean, alpha: Int) {
+        ringBase(canvas, cx, cy, r, type.bodyColor, selected, alpha)
+        fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
+        canvas.drawCircle(cx, cy, r * 0.82f, fillPaint)
+        scratchPath2.rewind(); scratchPath2.addCircle(cx, cy, r * 0.82f, Path.Direction.CW)
+        canvas.save(); canvas.clipPath(scratchPath2)
+        strokePaint.color = Color.argb(alpha, 255, 236, 200); strokePaint.strokeWidth = r * 0.13f
+        for (i in -1..1) {
+            val off = i * r * 0.40f
+            canvas.drawLine(cx - r + off, cy - r * 0.35f - off, cx + r * 0.35f + off, cy + r - off, strokePaint)
+        }
+        addSheen(canvas, cx, cy, r * 0.82f, alpha, sheenAlpha = 0.22f)
+        canvas.restore()
+        strokePaint.alpha = 255
+        drawHole(canvas, cx, cy, r * 0.34f, alpha)
+    }
+
+    // Blueberry: a filled bun with no hole, a purple jam spot and powdered sugar.
+    private fun drawJellyBun(canvas: Canvas, cx: Float, cy: Float, r: Float, type: DonutType, selected: Boolean, alpha: Int) {
+        ringBase(canvas, cx, cy, r, type.bodyColor, selected, alpha)
+        scratchPath2.rewind(); scratchPath2.addCircle(cx, cy, r, Path.Direction.CW)
+        canvas.save(); canvas.clipPath(scratchPath2)
+        fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
+        canvas.drawCircle(cx + r * 0.62f, cy + r * 0.18f, r * 0.36f, fillPaint)
+        fillPaint.color = Color.argb((alpha * 0.55f).toInt(), 255, 255, 255)
+        canvas.drawCircle(cx + r * 0.54f, cy + r * 0.06f, r * 0.09f, fillPaint)
+        addSheen(canvas, cx, cy, r, alpha, sheenAlpha = 0.30f)
+        canvas.restore()
+        fillPaint.color = Color.argb((alpha * 0.85f).toInt(), 255, 255, 255)
+        for (i in 0 until 7) canvas.drawCircle(cx + r * sugarX[i], cy + r * sugarY[i], r * sugarR[i], fillPaint)
+        fillPaint.alpha = 255
+    }
+
+    private fun buildScallop(path: Path, cx: Float, cy: Float, rr: Float) {
+        path.rewind()
+        for (i in 0 until 48) {
+            val d = rr * scallopMul[i]
+            val x = cx + d * c48[i]; val y = cy + d * s48[i]
+            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        path.close()
+    }
+
+    // Vanilla: an eight-lobed flower ring with lemon glaze.
+    private fun drawFlowerRing(canvas: Canvas, cx: Float, cy: Float, r: Float, type: DonutType, selected: Boolean, alpha: Int) {
+        val ow = r * 0.16f
+        if (selected) {
+            fillPaint.color = Color.argb(alpha, 255, 255, 255)
+            canvas.drawCircle(cx, cy, r * 1.32f, fillPaint)
+        }
+        buildScallop(scratchPath, cx, cy, r)
+        outlinePaint.color = Color.argb(alpha, 28, 12, 0); outlinePaint.strokeWidth = ow * 2f
+        canvas.drawPath(scratchPath, outlinePaint)
+        canvas.save(); canvas.translate(r * 0.06f, r * 0.12f)
+        fillPaint.color = Color.argb(alpha / 3, 0, 0, 0)
+        canvas.drawPath(scratchPath, fillPaint)
+        canvas.restore()
+        fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
+        canvas.drawPath(scratchPath, fillPaint)
+        buildScallop(scratchPath2, cx, cy, r * 0.80f)
+        fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
+        canvas.drawPath(scratchPath2, fillPaint)
+        canvas.save(); canvas.clipPath(scratchPath2)
+        addSheen(canvas, cx, cy, r * 0.80f, alpha)
+        canvas.restore()
+        drawHole(canvas, cx, cy, r * 0.30f, alpha)
+    }
+
+    // Matcha: green ring dipped halfway in lime glaze, sesame seeds on top.
+    private fun drawHalfDipRing(canvas: Canvas, cx: Float, cy: Float, r: Float, type: DonutType, selected: Boolean, alpha: Int) {
+        ringBase(canvas, cx, cy, r, type.bodyColor, selected, alpha)
+        scratchPath2.rewind(); scratchPath2.addCircle(cx, cy, r * 0.82f, Path.Direction.CW)
+        canvas.save(); canvas.clipPath(scratchPath2)
+        scratchPath.rewind()
+        scratchPath.moveTo(cx - r, cy - r)
+        scratchPath.lineTo(cx + r, cy - r)
+        scratchPath.lineTo(cx + r, cy + r * 0.10f)
+        val seg = r * 0.5f
+        for (i in 0 until 4) {
+            val x0 = cx + r - seg * i
+            val ctrlY = cy + (if (i % 2 == 0) r * 0.42f else -r * 0.18f)
+            scratchPath.quadTo(x0 - seg / 2f, ctrlY, x0 - seg, cy + r * 0.10f)
+        }
+        scratchPath.close()
+        fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
+        canvas.drawPath(scratchPath, fillPaint)
+        addSheen(canvas, cx, cy, r * 0.82f, alpha, sheenAlpha = 0.24f)
+        canvas.restore()
+        fillPaint.color = Color.argb(alpha, 60, 40, 20)
+        for (i in 0 until 5) {
+            val sx = cx + r * seedX[i]; val sy = cy + r * seedY[i]
+            canvas.save(); canvas.rotate(seedRot[i], sx, sy)
+            canvas.drawOval(scratchRectF.apply { set(sx - r * 0.075f, sy - r * 0.04f, sx + r * 0.075f, sy + r * 0.04f) }, fillPaint)
+            canvas.restore()
+        }
+        drawHole(canvas, cx, cy, r * 0.34f, alpha)
+    }
+
+    // Caramel: a square donut with a round hole and dark caramel drizzle.
+    private fun drawSquareDonut(canvas: Canvas, cx: Float, cy: Float, r: Float, type: DonutType, selected: Boolean, alpha: Int) {
+        val ow = r * 0.18f; val side = r * 0.90f; val cr = r * 0.34f
+        if (selected) {
+            fillPaint.color = Color.argb(alpha, 255, 255, 255)
+            canvas.drawCircle(cx, cy, r * 1.34f, fillPaint)
+        }
+        fillPaint.color = Color.argb(alpha, 28, 12, 0)
+        canvas.drawRoundRect(scratchRectF.apply { set(cx - side - ow, cy - side - ow, cx + side + ow, cy + side + ow) }, cr + ow, cr + ow, fillPaint)
+        fillPaint.color = Color.argb(alpha / 3, 0, 0, 0)
+        canvas.drawRoundRect(scratchRectF.apply { set(cx - side + r * 0.06f, cy - side + r * 0.12f, cx + side + r * 0.06f, cy + side + r * 0.12f) }, cr, cr, fillPaint)
+        fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
+        canvas.drawRoundRect(scratchRectF.apply { set(cx - side, cy - side, cx + side, cy + side) }, cr, cr, fillPaint)
+        val g = side * 0.78f
+        scratchRectF.set(cx - g, cy - g, cx + g, cy + g)
+        fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
+        canvas.drawRoundRect(scratchRectF, cr * 0.8f, cr * 0.8f, fillPaint)
+        scratchPath2.rewind(); scratchPath2.addRoundRect(scratchRectF, cr * 0.8f, cr * 0.8f, Path.Direction.CW)
+        canvas.save(); canvas.clipPath(scratchPath2)
+        strokePaint.color = Color.argb(alpha, 110, 55, 10); strokePaint.strokeWidth = r * 0.07f
+        for (i in 0 until 3) {
+            val yy = cy - g + g * (0.35f + 0.65f * i)
+            canvas.drawLine(cx - g, yy - r * 0.14f, cx + g, yy + r * 0.14f, strokePaint)
+        }
+        addSheen(canvas, cx, cy, g, alpha, sheenAlpha = 0.22f)
+        canvas.restore()
+        strokePaint.alpha = 255
+        drawHole(canvas, cx, cy, r * 0.30f, alpha)
+    }
+
+    // The wildcard is a sports ball: matches any donut, and echoes the title screen.
+    private fun drawBall(canvas: Canvas, cx: Float, cy: Float, r: Float, selected: Boolean, alpha: Int) {
+        val ow = r * 0.18f
+        if (selected) {
+            fillPaint.color = Color.argb(alpha, 255, 255, 255)
+            canvas.drawCircle(cx, cy, r + ow + cellSize * 0.07f, fillPaint)
+        }
+        fillPaint.color = Color.argb(alpha, 28, 12, 0)
+        canvas.drawCircle(cx, cy, r + ow, fillPaint)
+        fillPaint.color = Color.argb(alpha / 3, 0, 0, 0)
+        canvas.drawCircle(cx + r * 0.06f, cy + r * 0.12f, r, fillPaint)
+        fillPaint.color = Color.argb(alpha, 255, 255, 255)
+        canvas.drawCircle(cx, cy, r, fillPaint)
+        scratchPath2.rewind(); scratchPath2.addCircle(cx, cy, r, Path.Direction.CW)
+        canvas.save(); canvas.clipPath(scratchPath2)
+        fillPaint.color = Color.argb(alpha, 22, 22, 22)
+        drawPentagon(canvas, cx, cy, r * 0.34f, -90f)
+        for (i in 0 until 5) {
+            val a = i * 72f - 90f
+            val rad = Math.toRadians(a.toDouble())
+            drawPentagon(canvas, cx + (r * 0.80f * cos(rad)).toFloat(), cy + (r * 0.80f * sin(rad)).toFloat(), r * 0.28f, a + 180f)
+        }
+        canvas.restore()
+        addSheen(canvas, cx, cy, r, alpha, sheenAlpha = 0.28f, specAlpha = 0.9f)
+        fillPaint.alpha = 255
+    }
+
+    private fun drawPentagon(canvas: Canvas, cx: Float, cy: Float, r: Float, startDeg: Float) {
+        scratchPath.rewind()
+        for (i in 0 until 5) {
+            val a = Math.toRadians((startDeg + i * 72f).toDouble())
+            val x = cx + (r * cos(a)).toFloat(); val y = cy + (r * sin(a)).toFloat()
+            if (i == 0) scratchPath.moveTo(x, y) else scratchPath.lineTo(x, y)
+        }
+        scratchPath.close()
+        canvas.drawPath(scratchPath, fillPaint)
     }
 
     // -----------------------------------------------------------------------
@@ -1133,74 +1447,6 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         // Bright specular dot upper-left
         fillPaint.color = Color.argb((alpha * specAlpha).toInt(), 255, 255, 255)
         canvas.drawCircle(cx - r * 0.30f, cy - r * 0.44f, r * 0.16f, fillPaint)
-        fillPaint.alpha = 255
-    }
-
-    // -----------------------------------------------------------------------
-    // Shape: Donut
-    // -----------------------------------------------------------------------
-    private fun drawDonutShape(
-        canvas: Canvas, cx: Float, cy: Float,
-        radius: Float, type: DonutType, selected: Boolean, alpha: Int
-    ) {
-        val ow = radius * 0.18f
-        if (selected) {
-            fillPaint.color = Color.argb(alpha, 255, 255, 255)
-            canvas.drawCircle(cx, cy, radius + ow + cellSize * 0.07f, fillPaint)
-        }
-        // Dark outline circle
-        fillPaint.color = Color.argb(alpha, 28, 12, 0)
-        canvas.drawCircle(cx, cy, radius + ow, fillPaint)
-        // Drop shadow
-        fillPaint.color = Color.argb(alpha / 3, 0, 0, 0)
-        canvas.drawCircle(cx + radius * 0.06f, cy + radius * 0.12f, radius, fillPaint)
-        // Body
-        fillPaint.color = type.bodyColor; fillPaint.alpha = alpha
-        canvas.drawCircle(cx, cy, radius, fillPaint)
-        // Glaze
-        fillPaint.color = type.glazeColor; fillPaint.alpha = alpha
-        canvas.drawCircle(cx, cy, radius * 0.82f, fillPaint)
-        // 3D sheen clipped to glaze circle — reuse scratchPath2 (addSheen uses scratchPath).
-        scratchPath2.rewind()
-        scratchPath2.addCircle(cx, cy, radius * 0.82f, Path.Direction.CW)
-        canvas.save()
-        canvas.clipPath(scratchPath2)
-        addSheen(canvas, cx, cy, radius * 0.82f, alpha)
-        canvas.restore()
-        // Sprinkles
-        drawSprinkles(canvas, cx, cy, radius * 0.82f, type, alpha)
-        // Hole
-        fillPaint.color = theme.holeColor; fillPaint.alpha = alpha
-        canvas.drawCircle(cx, cy, radius * 0.34f, fillPaint)
-        // Hole inner highlight (rim light)
-        outlinePaint.color       = Color.argb(alpha / 2, 255, 255, 255)
-        outlinePaint.strokeWidth = radius * 0.05f
-        canvas.drawCircle(cx, cy, radius * 0.34f, outlinePaint)
-        // Hole dark outline
-        outlinePaint.color       = Color.argb(alpha / 2, 28, 12, 0)
-        outlinePaint.strokeWidth = radius * 0.05f
-        canvas.drawCircle(cx, cy, radius * 0.36f, outlinePaint)
-        fillPaint.alpha = 255
-    }
-
-    private fun drawSprinkles(canvas: Canvas, cx: Float, cy: Float, glazeR: Float, type: DonutType, alpha: Int) {
-        fillPaint.color = when (type) {
-            DonutType.STRAWBERRY -> Color.WHITE
-            DonutType.VANILLA    -> Color.rgb(255, 100, 160)
-            DonutType.CHOCOLATE  -> Color.rgb(235, 195, 130)
-            DonutType.BLUEBERRY  -> Color.WHITE
-            DonutType.MATCHA     -> Color.rgb(255, 235, 80)
-            DonutType.CARAMEL    -> Color.WHITE
-        }
-        fillPaint.alpha = alpha
-        val dotR = glazeR * 0.10f; val dist = glazeR * 0.48f
-        for (i in 0 until 5) {
-            canvas.drawCircle(
-                cx + dist * sprinkleCos[i],
-                cy + dist * sprinkleSin[i],
-                dotR, fillPaint
-            )
-        }
         fillPaint.alpha = 255
     }
 
@@ -1236,7 +1482,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val startX  = left + iconR * 2.4f + iconGap + cellW / 2f
         val baseY   = midY + digitSz * 0.36f
 
-        drawDonutShape(canvas, left + iconR * 1.2f, midY, iconR, DonutType.STRAWBERRY, false, 255)
+        drawPiece(canvas, left + iconR * 1.2f, midY, iconR, DonutType.STRAWBERRY, false, 255)
 
         textOutlinePaint.textSize    = digitSz
         textOutlinePaint.textAlign   = Paint.Align.CENTER

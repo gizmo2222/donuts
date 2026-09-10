@@ -2,41 +2,19 @@ package com.donuts.game
 
 import android.graphics.Color
 
+// Six donuts, six silhouettes. bodyColor is the dough, glazeColor is the topping
+// (and the colour of the chain line while dragging).
 enum class DonutType(
     val bodyColor: Int,
     val glazeColor: Int,
     val label: String
 ) {
-    STRAWBERRY(
-        bodyColor  = Color.rgb(255,  85, 125),
-        glazeColor = Color.rgb(230,   0,  50),
-        label      = "Strawberry"
-    ),
-    CHOCOLATE(
-        bodyColor  = Color.rgb(170, 100,  45),
-        glazeColor = Color.rgb(240, 225, 190),
-        label      = "Chocolate"
-    ),
-    BLUEBERRY(
-        bodyColor  = Color.rgb( 75,  75, 255),
-        glazeColor = Color.rgb(160, 210, 255),
-        label      = "Blueberry"
-    ),
-    VANILLA(
-        bodyColor  = Color.rgb(255, 228,  45),
-        glazeColor = Color.rgb(255, 155,  25),
-        label      = "Vanilla"
-    ),
-    MATCHA(
-        bodyColor  = Color.rgb( 45, 210,  45),
-        glazeColor = Color.rgb(185, 245,  55),
-        label      = "Matcha"
-    ),
-    CARAMEL(
-        bodyColor  = Color.rgb(255, 138,   0),
-        glazeColor = Color.rgb(185,  30,   0),
-        label      = "Caramel"
-    );
+    STRAWBERRY(Color.rgb(255, 140, 165), Color.rgb(235,  25,  80), "Strawberry"),  // drippy ring, rainbow sprinkles
+    CHOCOLATE (Color.rgb(165,  95,  45), Color.rgb( 90,  45,  20), "Chocolate"),   // dark glaze, cream stripes
+    BLUEBERRY (Color.rgb(135, 185, 255), Color.rgb(105,  70, 220), "Blueberry"),   // filled bun, jam spot, sugar
+    VANILLA   (Color.rgb(255, 235, 130), Color.rgb(255, 205,  30), "Vanilla"),     // eight-lobed flower ring
+    MATCHA    (Color.rgb( 70, 195,  85), Color.rgb(160, 235,  60), "Matcha"),      // half-dipped ring, sesame
+    CARAMEL   (Color.rgb(245, 165,  70), Color.rgb(210, 115,  20), "Caramel");     // square donut, drizzle
 
     companion object {
         fun random(): DonutType = values().random()
