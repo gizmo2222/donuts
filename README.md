@@ -26,7 +26,7 @@ Occasionally a **golden** piece drops in during a refill — it glows and can be
 
 ### Cascades
 
-When cleared pieces cause new matches to form, they auto-pop in sequence. Each cascade shows a **Combo ×N** label so you can track the chain reaction — and every cascade pop counts toward your cleared total.
+When cleared pieces cause new matches to form, they auto-pop in sequence. Each cascade shows a **×N** label so you can track the chain reaction — and every cascade pop counts toward your cleared total.
 
 ## Settings
 
@@ -34,10 +34,14 @@ Tap the gear above the board:
 
 - **Sound** — on / off (on by default)
 - **Hints** — on / off; when on, a valid chain is highlighted after 5 seconds idle
-- **Board** — 6×6 or 8×8
-- **Start over** — fresh board and counter (tap twice to confirm)
+- **Donuts** — Big (6×6 board) or Small (8×8 board)
+- **New game** — fresh board and counter (tap twice to confirm)
 
-Stickers live behind the medal above the board.
+Stickers live behind the medal above the board. Each locked sticker says what to do to earn it.
+
+## First run
+
+There is no text tutorial. The first time the board appears, three matching donuts glow while a finger traces the path between them, and the demo repeats until the first chain is made.
 
 ## Building
 

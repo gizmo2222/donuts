@@ -43,10 +43,12 @@ class Prefs(context: Context) {
         get()  = p.getInt("best_chain", 0)
         set(v) { p.edit().putInt("best_chain", v).apply() }
 
-    var shufflesSurvived: Int
-        get()  = p.getInt("shuffles", 0)
-        set(v) { p.edit().putInt("shuffles", v).apply() }
+    // True once the player has cleared a golden (wild) donut. Unlocks the Gold Finder sticker.
+    var goldenPopped: Boolean
+        get()  = p.getBoolean("golden_popped", false)
+        set(v) { p.edit().putBoolean("golden_popped", v).apply() }
 
+    // Visits to the game screen. Unlocks the Super Fan sticker.
     var sessionCount: Int
         get()  = p.getInt("sessions", 0)
         set(v) { p.edit().putInt("sessions", v).apply() }

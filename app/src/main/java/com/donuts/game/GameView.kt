@@ -52,7 +52,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private val onOffLabels = arrayOf("On", "Off")
     private val hintOptions = longArrayOf(5_000L, 0L)
     private val gridOptions = intArrayOf(6, 8)
-    private val gridLabels  = arrayOf("6×6", "8×8")
+    private val gridLabels  = arrayOf("Big", "Small")      // 6x6 donuts are big, 8x8 are small
 
     // "Start over" two-tap confirm. It lives in Settings so a stray tap cannot wipe the board.
     private var resetConfirmMs   = -1L
@@ -131,19 +131,20 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         "\uD83C\uDF69", "\u2B50",        "\uD83D\uDC51",  // 🍩 ⭐ 👑  row 1: Donut Collector
         "\uD83D\uDD17", "\u26A1",        "\uD83C\uDF1F",  // 🔗 ⚡ 🌟  row 2: Chain Builder
         "\uD83C\uDFAF", "\uD83C\uDFC6",  "\uD83D\uDC8E",  // 🎯 🏆 💎  row 3: High Scorer
-        "\uD83D\uDD00", "\uD83D\uDD2D",  "\u2764"         // 🔀 🔭 ❤   row 4: Special
+        "\u2728",        "\uD83D\uDD2D",  "\u2764"         // 🔀 🔭 ❤   row 4: Special
     )
     private val STICKER_NAMES  = arrayOf(
         "Donut Taster",   "Donut Lover",   "Donut King",
-        "Chain Starter",  "Chain Pro",     "Chain Legend",
-        "On The Board",   "High Scorer",   "Donut Master",
-        "Survivor",       "Explorer",      "True Fan"
+        "Chain Starter",  "Chain Champ",   "Chain Hero",
+        "Little Batch",   "Big Batch",     "Donut Party",
+        "Gold Finder",    "Explorer",      "Super Fan"
     )
+    // What to do to earn each one, in words an early reader can sound out
     private val STICKER_DESCS  = arrayOf(
-        "10 donuts",   "50 donuts",   "500 donuts",
-        "chain of 4",  "chain of 6",  "chain of 8",
-        "score 20",    "score 60",    "score 200",
-        "5 shuffles",  "both grids",  "10 sessions"
+        "Pop 10",         "Pop 50",        "Pop 500",
+        "Connect 4",      "Connect 6",     "Connect 8",
+        "20 in a game",   "60 in a game",  "200 in a game",
+        "Pop a gold one", "Try both sizes","Play 10 times"
     )
     private val STICKER_COLORS = intArrayOf(
         Color.rgb(255, 140,  60), Color.rgb(255, 200,  30), Color.rgb(220,  80,  50),
@@ -190,7 +191,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // First-run tutorial
     private var tutorialActive  = !prefs.tutorialSeen
     private var tutorialStartMs = -1L
-    private val TUTORIAL_LOOP_MS = 2800L
+    private val TUTORIAL_LOOP_MS = 3000L
+    private var tutorialCells   = emptyList<Pair<Int, Int>>()   // the three donuts the finger traces
 
     // Chain connection ping — scale-pop when each new cell joins
     private val chainPings = mutableMapOf<Pair<Int,Int>, Long>()  // cell -> time added
@@ -282,6 +284,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
     init {
         holder.addCallback(this); isFocusable = true
+        prefs.sessionCount = prefs.sessionCount + 1   // one "play" per visit to the game screen
         ViewCompat.setOnApplyWindowInsetsListener(this) { _, insets ->
             val bars = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
@@ -431,7 +434,6 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             if (board.cols == 6) prefs.highScore6x6 = sessionTotal
             else prefs.highScore8x8 = sessionTotal
         }
-        prefs.sessionCount = prefs.sessionCount + 1
     }
 
     private fun rebuildBoard() {
@@ -444,6 +446,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         isCascade      = false
         cascadeLabelMs = -1L
         hintCells = emptyList()
+        tutorialCells = emptyList()
         displayedCount = 0
         lastActionMs = SystemClock.elapsedRealtime()
         computeLayout()
@@ -474,7 +477,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         if (stickersAnim > 0f) drawStickersPanel(canvas, now)
         drawChainFlash(canvas, now)
         drawResetFlash(canvas, now)
-        if (tutorialActive) drawTutorial(canvas, now)
+        if (tutorialActive && settingsAnim == 0f && stickersAnim == 0f) drawTutorial(canvas, now)
     }
 
     // -----------------------------------------------------------------------
@@ -482,7 +485,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // -----------------------------------------------------------------------
     private fun updateHint(now: Long) {
         val delay = prefs.hintDelayMs
-        if (delay == 0L || animPhase != AnimPhase.IDLE || dragChain.isNotEmpty()) return
+        if (tutorialActive || delay == 0L || animPhase != AnimPhase.IDLE || dragChain.isNotEmpty()) return
         if (now - lastActionMs >= delay) {
             if (hintCells.isEmpty()) { hintCells = board.findHint(); hintPulseMs = now }
         } else {
@@ -496,6 +499,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private fun advanceAnimation(now: Long) {
         when (animPhase) {
             AnimPhase.POPPING -> if (now - animStartMs >= POP_MS) {
+                if (!isCascade && popCells.any { it.isGolden }) prefs.goldenPopped = true
+
                 // Snapshot golden flags BEFORE mutating the board.
                 val preGolden = Array(board.rows) { r -> Array(board.cols) { c -> board.grid[r][c].isGolden } }
 
@@ -577,7 +582,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                     // Floating cascade-combo label
                     val cx = cascadeMatches.map { (_, c) -> boardLeft + c * cellSize + cellSize / 2f }.average().toFloat()
                     val cy = cascadeMatches.map { (r, _) -> boardTop  + r * cellSize + cellSize / 2f }.average().toFloat()
-                    val comboLabel = "COMBO ×${cascadeCount + 1}"
+                    val comboLabel = "\u00d7${cascadeCount + 1}"
                     synchronized(floatLabels) {
                         floatLabels.add(FloatLabel(comboLabel, cx, cy, Color.rgb(255, 220, 40), now))
                     }
@@ -602,7 +607,6 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                     noMovesWarningMs = -1L
                     lastActionMs = now
                     hintCells = emptyList()
-                    prefs.shufflesSurvived = prefs.shufflesSurvived + 1
                     if (prefs.soundEnabled)  soundEngine.playShuffle()
                     if (prefs.hapticEnabled) hapticEngine.shuffle()
                 }
@@ -1408,9 +1412,9 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
         // Text — milestone number large, label small
         val label = when {
-            celebrateCount >= 500 -> "\u2605 $celebrateCount CLEARED! \u2605"
-            celebrateCount >= 100 -> "$celebrateCount CLEARED! \u2605"
-            else                  -> "$celebrateCount CLEARED!"
+            celebrateCount >= 500 -> "\u2605 $celebrateCount DONUTS! \u2605"
+            celebrateCount >= 100 -> "$celebrateCount DONUTS! \u2605"
+            else                  -> "$celebrateCount DONUTS!"
         }
         textPaint.textAlign     = Paint.Align.CENTER
         textPaint.textSize      = 20f * u
@@ -1426,105 +1430,104 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // First-run tutorial overlay
     // -----------------------------------------------------------------------
     private fun drawTutorial(canvas: Canvas, now: Long) {
+        // Hands off while the board is busy or the child is already dragging
+        if (animPhase != AnimPhase.IDLE || dragChain.isNotEmpty() || boardEntryMs >= 0) { tutorialStartMs = -1L; return }
+        if (tutorialCells.isEmpty()) tutorialCells = chainOrder(board.findHint())
+        if (tutorialCells.size < 3) { tutorialActive = false; prefs.tutorialSeen = true; return }
         if (tutorialStartMs < 0L) tutorialStartMs = now
-        // Auto-dismiss after 10 seconds
-        if (now - tutorialStartMs > 10_000L) {
-            tutorialActive = false; prefs.tutorialSeen = true; return
-        }
-
         val loopT = ((now - tutorialStartMs) % TUTORIAL_LOOP_MS).toFloat()
 
-        // Full-screen dim
-        fillPaint.color = Color.argb(200, 0, 0, 0)
-        canvas.drawRect(0f, 0f, surfaceW.toFloat(), surfaceH.toFloat(), fillPaint)
+        val r  = cellSize * 0.43f
+        val xs = FloatArray(3) { boardLeft + tutorialCells[it].second * cellSize + cellSize / 2f }
+        val ys = FloatArray(3) { boardTop  + tutorialCells[it].first  * cellSize + cellSize / 2f }
 
-        val boardCX  = boardLeft + board.cols * cellSize / 2f
-        val boardCY  = boardTop  + board.rows * cellSize / 2f
-        val r        = cellSize * 0.43f
-        val spacing  = cellSize * 1.05f
-        val demoType = DonutType.values()[0]
-        val x0 = boardCX - spacing; val x1 = boardCX; val x2 = boardCX + spacing
-        val xs = floatArrayOf(x0, x1, x2)
-        val dy = boardCY
+        // Dim everything on the board except the three donuts to connect
+        scratchPath.rewind()
+        for (i in 0 until 3) scratchPath.addCircle(xs[i], ys[i], r * 1.25f, Path.Direction.CW)
+        canvas.save()
+        canvas.clipOutPath(scratchPath)
+        fillPaint.color = Color.argb(140, 40, 20, 0)
+        canvas.drawRect(boardLeft - 8f * u, boardTop - 8f * u,
+                        boardLeft + board.cols * cellSize + 8f * u, boardTop + board.rows * cellSize + 8f * u, fillPaint)
+        canvas.restore()
 
-        // Soft glow behind pieces
-        fillPaint.color = Color.argb(50, 255, 255, 255)
-        for (x in xs) canvas.drawCircle(x, dy, r * 1.5f, fillPaint)
+        // Pulsing gold ring on each of the three
+        val pulse = 0.5f + 0.5f * sin(now / 220f)
+        strokePaint.color = theme.hintRing; strokePaint.alpha = (150 + 105 * pulse).toInt()
+        strokePaint.strokeWidth = cellSize * 0.10f
+        for (i in 0 until 3) canvas.drawCircle(xs[i], ys[i], r * (1.12f + 0.06f * pulse), strokePaint)
+        strokePaint.alpha = 255
 
-        // Animation phases
-        val FADE_MS  = 200f
-        val SWEEP_MS = 850f
-        val HOLD_MS  = 250f
-        val BURST_MS = 300f
-        val chainEnd = FADE_MS + SWEEP_MS + HOLD_MS
+        // Timeline: fade in, sweep 0->1, sweep 1->2, hold with a burst, fade out
+        val FADE = 250f; val SWEEP = 650f; val HOLD = 500f
+        val t1 = FADE; val t2 = t1 + SWEEP; val t3 = t2 + SWEEP; val t4 = t3 + HOLD
+        val alpha: Float; val seg: Float          // seg = how far along the chain, 0..2
+        when {
+            loopT < t1 -> { alpha = loopT / FADE; seg = 0f }
+            loopT < t2 -> { alpha = 1f; seg = easeOutQuint((loopT - t1) / SWEEP) }
+            loopT < t3 -> { alpha = 1f; seg = 1f + easeOutQuint((loopT - t2) / SWEEP) }
+            loopT < t4 -> { alpha = 1f; seg = 2f }
+            else       -> { alpha = (1f - (loopT - t4) / (TUTORIAL_LOOP_MS - t4)).coerceIn(0f, 1f); seg = 2f }
+        }
+        val i0 = seg.toInt().coerceAtMost(1); val frac = (seg - i0).coerceIn(0f, 1f)
+        val fx = xs[i0] + (xs[i0 + 1] - xs[i0]) * frac
+        val fy = ys[i0] + (ys[i0 + 1] - ys[i0]) * frac
 
-        // Chain line (sweep phase + hold phase)
-        if (loopT >= FADE_MS && loopT < chainEnd) {
-            val sweepFrac = ((loopT - FADE_MS) / SWEEP_MS).coerceIn(0f, 1f)
-            val lineEndX  = x0 + (x2 - x0) * sweepFrac
-            chainOutlinePaint.strokeWidth = cellSize * 0.38f
-            chainLinePaint.strokeWidth    = cellSize * 0.22f
-            chainOutlinePaint.color = Color.argb(180, 30, 15, 0)
-            chainLinePaint.color    = Color.argb(245, 255, 255, 255)
-            canvas.drawLine(x0, dy, lineEndX, dy, chainOutlinePaint)
-            canvas.drawLine(x0, dy, lineEndX, dy, chainLinePaint)
+        // Trail drawn on top of the pieces so the path is unmistakable
+        if (seg > 0f) {
+            scratchPath.rewind()
+            scratchPath.moveTo(xs[0], ys[0])
+            if (seg >= 1f) scratchPath.lineTo(xs[1], ys[1])
+            scratchPath.lineTo(fx, fy)
+            val a = (alpha * 255).toInt()
+            chainOutlinePaint.strokeWidth = cellSize * 0.30f; chainOutlinePaint.color = Color.argb((a * 0.85f).toInt(), 28, 12, 0)
+            canvas.drawPath(scratchPath, chainOutlinePaint)
+            chainLinePaint.strokeWidth = cellSize * 0.16f; chainLinePaint.color = Color.argb(a, 255, 255, 255)
+            canvas.drawPath(scratchPath, chainLinePaint)
         }
 
-        // Pieces on top of chain line
-        for (x in xs) drawPiece(canvas, x, dy, r, demoType, false)
-
-        // Burst rings
-        if (loopT >= chainEnd && loopT < chainEnd + BURST_MS) {
-            val bt = (loopT - chainEnd) / BURST_MS
-            val ba = ((1f - bt) * 200).toInt().coerceIn(0, 255)
+        // Burst rings when the demo chain completes
+        if (loopT >= t3 && loopT < t4) {
+            val bt = (loopT - t3) / HOLD
             strokePaint.strokeWidth = cellSize * 0.06f
-            for (x in xs) {
-                strokePaint.color = Color.argb(ba, 255, 255, 255)
-                canvas.drawCircle(x, dy, r * (1f + bt * 0.9f), strokePaint)
-            }
+            strokePaint.color = Color.argb(((1f - bt) * 220).toInt(), 255, 255, 255)
+            for (i in 0 until 3) canvas.drawCircle(xs[i], ys[i], r * (1f + bt * 0.9f), strokePaint)
             strokePaint.alpha = 255
         }
 
-        // Finger cursor
-        val cursorAlpha: Int
-        val cx: Float
-        when {
-            loopT < FADE_MS -> {
-                cursorAlpha = ((loopT / FADE_MS) * 220).toInt(); cx = x0
-            }
-            loopT < FADE_MS + SWEEP_MS -> {
-                val t = (loopT - FADE_MS) / SWEEP_MS
-                cursorAlpha = 220; cx = x0 + (x2 - x0) * t
-            }
-            loopT < chainEnd -> {
-                cursorAlpha = 220; cx = x2
-            }
-            loopT < chainEnd + BURST_MS -> {
-                val t = (loopT - chainEnd) / BURST_MS
-                cursorAlpha = ((1f - t) * 220).toInt(); cx = x2
-            }
-            else -> { cursorAlpha = 0; cx = x0 }
-        }
-        if (cursorAlpha > 0) {
-            fillPaint.color = Color.argb((cursorAlpha * 0.30f).toInt(), 255, 255, 255)
-            canvas.drawCircle(cx, dy + r * 0.7f, r * 0.60f, fillPaint)
-            fillPaint.color = Color.argb(cursorAlpha, 255, 255, 255)
-            canvas.drawCircle(cx, dy + r * 0.7f, r * 0.18f, fillPaint)
-            fillPaint.alpha = 255
-        }
+        drawFinger(canvas, fx, fy, (alpha * 255).toInt())
+    }
 
-        // Instruction text
-        textPaint.textSize  = 22f * u
-        textPaint.textAlign = Paint.Align.CENTER
-        textPaint.color = Color.argb(80, 0, 0, 0)
-        canvas.drawText("Draw through 3 matching pieces!", surfaceW / 2f + 1.5f * u, dy - r * 2.6f + 1.5f * u, textPaint)
-        textPaint.color = Color.WHITE
-        canvas.drawText("Draw through 3 matching pieces!", surfaceW / 2f, dy - r * 2.6f, textPaint)
+    // Orders three same-type cells so each is adjacent to the next, i.e. a path a finger can drag.
+    private fun chainOrder(cells: List<Pair<Int, Int>>): List<Pair<Int, Int>> {
+        if (cells.size < 3) return emptyList()
+        val (a, b, c) = cells
+        fun adj(p: Pair<Int, Int>, q: Pair<Int, Int>) = adjacent8(p.first, p.second, q.first, q.second)
+        return when {
+            adj(a, b) && adj(b, c) -> listOf(a, b, c)
+            adj(b, a) && adj(a, c) -> listOf(b, a, c)
+            adj(a, c) && adj(c, b) -> listOf(a, c, b)
+            else -> emptyList()
+        }
+    }
 
-        // Tap to play
-        textPaint.textSize = 16f * u
-        textPaint.color    = Color.argb(200, 255, 255, 255)
-        canvas.drawText("Tap anywhere to play!", surfaceW / 2f, dy + r * 2.8f, textPaint)
+    // A chunky cartoon fingertip: skin-toned pad with a dark outline, finger trailing down-right.
+    private fun drawFinger(canvas: Canvas, x: Float, y: Float, alpha: Int) {
+        if (alpha <= 0) return
+        val tipR = cellSize * 0.17f
+        canvas.save()
+        canvas.rotate(-25f, x, y)
+        outlinePaint.color = Color.argb(alpha, 28, 12, 0); outlinePaint.strokeWidth = tipR * 0.35f
+        scratchRectF.set(x - tipR * 0.85f, y, x + tipR * 0.85f, y + tipR * 3.2f)
+        canvas.drawRoundRect(scratchRectF, tipR * 0.8f, tipR * 0.8f, outlinePaint)
+        fillPaint.color = Color.argb(alpha, 255, 224, 190)
+        canvas.drawRoundRect(scratchRectF, tipR * 0.8f, tipR * 0.8f, fillPaint)
+        canvas.drawCircle(x, y, tipR, outlinePaint)
+        canvas.drawCircle(x, y, tipR, fillPaint)
+        fillPaint.color = Color.argb((alpha * 0.6f).toInt(), 255, 255, 255)
+        canvas.drawCircle(x - tipR * 0.3f, y - tipR * 0.3f, tipR * 0.35f, fillPaint)
+        canvas.restore()
+        fillPaint.alpha = 255
     }
 
     // -----------------------------------------------------------------------
@@ -1568,7 +1571,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
         // Text: shadow then fill; shrinks to fit the banner width
         val lineY = by + bh * 0.46f
-        val msg   = "No matches \u2014 shuffling!"
+        val msg   = "Mixing it up!"
         textPaint.textSize  = 18f * u
         textPaint.textAlign = Paint.Align.CENTER
         while (textPaint.textSize > 8f * u && textPaint.measureText(msg) > bw - 16f * u) textPaint.textSize *= 0.92f
@@ -1595,7 +1598,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             6  -> bestScore >= 20
             7  -> bestScore >= 60
             8  -> bestScore >= 200
-            9  -> prefs.shufflesSurvived >= 5
+            9  -> prefs.goldenPopped
             10 -> prefs.highScore6x6 > 0 && prefs.highScore8x8 > 0
             11 -> prefs.sessionCount >= 10
             else -> false
@@ -1759,7 +1762,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         textPaint.textSize = 14f * u; textPaint.textAlign = Paint.Align.CENTER
         textPaint.color = theme.textSecondary
         canvas.drawText(
-            "$lifetime donuts lifetime  \u00B7  $earnedCount of 12 stickers",
+            "$lifetime donuts popped  \u00B7  $earnedCount of 12 stickers",
             stickerPanelRect.centerX(), statsY, textPaint)
 
         drawPrettyButton(canvas, stickersCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 18f * u)
@@ -1813,14 +1816,14 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         drawSettingsBtn(canvas, hintRects[0], onOffLabels[0], hintsOn)
         drawSettingsBtn(canvas, hintRects[1], onOffLabels[1], !hintsOn)
 
-        drawSectionLabel(canvas, "Board", pl + pad, gridRects[0].top - 8f * k)
+        drawSectionLabel(canvas, "Donuts", pl + pad, gridRects[0].top - 8f * k)
         for (i in 0 until 2) drawSettingsBtn(canvas, gridRects[i], gridLabels[i], gridOptions[i] == prefs.gridSize)
 
-        // Start over: two-tap confirm so a stray tap cannot wipe the board
+        // New game: two-tap confirm so a stray tap cannot wipe the board
         val confirmActive = resetConfirmMs >= 0 && (now - resetConfirmMs) < RESET_CONFIRM_MS
         if (resetConfirmMs >= 0 && !confirmActive) resetConfirmMs = -1L
         val resetColor = if (confirmActive) Color.rgb(220, 130, 30) else Color.rgb(200, 70, 50)
-        val resetLabel = if (confirmActive) "Sure?" else "Start over"
+        val resetLabel = if (confirmActive) "Tap again!" else "New game"
         drawPrettyButton(canvas, settingsResetRect, resetColor, resetLabel, 18f * k)
         if (confirmActive) {
             val progress = 1f - (now - resetConfirmMs).toFloat() / RESET_CONFIRM_MS
@@ -1936,15 +1939,6 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             event.action != MotionEvent.ACTION_CANCEL) return true
 
         synchronized(holder) {
-            // Tutorial tap-to-dismiss
-            if (tutorialActive) {
-                if (event.action == MotionEvent.ACTION_DOWN) {
-                    tutorialActive = false
-                    prefs.tutorialSeen = true
-                }
-                return true
-            }
-
             // When settings or stickers is open or animating, consume touch
             if (settingsOpen || settingsAnim > 0f || stickersOpen || stickersAnim > 0f) {
                 if (event.action == MotionEvent.ACTION_DOWN) {
@@ -2029,6 +2023,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         chainFlashMs     = -1L
         shuffleAnimMs    = -1L
         hintCells        = emptyList()
+        tutorialCells    = emptyList()
         noMovesWarningMs = -1L
         resetFlashMs     = now
         lastActionMs     = now
@@ -2095,6 +2090,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 val now = SystemClock.elapsedRealtime()
                 animStartMs = now; animPhase = AnimPhase.POPPING
                 lastActionMs = now; hintCells = emptyList()
+                // First chain ever made: the guided demo has done its job
+                if (tutorialActive) { tutorialActive = false; prefs.tutorialSeen = true }
 
                 val chainLen = result.chainCells.size
                 if (chainLen > prefs.bestChainLength) prefs.bestChainLength = chainLen
@@ -2106,15 +2103,12 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 if (prefs.hapticEnabled) hapticEngine.pop()
 
                 // Floating label for big chains
+                // Chains of 5+ always fire a power-up, so those get the sound-word
                 val label = when {
-                    result.powerUp == PowerUp.COLOR_BURST -> "COLOR BURST!"
-                    result.powerUp == PowerUp.ROW_BLAST   -> "ROW BLAST!"
+                    result.powerUp == PowerUp.COLOR_BURST -> "KABOOM!"
+                    result.powerUp == PowerUp.ROW_BLAST   -> "WHOOSH!"
                     result.powerUp == PowerUp.BOMB        -> "BOOM!"
                     chainLen == 4 -> "NICE!"
-                    chainLen == 5 -> "GREAT!"
-                    chainLen == 6 -> "AMAZING!"
-                    chainLen == 7 -> "WOW!"
-                    chainLen >= 8 -> "INCREDIBLE!"
                     else          -> null
                 }
                 label?.let {
