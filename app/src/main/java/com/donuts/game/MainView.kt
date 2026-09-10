@@ -98,7 +98,6 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
 
         drawTitle(canvas, elapsed)
         drawPlayButton(canvas, buttonPressScale(now))
-        drawSubtitle(canvas)
 
         postInvalidateOnAnimation()
     }
@@ -364,18 +363,6 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         textP.letterSpacing = 0f
 
         canvas.restore()
-    }
-
-    // -----------------------------------------------------------------------
-    // Subtitle
-    // -----------------------------------------------------------------------
-    private fun drawSubtitle(canvas: Canvas) {
-        textP.textSize = 15f * u; textP.textAlign = Paint.Align.CENTER
-        textP.color = Color.argb(150, 120, 60, 10)
-        // Centered in the space between the play button and the bottom of the safe area
-        val safeBottom = h - insetB
-        val subtitleY  = playRect.bottom + (safeBottom - playRect.bottom) * 0.52f
-        canvas.drawText("\u2726  Connect matching pieces  \u00B7  Infinite play  \u2726", logoCX, subtitleY, textP)
     }
 
     // -----------------------------------------------------------------------

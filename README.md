@@ -1,6 +1,6 @@
 # Donuts for Steven
 
-A cozy, kid-friendly match-3 game for Android. Drag to connect matching pieces and watch them pop. No timers, no pressure — just fun.
+A cozy, kid-friendly match-3 game for Android. Drag to connect matching donuts and watch them pop. No timers, no pressure — just fun.
 
 [<img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" height="60">](https://play.google.com/store/apps/details?id=com.donuts.game)
 
@@ -28,26 +28,16 @@ Occasionally a **golden** piece drops in during a refill — it glows and can be
 
 When cleared pieces cause new matches to form, they auto-pop in sequence. Each cascade shows a **Combo ×N** label so you can track the chain reaction — and every cascade pop counts toward your cleared total.
 
-## Themes
-
-Pick your favorite world from the settings panel:
-
-| Theme  | Pieces        | Palette      |
-|--------|---------------|--------------|
-| Donuts | Glazed donuts | Warm cream   |
-| Stars  | Stars         | Dark navy    |
-| Dinos  | Dinosaurs     | Jungle green |
-| Trucks | Trucks        | Steel blue   |
-
-Each theme recolors the entire UI — buttons, board, background, and all.
-
 ## Settings
 
-Tap the gear icon to open the settings panel:
+Tap the gear above the board:
 
-- **Theme** — Donuts / Stars / Dinos / Trucks
-- **Hint delay** — how long before a valid chain is highlighted (1 s / 3 s / 5 s / off)
-- **Grid size** — 6×6 or 8×8
+- **Sound** — on / off (on by default)
+- **Hints** — on / off; when on, a valid chain is highlighted after 5 seconds idle
+- **Board** — 6×6 or 8×8
+- **Start over** — fresh board and counter (tap twice to confirm)
+
+Stickers live behind the medal above the board.
 
 ## Building
 
@@ -91,7 +81,7 @@ donuts/
 ├── app/src/main/
 │   ├── java/com/donuts/game/
 │   │   ├── DonutType.kt     — Piece types, colors, and icon style
-│   │   ├── GameTheme.kt     — Theme definitions (colors, icon type)
+│   │   ├── GameTheme.kt     — The single warm-cream palette
 │   │   ├── GameCell.kt      — Single grid cell (type, position, golden flag)
 │   │   ├── GameBoard.kt     — Match-3 logic (chain detection, fill, cascade, power-ups)
 │   │   ├── ChainResult.kt   — Pre-computed chain clear outcome (cells + bonus + power-up)
@@ -100,13 +90,14 @@ donuts/
 │   │   ├── MainView.kt      — Home screen (logo, play button)
 │   │   ├── MainActivity.kt  — Hosts MainView
 │   │   ├── GameActivity.kt  — Hosts GameView
-│   │   └── Prefs.kt         — SharedPreferences wrapper
+│   │   ├── Prefs.kt         — SharedPreferences wrapper
+│   │   └── UiScale.kt       — Density-independent sizing unit
 │   ├── res/
 │   │   ├── font/            — Fredoka One (rounded kid-friendly typeface)
 │   │   ├── values/          — strings, colors, themes
 │   │   └── drawable/        — Adaptive launcher icon (vector)
 │   └── AndroidManifest.xml
-├── .claude/settings.json    — Auto git-push + AAB build hooks
+├── .claude/settings.json.disabled — the old auto-push hook, kept for reference
 ├── build.gradle
 └── README.md
 ```
