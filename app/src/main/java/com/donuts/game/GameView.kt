@@ -123,6 +123,14 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private val stickerRects      = Array(12) { RectF() }
     private var stickersCloseRect = RectF()
 
+    // Donut box: one slot fills every BOX_SLOT_DONUTS donuts popped, ever; a full box is banked
+    // and a fresh one starts. It never runs out, so there is always something filling up.
+    private val donutBoxRect     = RectF()
+    private val BOX_SLOTS        = 12
+    private val BOX_SLOT_DONUTS  = 10
+    private var boxesSeen        = -1        // full boxes at the last check; -1 until first frame
+    private var allStickersParty = false     // "all 12" banner waits until the sticker fly lands
+
     // 12 stickers — 4 rows × 3 cols
     private val STICKER_NAMES  = arrayOf(
         "Donut Taster",   "Donut Lover",   "Donut King",
@@ -475,12 +483,13 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val spW      = min(safeW - 24f * u, 560f * u)
         val spPad    = 10f * u
         val spTitleH = 56f * u
+        val spBoxH   = 64f * u      // the donut box: the goal that never runs out
         val spStatsH = 28f * u
         val spCloseH = 56f * u
         val tileFromW = (spW - spPad * 4f) / 3f
-        val tileFromH = (safeH - 24f * u - spTitleH - spStatsH - spCloseH - spPad * 7f) / 4f
+        val tileFromH = (safeH - 24f * u - spTitleH - spBoxH - spStatsH - spCloseH - spPad * 8f) / 4f
         val side = min(tileFromW, tileFromH)
-        val spH  = spTitleH + side * 4f + spPad * 3f + spStatsH + spCloseH + spPad * 3f
+        val spH  = spTitleH + side * 4f + spPad * 4f + spBoxH + spStatsH + spCloseH + spPad * 3f
         val spL  = safeL + (safeW - spW) / 2f
         val spT  = safeT + (safeH - spH) / 2f
         stickerPanelRect = RectF(spL, spT, spL + spW, spT + spH)
@@ -493,6 +502,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             val sy = row1Y + row * (side + spPad)
             stickerRects[i].set(sx, sy, sx + side, sy + side)
         }
+        val boxTop = stickerRects[11].bottom + spPad * 2f
+        donutBoxRect.set(spL + spPad, boxTop, spL + spW - spPad, boxTop + spBoxH)
         val closeRowY = stickerPanelRect.bottom - spCloseH - spPad
         stickersCloseRect = RectF(spL + spPad, closeRowY, spL + spW - spPad, stickerPanelRect.bottom - spPad)
     }
@@ -1797,8 +1808,16 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         return 1f + c3 * x * x * x + c1 * x * x
     }
 
-    // Every sticker earned mid-game gets its moment
+    // Every sticker earned mid-game gets its moment; so does every full donut box
     private fun checkStickers(now: Long) {
+        val boxes = lifetimeDonuts() / (BOX_SLOTS * BOX_SLOT_DONUTS)
+        if (boxesSeen < 0) boxesSeen = boxes
+        else if (boxes > boxesSeen && celebrateMs < 0 && stickerFlyMs < 0) {
+            boxesSeen = boxes
+            celebrate(now, "BOX FULL!")
+            starPulseMs = now
+        }
+
         var mask = 0
         for (i in 0 until 12) if (isStickerEarned(i)) mask = mask or (1 shl i)
         if (earnedMask < 0) { earnedMask = mask; return }
@@ -1807,6 +1826,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         if (fresh == 0) return
         val idx = Integer.numberOfTrailingZeros(fresh)
         earnedMask = earnedMask or (1 shl idx)
+        if (earnedMask == (1 shl 12) - 1) allStickersParty = true
         stickerFlyIdx = idx; stickerFlyMs = now
         if (prefs.soundEnabled)  soundEngine.playMilestone()
         if (prefs.hapticEnabled) hapticEngine.milestone()
@@ -1814,7 +1834,12 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
     private fun drawStickerFly(canvas: Canvas, now: Long) {
         val t = (now - stickerFlyMs).toFloat() / STICKER_FLY_MS
-        if (t >= 1f) { stickerFlyMs = -1L; starPulseMs = now; return }
+        if (t >= 1f) {
+            stickerFlyMs = -1L; starPulseMs = now
+            // The last sticker has landed: the whole collection is done, and that is a party
+            if (allStickersParty) { allStickersParty = false; celebrate(now, "★ ALL 12 STICKERS! ★") }
+            return
+        }
         val i  = stickerFlyIdx
         val bx = boardLeft + board.cols * cellSize / 2f
         val by = boardTop + board.rows * cellSize / 2f
@@ -2181,8 +2206,10 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             }
         }
 
+        drawDonutBox(canvas)
+
         // ---- Stats line ----
-        val statsY = stickerRects[11].bottom + 18f * u
+        val statsY = donutBoxRect.bottom + 20f * u
         val lifetime = lifetimeDonuts()
         textPaint.textSize = 14f * u; textPaint.textAlign = Paint.Align.CENTER
         textPaint.color = theme.textSecondary
@@ -2193,6 +2220,55 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         drawPrettyButton(canvas, stickersCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 18f * u)
 
         canvas.restore()
+    }
+
+    /**
+     * A bakery box with twelve slots that fill with donuts as Steven pops them, plus the count of
+     * boxes already filled. Pictures, not words: he can see how close the next box is.
+     */
+    private fun drawDonutBox(canvas: Canvas) {
+        val rect   = donutBoxRect
+        val perBox = BOX_SLOTS * BOX_SLOT_DONUTS
+        val life   = lifetimeDonuts()
+        val boxes  = life / perBox
+        val filled = (life % perBox) / BOX_SLOT_DONUTS
+
+        // Box: two rows of six slots, sized to the row height
+        val slot = rect.height() * 0.42f
+        val gap  = slot * 0.14f
+        val boxW = slot * 6f + gap * 7f
+        val boxH = slot * 2f + gap * 3f
+        val countSz = rect.height() * 0.62f
+        textPaint.textSize = countSz
+        val countStr = "×$boxes"
+        val countW = textPaint.measureText(countStr)
+        val groupW = boxW + 14f * u + countW
+        val bx = rect.centerX() - groupW / 2f
+        val by = rect.centerY() - boxH / 2f
+        val bd = 3f * u
+
+        fillPaint.color = Color.argb(230, 28, 12, 0)
+        canvas.drawRoundRect(scratchRectF.apply { set(bx - bd, by - bd, bx + boxW + bd, by + boxH + bd) }, 12f * u, 12f * u, fillPaint)
+        fillPaint.color = Color.rgb(255, 205, 220); fillPaint.alpha = 255     // strawberry-pink bakery box
+        canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + boxW, by + boxH) }, 10f * u, 10f * u, fillPaint)
+
+        val types = DonutType.values()
+        for (i in 0 until BOX_SLOTS) {
+            val col = i % 6; val row = i / 6
+            val cx = bx + gap + slot / 2f + col * (slot + gap)
+            val cy = by + gap + slot / 2f + row * (slot + gap)
+            if (i < filled) {
+                drawPiece(canvas, cx, cy, slot * 0.46f, types[i % types.size], false)
+            } else {
+                // Empty paper cup waiting for a donut
+                fillPaint.color = Color.argb(70, 120, 40, 60)
+                canvas.drawCircle(cx, cy, slot * 0.40f, fillPaint)
+            }
+        }
+        fillPaint.alpha = 255
+
+        // How many boxes are already full
+        drawOutlinedText(canvas, countStr, bx + boxW + 14f * u + countW / 2f, rect.centerY(), countSz, Color.rgb(255, 215, 50))
     }
 
     // Settings overlay — slides up from bottom
