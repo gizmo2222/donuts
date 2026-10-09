@@ -30,6 +30,11 @@ class SoundEngine {
         playSweep(520f, 1300f, 0.13f, 0.45f)
     }
 
+    /** Gentle falling "boop" when a chain is let go too short. Friendly, never a buzzer. */
+    fun playBoop() {
+        playSweep(440f, 300f, 0.12f, 0.28f)
+    }
+
     /** Soft thud when new donuts drop and land. */
     fun playDropLand() {
         playTone(90f, 0.08f, 0.30f)

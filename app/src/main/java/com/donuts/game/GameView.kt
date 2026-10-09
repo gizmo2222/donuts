@@ -191,6 +191,20 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // Big center count pop
     private var centerPingMs    = -1L
 
+    // Near-miss feedback: a chain let go too short wobbles; a wrong donut shakes its head
+    private var wobbleCells = emptyList<Pair<Int, Int>>()
+    private var wobbleMs    = -1L
+    private val WOBBLE_MS   = 420L
+    private var shakeCell: Pair<Int, Int>? = null
+    private var shakeMs     = -1L
+    private val SHAKE_MS    = 260L
+    private var rejectedCell: Pair<Int, Int>? = null   // the wrong donut under the finger right now
+
+    // A finger that touched the board while pieces were still moving
+    private var fingerHeld = false
+    private var heldX = 0f
+    private var heldY = 0f
+
     // Milestone celebration
     private val MILESTONES = intArrayOf(10, 25, 50, 100, 200, 500)
     private var lastMilestone   = 0
@@ -507,7 +521,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         board = GameBoard(rows = prefs.gridSize, cols = prefs.gridSize)
         animPhase = AnimPhase.IDLE
         popCells.clear(); dropCells.clear()
-        dragChain.clear()
+        dragChain.clear(); fingerHeld = false
         pendingResult  = null
         cascadeCount   = 0
         isCascade      = false
@@ -663,6 +677,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                     isCascade      = false
                     animPhase      = AnimPhase.IDLE
                     if (!board.hasValidMoves()) noMovesWarningMs = now
+                    else startHeldDrag()
                 }
             }
             AnimPhase.IDLE -> {
@@ -997,6 +1012,23 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         canvas.restore()
     }
 
+    /** Sideways wiggle for near-miss feedback: decaying sine, nothing under reduced motion. */
+    private fun nearMissOffset(r: Int, c: Int, now: Long): Float {
+        if (reducedMotion) return 0f
+        var off = 0f
+        if (wobbleMs >= 0) {
+            val t = (now - wobbleMs).toFloat() / WOBBLE_MS
+            if (t >= 1f) wobbleMs = -1L
+            else if (Pair(r, c) in wobbleCells) off += sin(t * PI.toFloat() * 5f) * (1f - t) * cellSize * 0.08f
+        }
+        if (shakeMs >= 0) {
+            val t = (now - shakeMs).toFloat() / SHAKE_MS
+            if (t >= 1f) { shakeMs = -1L; shakeCell = null }
+            else if (shakeCell?.first == r && shakeCell?.second == c) off += sin(t * PI.toFloat() * 4f) * (1f - t) * cellSize * 0.07f
+        }
+        return off
+    }
+
     private fun drawCellsInner(canvas: Canvas, now: Long) {
         val popSet  = popCells.map { it.row to it.col }.toSet()
         // During DROPPING, entire changed columns are hidden via dropColMask so
@@ -1074,7 +1106,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                     if (lt < 1f) { val sv = sin(lt * PI.toFloat()); sqX = 1f + 0.16f * sv; sqY = 1f - 0.20f * sv }
                 }
                 canvas.save()
-                canvas.translate(0f, breatheOff)
+                canvas.translate(nearMissOffset(r, c, now), breatheOff)
                 if (sqX != 1f || sqY != 1f) canvas.scale(sqX, sqY, cx, cy + pieceR)
                 if (board.grid[r][c].isGolden) drawBall(canvas, cx, cy, pieceR, inChain, 255)
                 else drawPiece(canvas, cx, cy, pieceR, board.grid[r][c].type, inChain)
@@ -2351,20 +2383,28 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 return true
             }
 
-            if (animPhase != AnimPhase.IDLE) return true
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                val now = SystemClock.elapsedRealtime()
+                if (stickersBtnRect.contains(event.x, event.y)) { stickersPressMs = now; stickersOpen = true; return true }
+                if (settingsBtnRect.contains(event.x, event.y)) { settingsPressMs = now; settingsOpen = true; return true }
+            }
+
+            // Board still popping or dropping: hold the finger instead of dropping it, so a
+            // drag started early begins the moment the pieces land (see startHeldDrag).
+            if (animPhase != AnimPhase.IDLE) {
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> { fingerHeld = true; heldX = event.x; heldY = event.y }
+                    MotionEvent.ACTION_MOVE -> if (fingerHeld) { heldX = event.x; heldY = event.y }
+                    else -> fingerHeld = false
+                }
+                return true
+            }
 
             when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    val now = SystemClock.elapsedRealtime()
-                    when {
-                        stickersBtnRect.contains(event.x, event.y) -> { stickersPressMs = now; stickersOpen = true }
-                        settingsBtnRect.contains(event.x, event.y) -> { settingsPressMs = now; settingsOpen = true }
-                        else -> handleDown(event)
-                    }
-                }
-                MotionEvent.ACTION_MOVE   -> handleMove(event)
-                MotionEvent.ACTION_UP     -> handleUp()
-                MotionEvent.ACTION_CANCEL -> { dragChain.clear() }
+                MotionEvent.ACTION_DOWN   -> handleDown(event.x, event.y)
+                MotionEvent.ACTION_MOVE   -> { startHeldDrag(); handleMove(event) }
+                MotionEvent.ACTION_UP     -> { fingerHeld = false; handleUp() }
+                MotionEvent.ACTION_CANCEL -> { fingerHeld = false; dragChain.clear() }
             }
         }
         return true
@@ -2420,7 +2460,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         celebrateMs      = -1L
         particles.clear()
         synchronized(floatLabels) { floatLabels.clear() }
-        dragChain.clear(); chainPings.clear()
+        dragChain.clear(); chainPings.clear(); fingerHeld = false
         pendingResult    = null
         cascadeCount     = 0
         isCascade        = false
@@ -2435,10 +2475,18 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         boardEntryMs     = now
     }
 
-    private fun handleDown(event: MotionEvent) {
+    /** A finger that went down mid-animation and is still down: start its drag where it is now. */
+    private fun startHeldDrag() {
+        if (!fingerHeld) return
+        fingerHeld = false
+        if (settingsOpen || stickersOpen) return
+        handleDown(heldX, heldY)
+    }
+
+    private fun handleDown(x: Float, y: Float) {
         lastActionMs = SystemClock.elapsedRealtime(); hintCells = emptyList()
         dragChain.clear(); chainPings.clear()
-        val col = cellCol(event.x); val row = cellRow(event.y)
+        val col = cellCol(x); val row = cellRow(y)
         if (inBounds(row, col)) {
             val now2 = SystemClock.elapsedRealtime()
             dragChain.add(Pair(row, col))
@@ -2458,6 +2506,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             centerPingMs = now2
             return
         }
+        if (cell != rejectedCell) rejectedCell = null
         if (cell in dragChain) return
         val last = dragChain.lastOrNull() ?: return
         if (!adjacent8(last.first, last.second, row, col)) return
@@ -2465,7 +2514,15 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         // Non-golden cells must match the chain type.
         val chainType = dragChainType ?: return
         val cellIsGolden = board.grid[row][col].isGolden
-        if (!cellIsGolden && board.grid[row][col].type != chainType) return
+        if (!cellIsGolden && board.grid[row][col].type != chainType) {
+            // Wrong flavour: that donut shakes its head (once per visit, not every move event)
+            if (rejectedCell != cell) {
+                rejectedCell = cell
+                shakeCell = cell; shakeMs = SystemClock.elapsedRealtime()
+                if (prefs.hapticEnabled) hapticEngine.tick()
+            }
+            return
+        }
         val now2 = SystemClock.elapsedRealtime()
         dragChain.add(cell)
         chainPings[cell] = now2
@@ -2526,8 +2583,20 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                     synchronized(floatLabels) { floatLabels.add(FloatLabel(it, cx, cy, col, now)) }
                 }
             }
+        } else if (chain.isNotEmpty()) {
+            // Too short to pop: the donuts wobble. Two in a row also get a "boop" and a "3!"
+            // so the rule is taught by the board itself, not by a text tutorial.
+            val now = SystemClock.elapsedRealtime()
+            wobbleCells = chain; wobbleMs = now
+            if (chain.size == 2) {
+                val cx = chain.map { (_, c) -> boardLeft + c * cellSize + cellSize / 2f }.average().toFloat()
+                val cy = chain.map { (r, _) -> boardTop  + r * cellSize + cellSize / 2f }.average().toFloat()
+                synchronized(floatLabels) { floatLabels.add(FloatLabel("3!", cx, cy, Color.WHITE, now)) }
+                if (prefs.soundEnabled)  soundEngine.playBoop()
+                if (prefs.hapticEnabled) hapticEngine.tick()
+            }
         }
-        dragChain.clear(); chainPings.clear()
+        dragChain.clear(); chainPings.clear(); rejectedCell = null
     }
 
     private fun cellCol(x: Float) = ((x - boardLeft) / cellSize).toInt()
