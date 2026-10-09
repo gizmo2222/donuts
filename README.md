@@ -112,8 +112,7 @@ upload key can be replaced:
    valid after their waiting period.
 3. Put the new details in `local.properties`: `KEYSTORE_PATH=F:/dev/donuts/donuts-upload.jks`,
    `KEY_ALIAS=upload`, and the new password as both `KEYSTORE_PASSWORD` and `KEY_PASSWORD`.
-4. Run `.
-elease.ps1` as usual.
+4. Run `.\release.ps1` as usual.
 
 ## Automatic push
 
@@ -166,4 +165,4 @@ donuts/
 ## Requirements
 
 - Android 8.0+ (API 26)
-- Targets API 35
+- Targets API 36
