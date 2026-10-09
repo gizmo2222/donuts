@@ -1016,6 +1016,16 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         canvas.restore()
     }
 
+    /** The "try these" ring used by the idle hint and the first-run demo. */
+    private fun drawHintRing(canvas: Canvas, cx: Float, cy: Float, radius: Float, alpha: Int) {
+        hintRingPaint.color       = Color.argb(alpha * 220 / 255, 28, 12, 0)
+        hintRingPaint.strokeWidth = cellSize * 0.17f
+        canvas.drawCircle(cx, cy, radius, hintRingPaint)
+        hintRingPaint.color       = Color.argb(alpha, 255, 255, 255)
+        hintRingPaint.strokeWidth = cellSize * 0.10f
+        canvas.drawCircle(cx, cy, radius, hintRingPaint)
+    }
+
     /** Sideways wiggle for near-miss feedback: decaying sine, nothing under reduced motion. */
     private fun nearMissOffset(r: Int, c: Int, now: Long): Float {
         if (reducedMotion) return 0f
@@ -1041,7 +1051,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         val hintAlpha = if (hintCells.isNotEmpty()) {
             val t = ((now - hintPulseMs) % 900L) / 900f
             val pulse = if (t < 0.5f) t * 2f else (1f - t) * 2f
-            (100 + (155 * pulse)).toInt()
+            (190 + (65 * pulse)).toInt()      // stays bright; the pulse is mostly in the size
         } else 0
 
         for (r in 0 until board.rows) {
@@ -1137,13 +1147,12 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                     // Hint ring pulses in both alpha AND scale for a bouncier feel
                     val hintT = ((now - hintPulseMs) % 900L) / 900f
                     val hintPulse = if (hintT < 0.5f) hintT * 2f else (1f - hintT) * 2f
-                    val hintRingScale = 1f + hintPulse * 0.06f
-                    hintRingPaint.color       = theme.hintRing
-                    hintRingPaint.alpha       = hintAlpha
-                    hintRingPaint.strokeWidth = cellSize * 0.12f
+                    val hintRingScale = 1f + hintPulse * 0.09f
+                    // White ring on a dark rope, like the drag halo: reads on every flavour,
+                    // including the yellow vanilla donuts and the tan board
                     canvas.save()
                     canvas.scale(hintRingScale, hintRingScale, cx, cy)
-                    canvas.drawCircle(cx, cy, cellSize * 0.47f * breatheScale, hintRingPaint)
+                    drawHintRing(canvas, cx, cy, cellSize * 0.49f * breatheScale, hintAlpha)
                     canvas.restore()
                 }
             }
@@ -1903,10 +1912,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
         // Pulsing gold ring on each of the three
         val pulse = 0.5f + 0.5f * sin(now / 220f)
-        strokePaint.color = theme.hintRing; strokePaint.alpha = (150 + 105 * pulse).toInt()
-        strokePaint.strokeWidth = cellSize * 0.10f
-        for (i in 0 until 3) canvas.drawCircle(xs[i], ys[i], r * (1.12f + 0.06f * pulse), strokePaint)
-        strokePaint.alpha = 255
+        for (i in 0 until 3) drawHintRing(canvas, xs[i], ys[i], r * (1.12f + 0.06f * pulse), (150 + 105 * pulse).toInt())
 
         // Timeline: fade in, sweep 0->1, sweep 1->2, hold with a burst, fade out
         val FADE = 250f; val SWEEP = 650f; val HOLD = 500f

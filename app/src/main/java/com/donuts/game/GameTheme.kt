@@ -9,7 +9,6 @@ object GameTheme {
     val textPrimary   = Color.rgb( 80,  40,   0)
     val textSecondary = Color.rgb(160,  80,  20)
     val holeColor     = Color.rgb(255, 240, 220)
-    val hintRing      = Color.rgb(255, 220,   0)
     val panelBg       = Color.rgb(255, 248, 235)
     val accent        = Color.rgb(220, 100, 130)   // selected option
     val accentMuted   = Color.rgb(200, 170, 130)   // unselected option
