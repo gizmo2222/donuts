@@ -114,6 +114,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private var settingsAnim    = 0f        // 0 = fully closed, 1 = fully open
     private val SETTINGS_OPEN_MS  = 200f
     private val SETTINGS_CLOSE_MS = 85f
+    private var panelAnimMs       = -1L      // time of the last panel animation step
 
     // Stickers panel
     private var stickersOpen      = false
@@ -243,9 +244,10 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private val STICKER_FLY_MS = 1200L
     private var starPulseMs    = -1L
 
-    // Press feedback on Settings option buttons
+    // Press feedback on panel buttons (settings options, New game, Done)
     private var optPressRect: RectF? = null
     private var optPressMs = -1L
+    private var panelDownHit = -2           // panel hit id under the finger at ACTION_DOWN
 
     // Honour the system animator scale: 0 means the user asked for no animation
     private val reducedMotion: Boolean = try {
@@ -715,9 +717,12 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     // Settings panel slide animation
     // -----------------------------------------------------------------------
     private fun advanceSettingsAnim(now: Long) {
+        // Step by real elapsed time (capped), so the slide takes the same time at any frame rate
+        val dt = if (panelAnimMs < 0) 16f else (now - panelAnimMs).coerceIn(0L, 50L).toFloat()
+        panelAnimMs = now
         val settingsTarget = if (settingsOpen) 1f else 0f
         val settingsMs = if (settingsTarget > settingsAnim) SETTINGS_OPEN_MS else SETTINGS_CLOSE_MS
-        val settingsStep = (1000f / 60f) / settingsMs
+        val settingsStep = dt / settingsMs
         settingsAnim = if (settingsTarget > settingsAnim)
             (settingsAnim + settingsStep).coerceAtMost(1f)
         else
@@ -725,7 +730,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
         val stickersTarget = if (stickersOpen) 1f else 0f
         val stickersMs = if (stickersTarget > stickersAnim) SETTINGS_OPEN_MS else SETTINGS_CLOSE_MS
-        val stickersStep = (1000f / 60f) / stickersMs
+        val stickersStep = dt / stickersMs
         stickersAnim = if (stickersTarget > stickersAnim)
             (stickersAnim + stickersStep).coerceAtMost(1f)
         else
@@ -897,6 +902,10 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         fillPaint.color = theme.chrome
         canvas.drawCircle(cx, cy, r * 0.30f, fillPaint)
     }
+
+    /** Press dip for whichever panel button was touched last; 1 for every other button. */
+    private fun pressScaleFor(rect: RectF, now: Long): Float =
+        if (rect === optPressRect) buttonPressScale(now, optPressMs) else 1f
 
     /** Returns a scale factor that dips to 0.93 at tap then recovers to 1.0 over PRESS_MS. */
     private fun buttonPressScale(now: Long, pressMs: Long): Float {
@@ -2212,7 +2221,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             "$lifetime donuts popped  \u00B7  $earnedCount of 12 stickers",
             stickerPanelRect.centerX(), statsY, textPaint)
 
-        drawPrettyButton(canvas, stickersCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 18f * u)
+        drawPrettyButton(canvas, stickersCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 18f * u, pressScaleFor(stickersCloseRect, now))
 
         canvas.restore()
     }
@@ -2320,7 +2329,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         if (resetConfirmMs >= 0 && !confirmActive) resetConfirmMs = -1L
         val resetColor = if (confirmActive) Color.rgb(220, 130, 30) else Color.rgb(200, 70, 50)
         val resetLabel = if (confirmActive) "Tap again!" else "New game"
-        drawPrettyButton(canvas, settingsResetRect, resetColor, resetLabel, 18f * k)
+        drawPrettyButton(canvas, settingsResetRect, resetColor, resetLabel, 18f * k, pressScaleFor(settingsResetRect, now))
         if (confirmActive) {
             val progress = 1f - (now - resetConfirmMs).toFloat() / RESET_CONFIRM_MS
             val bx = settingsResetRect.left + 10f * k
@@ -2334,7 +2343,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             fillPaint.alpha = 255
         }
 
-        drawPrettyButton(canvas, settingsCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 18f * k)
+        drawPrettyButton(canvas, settingsCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 18f * k, pressScaleFor(settingsCloseRect, now))
 
         canvas.restore()
     }
@@ -2384,7 +2393,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
 
     private fun drawSettingsBtn(canvas: Canvas, now: Long, rect: RectF, label: String, selected: Boolean) {
         val k = u * settingsSc
-        val pressScale = if (rect === optPressRect) buttonPressScale(now, optPressMs) else 1f
+        val pressScale = pressScaleFor(rect, now)
         canvas.save(); canvas.scale(pressScale, pressScale, rect.centerX(), rect.centerY())
         val borderPad = if (selected) 4f * k else 3f * k
         // Dark cartoon border
@@ -2432,16 +2441,25 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         synchronized(holder) {
             // When settings or stickers is open or animating, consume touch
             if (settingsOpen || settingsAnim > 0f || stickersOpen || stickersAnim > 0f) {
-                if (event.action == MotionEvent.ACTION_DOWN) {
-                    if (settingsOpen || settingsAnim > 0f) {
-                        val eased  = easeOutQuint(settingsAnim)
-                        val slideY = panelRect.height() * (1f - eased)
-                        handleSettingsTouch(event.x, event.y + slideY)
-                    } else {
-                        val eased  = easeOutQuint(stickersAnim)
-                        val slideY = stickerPanelRect.height() * (1f - eased)
-                        handleStickersTouch(event.x, event.y + slideY)
+                // Buttons press in on finger-down and act on finger-up over the same button,
+                // so a finger sliding off a button cancels it, like any other button.
+                val inSettings = settingsOpen || settingsAnim > 0f
+                val slideY = if (inSettings) panelRect.height() * (1f - easeOutQuint(settingsAnim))
+                             else stickerPanelRect.height() * (1f - easeOutQuint(stickersAnim))
+                val x = event.x; val y = event.y + slideY
+                val hit = if (inSettings) settingsHit(x, y) else stickersHit(x, y)
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        panelDownHit = hit
+                        panelHitRect(hit)?.let { optPressRect = it; optPressMs = SystemClock.elapsedRealtime() }
                     }
+                    MotionEvent.ACTION_UP -> {
+                        if (hit != -1 && hit == panelDownHit) {
+                            if (inSettings) handleSettingsTouch(x, y) else handleStickersTouch(x, y)
+                        }
+                        panelDownHit = -2
+                    }
+                    MotionEvent.ACTION_CANCEL -> panelDownHit = -2
                 }
                 return true
             }
@@ -2482,9 +2500,38 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         return false
     }
 
+    // Panel hit ids: 0-5 option buttons (sound, hints, size), 6 New game, 7 Done, 8 outside the panel,
+    // -1 the panel itself (not a button)
+    private fun settingsHit(x: Float, y: Float): Int {
+        val opts = arrayOf(soundRects[0], soundRects[1], hintRects[0], hintRects[1], gridRects[0], gridRects[1])
+        for (i in opts.indices) if (opts[i].contains(x, y)) return i
+        return when {
+            settingsResetRect.contains(x, y) -> 6
+            settingsCloseRect.contains(x, y) -> 7
+            !panelRect.contains(x, y)        -> 8
+            else -> -1
+        }
+    }
+
+    private fun stickersHit(x: Float, y: Float): Int = when {
+        stickersCloseRect.contains(x, y) -> 7
+        !stickerPanelRect.contains(x, y) -> 8
+        else -> -1
+    }
+
+    /** The button a hit id refers to in whichever panel is open, for press feedback. */
+    private fun panelHitRect(hit: Int): RectF? {
+        val inSettings = settingsOpen || settingsAnim > 0f
+        return when (hit) {
+            0 -> soundRects[0]; 1 -> soundRects[1]; 2 -> hintRects[0]; 3 -> hintRects[1]
+            4 -> gridRects[0];  5 -> gridRects[1];  6 -> settingsResetRect
+            7 -> if (inSettings) settingsCloseRect else stickersCloseRect
+            else -> null
+        }
+    }
+
     private fun handleSettingsTouch(x: Float, y: Float) {
         val now = SystemClock.elapsedRealtime()
-        for (rs in arrayOf(soundRects, hintRects, gridRects)) for (rc in rs) if (rc.contains(x, y)) { optPressRect = rc; optPressMs = now }
         when {
             soundRects[0].contains(x, y) -> prefs.soundEnabled = true
             soundRects[1].contains(x, y) -> prefs.soundEnabled = false

@@ -96,8 +96,8 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         canvas.drawRect(0f, 0f, w, h, bgPaint)
         drawDotGrid(canvas)
 
-        // Bigger, livelier bounce
-        val bounce = sin(elapsed * 2.2f) * logoR * 0.055f
+        // Bigger, livelier bounce (still when the system asks for no animation)
+        val bounce = if (reducedMotion) 0f else sin(elapsed * 2.2f) * logoR * 0.055f
         drawLogo(canvas, logoCX, logoCY + bounce)
 
         drawTitle(canvas, elapsed)
@@ -206,45 +206,17 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
 
         fillP.color = Color.argb(255, 22, 22, 22)
 
-        // Central pentagon (pointing up) — 5 vertices
+        // Same patch layout as the in-game ball: one pentagon in the middle and five at the
+        // rim, clipped by the ball's edge. Clean and readable at logo size.
         canvas.drawPath(regularPolygon(cx, cy, r * 0.34f, 5, -90f), fillP)
-
-        // 5 pentagons around the equator, connected to edges of central one
-        // Each is offset 72° apart, shifted outward
         for (i in 0 until 5) {
             val angleDeg = i * 72f - 90f
             val rad      = Math.toRadians(angleDeg.toDouble())
-            val px       = cx + (r * 0.62f * cos(rad)).toFloat()
-            val py       = cy + (r * 0.62f * sin(rad)).toFloat()
-            // Rotate each pentagon so a flat edge faces the centre
+            val px       = cx + (r * 0.80f * cos(rad)).toFloat()
+            val py       = cy + (r * 0.80f * sin(rad)).toFloat()
             canvas.drawPath(regularPolygon(px, py, r * 0.28f, 5, angleDeg + 180f), fillP)
         }
 
-        // 5 more partial pentagons near the bottom pole
-        for (i in 0 until 5) {
-            val angleDeg = i * 72f - 54f
-            val rad      = Math.toRadians(angleDeg.toDouble())
-            val px       = cx + (r * 0.90f * cos(rad)).toFloat()
-            val py       = cy + (r * 0.90f * sin(rad)).toFloat()
-            canvas.drawPath(regularPolygon(px, py, r * 0.28f, 5, angleDeg + 180f), fillP)
-        }
-
-        canvas.restore()
-
-        // Thin seam lines (dark stroke, clipped to ball)
-        canvas.save()
-        canvas.clipPath(ballClip)
-        strokeP.color = Color.argb(80, 22, 22, 22); strokeP.strokeWidth = r * 0.025f
-        // 5 seam lines from centre pentagon to equator pentagons
-        for (i in 0 until 5) {
-            val a1 = Math.toRadians((i * 72f - 90f).toDouble())
-            val a2 = Math.toRadians((i * 72f - 90f + 36f).toDouble())
-            canvas.drawLine(
-                cx + (r * 0.34f * cos(a1)).toFloat(), cy + (r * 0.34f * sin(a1)).toFloat(),
-                cx + (r * 0.62f * cos(a2)).toFloat(), cy + (r * 0.62f * sin(a2)).toFloat(),
-                strokeP
-            )
-        }
         canvas.restore()
 
         // 3D sheen
@@ -297,7 +269,7 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         word1.forEach { ch -> totalW += textP.measureText(ch.toString()) }
         var charX = logoCX - totalW / 2f
         for ((i, ch) in word1.withIndex()) {
-            val waveY = sin(elapsed * 3.0f + i * 0.7f) * logoR * 0.07f
+            val waveY = if (reducedMotion) 0f else sin(elapsed * 3.0f + i * 0.7f) * logoR * 0.07f
             textP.color = Color.argb(90, 0, 0, 0)
             canvas.drawText(ch.toString(), charX + 1.5f * u, line1Y + waveY + 1.5f * u, textP)
             textP.color = brownDark
@@ -313,7 +285,7 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         word2.forEach { ch -> totalW2 += textP.measureText(ch.toString()) }
         var charX2 = logoCX - totalW2 / 2f
         for ((i, ch) in word2.withIndex()) {
-            val waveY = sin(elapsed * 2.4f + i * 0.55f + 1.2f) * logoR * 0.05f
+            val waveY = if (reducedMotion) 0f else sin(elapsed * 2.4f + i * 0.55f + 1.2f) * logoR * 0.05f
             textP.color = Color.argb(85, 0, 0, 0)
             canvas.drawText(ch.toString(), charX2 + 1.5f * u, line2Y + waveY + 1.5f * u, textP)
             textP.color = caramel
