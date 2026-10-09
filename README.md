@@ -95,9 +95,28 @@ means it is correct; `keystore password was incorrect` means it is not.
 2. Install the debug build on a real phone (`.\gradlew.bat installDebug`) and play through the first-launch
    demo and a milestone. Debug builds log `fps` once a second under the `Donuts` logcat tag.
 3. Run `.\release.ps1` and confirm it ends with **BUILD SUCCESSFUL**.
-4. Play Console: Donuts for Steven, then Release, then Production (or Internal testing first). Create a new
-   release, upload the `.aab`, write the release notes, review, roll out.
+4. Run `.\gradlew.bat publishReleaseBundle` to upload the bundle to the closed testing track (`alpha`) and roll
+   it out to testers. Without the service-account key (below), upload by hand instead: Play Console, Donuts
+   for Steven, then Test and release, then Testing, then Closed testing. Create a new release, upload the
+   `.aab`, write the release notes, review, roll out.
 5. Commit and push the version bump.
+
+### Upload to Google Play from the command line
+
+`publishReleaseBundle` comes from [Gradle Play Publisher](https://github.com/Triple-T/gradle-play-publisher)
+and signs in to Google Play with a service-account key. One-time setup:
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create a project (or pick one) and enable the
+   **Google Play Android Developer API** for it.
+2. **IAM & Admin**, then **Service accounts**, then **Create service account**. It needs no Cloud roles. Open
+   it, then **Keys**, then **Add key**, then **Create new key**, then **JSON**. Save the file as
+   `F:\dev\donuts\play-service-account.json` (gitignored; never commit it). To keep it somewhere else, put
+   its path in `local.properties` as `PLAY_SERVICE_ACCOUNT_JSON=...`.
+3. In Play Console, **Users and permissions**, then **Invite new users**. Enter the service account's email
+   (`…@….iam.gserviceaccount.com`), add **Donuts for Steven** under App permissions, and grant **Release apps
+   to testing tracks**. New permissions can take up to a day to start working.
+
+If the key is lost or leaked, delete it in Cloud Console and create a new one; nothing else changes.
 
 ### Lost the upload-key password?
 

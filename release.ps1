@@ -48,4 +48,4 @@ Write-Host "BUILD SUCCESSFUL" -ForegroundColor Green
 "Size:   $([math]::Round($aab.Length / 1MB, 2)) MB"
 "Built:  $($aab.LastWriteTime)"
 ""
-"Next: Play Console > Donuts for Steven > Release > Production (or Internal testing) > Create new release > upload this .aab"
+"Next: .\gradlew.bat publishReleaseBundle uploads it to closed testing (see README, Upload to Google Play)"

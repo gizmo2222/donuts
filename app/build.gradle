@@ -1,5 +1,6 @@
 plugins {
     id 'com.android.application'
+    id 'com.github.triplet.play'
 }
 
 // Load signing credentials from local.properties (never committed to git)
@@ -40,6 +41,15 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+}
+
+// Google Play upload (Gradle Play Publisher): .\gradlew.bat publishReleaseBundle
+// builds the signed bundle and uploads it to the closed testing track. The service-account
+// key lives outside git; its path comes from PLAY_SERVICE_ACCOUNT_JSON in local.properties.
+play {
+    serviceAccountCredentials.set(rootProject.file(localProps['PLAY_SERVICE_ACCOUNT_JSON'] ?: 'play-service-account.json'))
+    track.set('alpha')
+    defaultToAppBundles.set(true)
 }
 
 dependencies {
