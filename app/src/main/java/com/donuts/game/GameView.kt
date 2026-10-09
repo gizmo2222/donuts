@@ -937,18 +937,10 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         strokePaint.color       = Color.argb(100, 255, 255, 255)
         strokePaint.strokeWidth = 1.5f * u; strokePaint.alpha = 255
         canvas.drawRoundRect(rect, rx, rx, strokePaint)
-        // Label: shrinks to fit the button width so long labels never overflow
-        textPaint.textSize      = labelSize
-        textPaint.textAlign     = Paint.Align.CENTER
-        textPaint.letterSpacing = 0.06f
-        val maxW = rect.width() - 8f * u
-        while (textPaint.textSize > 8f * u && textPaint.measureText(label) > maxW) textPaint.textSize *= 0.92f
-        val sz = textPaint.textSize
-        textPaint.color = Color.argb(80, 0, 0, 0)
-        canvas.drawText(label, rect.centerX() + 1.5f * u, rect.centerY() + sz * 0.36f + 1.5f * u, textPaint)
-        textPaint.color = Color.WHITE
-        canvas.drawText(label, rect.centerX(), rect.centerY() + sz * 0.36f, textPaint)
-        textPaint.letterSpacing = 0f
+        // Label: white with a dark cartoon outline, readable on any button colour
+        if (label.isNotEmpty())
+            drawLabel(canvas, label, rect.centerX(), rect.centerY() + labelSize * 0.36f, labelSize,
+                rect.width() - 12f * u, Color.WHITE, outlined = true)
 
         canvas.restore()
     }
@@ -2175,12 +2167,9 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 // Art in the same outline style as the pieces
                 drawStickerArt(canvas, i, cx, cy - rect.height() * 0.07f, rect.height() * 0.58f)
                 // Name — bottom
-                val nameSz = rect.height() * 0.150f
-                textPaint.textSize = nameSz
-                textPaint.color    = Color.argb(90, 0, 0, 0)
-                canvas.drawText(STICKER_NAMES[i], cx + 1f, rect.bottom - rect.height() * 0.09f + 1f, textPaint)
-                textPaint.color = Color.WHITE
-                canvas.drawText(STICKER_NAMES[i], cx, rect.bottom - rect.height() * 0.09f, textPaint)
+                // White with a dark cartoon outline, so it reads on the pale tiles (yellow, mint) too
+                drawLabel(canvas, STICKER_NAMES[i], cx, rect.bottom - rect.height() * 0.09f,
+                    rect.height() * 0.150f, rect.width() - 10f * u, Color.WHITE, outlined = true)
                 // Earned checkmark badge — top right
                 val bx = rect.right - 1f; val by = rect.top + 1f; val br2 = 8f * u
                 fillPaint.color = Color.argb(220, 28, 12, 0)
@@ -2200,10 +2189,9 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
                 textPaint.color     = Color.argb(140, 100, 60, 10)
                 canvas.drawText("?", cx, qY, textPaint)
                 // Condition hint — tells Steven how to earn it
-                textPaint.textSize  = rect.height() * 0.115f
-                textPaint.color     = Color.argb(130, 80, 50, 10)
-                textPaint.textAlign = Paint.Align.CENTER
-                canvas.drawText(STICKER_DESCS[i], cx, rect.bottom - rect.height() * 0.12f, textPaint)
+                // Big and fully opaque: an early reader has to be able to sound it out
+                drawLabel(canvas, STICKER_DESCS[i], cx, rect.bottom - rect.height() * 0.10f,
+                    rect.height() * 0.16f, rect.width() - 10f * u, theme.textPrimary, outlined = false)
             }
         }
 
@@ -2417,18 +2405,10 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         fillPaint.color = Color.argb(if (selected) 70 else 35, 255, 255, 255)
         canvas.drawRoundRect(rect, 12f * k, 12f * k, fillPaint)
         canvas.restore()
-        // Label: shrinks to fit so long words never spill past the button
-        textPaint.textSize      = 18f * k
-        textPaint.textAlign     = Paint.Align.CENTER
-        textPaint.letterSpacing = 0.04f
-        val maxW = rect.width() - 8f * k
-        while (textPaint.textSize > 8f * k && textPaint.measureText(label) > maxW) textPaint.textSize *= 0.92f
-        val ty = rect.centerY() + textPaint.textSize * 0.36f
-        textPaint.color = Color.argb(80, 0, 0, 0)
-        canvas.drawText(label, rect.centerX() + 1f * k, ty + 1f * k, textPaint)
-        textPaint.color = Color.WHITE
-        canvas.drawText(label, rect.centerX(), ty, textPaint)
-        textPaint.letterSpacing = 0f
+        // Label: outlined white on the chosen option, dark brown on the tan ones (white on tan
+        // was too faint to read). Shrinks to fit so long words never spill past the button.
+        drawLabel(canvas, label, rect.centerX(), rect.centerY() + 18f * k * 0.36f, 18f * k,
+            rect.width() - 12f * k, if (selected) Color.WHITE else theme.textPrimary, outlined = selected)
         // Checkmark badge on selected
         if (selected) drawCheckBadge(canvas, rect.right - 1f, rect.top + 1f, 9f * k)
         canvas.restore()
@@ -2709,6 +2689,26 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
             10 -> drawMiniBoard(canvas, cx, cy, size)
             else -> drawHeart(canvas, cx, cy + r * 0.1f, r * 1.25f)
         }
+    }
+
+    /**
+     * Centred label on a baseline, shrunk to fit [maxW]. Outlined labels get a dark cartoon stroke
+     * so white text stays readable on any tile or button colour.
+     */
+    private fun drawLabel(canvas: Canvas, text: String, x: Float, baseline: Float, size: Float,
+                          maxW: Float, fill: Int, outlined: Boolean) {
+        textPaint.textAlign = Paint.Align.CENTER
+        textPaint.textSize  = size
+        while (textPaint.textSize > 8f * u && textPaint.measureText(text) > maxW) textPaint.textSize *= 0.92f
+        val sz = textPaint.textSize
+        if (outlined) {
+            textOutlinePaint.textAlign = Paint.Align.CENTER; textOutlinePaint.typeface = boldTypeface
+            textOutlinePaint.textSize = sz; textOutlinePaint.strokeWidth = max(2f * u, sz * 0.16f)
+            textOutlinePaint.color = Color.argb(235, 28, 12, 0)
+            canvas.drawText(text, x, baseline, textOutlinePaint)
+        }
+        textPaint.color = fill
+        canvas.drawText(text, x, baseline, textPaint)
     }
 
     private fun drawOutlinedText(canvas: Canvas, text: String, x: Float, y: Float, sz: Float, fill: Int) {
