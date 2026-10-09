@@ -1,0 +1,4 @@
+Wobbles and a "3!" when a chain is too short, so the rule is easy to learn.
+A new donut box to fill that never runs out.
+Big donuts are the default; bolder hints and easier-to-read stickers.
+Drags that start while donuts are falling are no longer lost.
