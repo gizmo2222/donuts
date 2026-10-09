@@ -10,8 +10,9 @@ class Prefs(context: Context) {
         get()  = p.getLong("hint_ms", 5_000L)
         set(v) { p.edit().putLong("hint_ms", v).apply() }
 
+    // 6 = big donuts (6x6), the easier board for small fingers; 8 = small donuts (8x8)
     var gridSize: Int
-        get()  = p.getInt("grid_size", 8)
+        get()  = p.getInt("grid_size", 6)
         set(v) { p.edit().putInt("grid_size", v).apply() }
 
     var tutorialSeen: Boolean

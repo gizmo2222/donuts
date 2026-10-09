@@ -53,7 +53,8 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
     private val onOffLabels = arrayOf("On", "Off")
     private val hintOptions = longArrayOf(5_000L, 0L)
     private val gridOptions = intArrayOf(6, 8)
-    private val gridLabels  = arrayOf("Big", "Small")      // 6x6 donuts are big, 8x8 are small
+    // 6x6 donuts are big, 8x8 are small; the grid size tells a parent that "Small" means more of them
+    private val gridLabels  = arrayOf("Big  6×6", "Small  8×8")
 
     // "Start over" two-tap confirm. It lives in Settings so a stray tap cannot wipe the board.
     private var resetConfirmMs   = -1L
@@ -2317,7 +2318,7 @@ class GameView(context: Context, initialBoard: GameBoard, private val prefs: Pre
         drawSettingsBtn(canvas, now, hintRects[0], onOffLabels[0], hintsOn)
         drawSettingsBtn(canvas, now, hintRects[1], onOffLabels[1], !hintsOn)
 
-        drawSectionLabel(canvas, "Donuts", pl + pad, gridRects[0].top - 8f * k)
+        drawSectionLabel(canvas, "Donut size", pl + pad, gridRects[0].top - 8f * k)
         for (i in 0 until 2) drawSettingsBtn(canvas, now, gridRects[i], gridLabels[i], gridOptions[i] == prefs.gridSize)
 
         // New game: two-tap confirm so a stray tap cannot wipe the board
