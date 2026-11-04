@@ -1,0 +1,127 @@
+package com.donuts.game
+
+import android.content.Context
+import android.graphics.*
+import android.os.SystemClock
+import android.view.MotionEvent
+import android.view.SurfaceHolder
+import android.view.SurfaceView
+import androidx.core.content.res.ResourcesCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import kotlin.math.*
+
+// Where everything sits: board, HUD and the two panels.
+// Part of GameView: these are extension functions on it, split out of GameView.kt.
+
+internal fun GameView.computeLayout() {
+    val w = surfaceW.toFloat(); val h = surfaceH.toFloat()
+    if (w == 0f || h == 0f) return
+    uiScale.update(surfaceW, surfaceH)
+    u = uiScale.u
+
+    // Safe area: never lay content under the status bar, gesture bar, or a cutout.
+    val safeL = insetL.toFloat();    val safeT = insetT.toFloat()
+    val safeW = w - insetL - insetR; val safeH = h - insetT - insetB
+    val margin = 12f * u
+
+    // Chrome in design-dp: one quiet button row above the board, one number below it
+    val btnH      = 56f * u
+    val btnGap    = 10f * u
+    val btnBlockH = btnH + btnGap
+    counterH      = 88f * u
+
+    // Board: fills the safe width, but never taller than the space left after the
+    // button row above and the counter below.
+    val boardPx = min(safeW - margin * 2f, safeH - margin * 2f - btnBlockH - counterH)
+    cellSize  = boardPx / board.cols
+    boardLeft = safeL + (safeW - boardPx) / 2f
+
+    // Centre the whole block (buttons + board + counter) inside the safe area
+    val totalBlockH = btnBlockH + boardPx + counterH
+    boardTop = safeT + (safeH - totalBlockH) / 2f + btnBlockH
+
+    // HUD: stickers at the board's left edge, settings at its right edge
+    val btnY = boardTop - btnH - btnGap
+    stickersBtnRect = RectF(boardLeft, btnY, boardLeft + btnH, btnY + btnH)
+    settingsBtnRect = RectF(boardLeft + boardPx - btnH, btnY, boardLeft + boardPx, btnY + btnH)
+
+    layoutSettingsPanel(safeL, safeT, safeW, safeH)
+    layoutStickersPanel(safeL, safeT, safeW, safeH)
+    buildSprites()
+}
+
+/**
+ * Settings panel: sized in design-dp, then uniformly shrunk ([settingsSc] < 1) when the
+ * full-size panel would not fit the safe height, so small phones keep every control.
+ */
+internal fun GameView.layoutSettingsPanel(safeL: Float, safeT: Float, safeW: Float, safeH: Float) {
+    val pw     = min(safeW - 24f * u, 480f * u)
+    val availH = safeH - 24f * u
+    settingsSc = 1f
+    val ph = placeSettings(pw, safeL, safeT, safeW, safeH)
+    if (ph > availH) {
+        settingsSc = availH / ph
+        placeSettings(pw, safeL, safeT, safeW, safeH)
+    }
+}
+
+internal fun GameView.placeSettings(pw: Float, safeL: Float, safeT: Float, safeW: Float, safeH: Float): Float {
+    val k      = u * settingsSc
+    val pad    = 16f * k
+    val titleH = 84f * k
+    val rowH   = 56f * k
+    val secGap = 40f * k      // room for a section label above each row
+    val closeH = 56f * k
+    val ph = titleH + rowH + (secGap + rowH) * 3f + secGap + closeH + pad
+    val pl = safeL + (safeW - pw) / 2f
+    val pt = safeT + (safeH - ph) / 2f
+    panelRect = RectF(pl, pt, pl + pw, pt + ph)
+
+    fun row(rects: Array<RectF>, top: Float) {
+        val n  = rects.size
+        val bw = (pw - pad * (n + 1)) / n
+        for (i in 0 until n) {
+            val x = pl + pad + i * (bw + pad)
+            rects[i].set(x, top, x + bw, top + rowH)
+        }
+    }
+    val sTop = pt + titleH
+    val hTop = sTop + rowH + secGap
+    val gTop = hTop + rowH + secGap
+    val rTop = gTop + rowH + secGap
+    row(soundRects, sTop); row(hintRects, hTop); row(gridRects, gTop)
+    settingsResetRect = RectF(pl + pad, rTop, pl + pw - pad, rTop + rowH)
+    settingsCloseRect = RectF(pl + pad, pt + ph - closeH - pad, pl + pw - pad, pt + ph - pad)
+    return ph
+}
+
+/** Sticker panel: 4 rows of 3 tiles sized by whichever of width or height is tighter. */
+internal fun GameView.layoutStickersPanel(safeL: Float, safeT: Float, safeW: Float, safeH: Float) {
+    val spW      = min(safeW - 24f * u, 560f * u)
+    val spPad    = 10f * u
+    val spTitleH = 56f * u
+    val spBoxH   = 64f * u      // the donut box: the goal that never runs out
+    val spStatsH = 28f * u
+    val spCloseH = 56f * u
+    val tileFromW = (spW - spPad * 4f) / 3f
+    val tileFromH = (safeH - 24f * u - spTitleH - spBoxH - spStatsH - spCloseH - spPad * 8f) / 4f
+    val side = min(tileFromW, tileFromH)
+    val spH  = spTitleH + side * 4f + spPad * 4f + spBoxH + spStatsH + spCloseH + spPad * 3f
+    val spL  = safeL + (safeW - spW) / 2f
+    val spT  = safeT + (safeH - spH) / 2f
+    stickerPanelRect = RectF(spL, spT, spL + spW, spT + spH)
+    val gridW  = side * 3f + spPad * 2f
+    val gridX0 = spL + (spW - gridW) / 2f
+    val row1Y  = spT + spTitleH
+    for (i in 0 until 12) {
+        val col = i % 3; val row = i / 3
+        val sx = gridX0 + col * (side + spPad)
+        val sy = row1Y + row * (side + spPad)
+        stickerRects[i].set(sx, sy, sx + side, sy + side)
+    }
+    val boxTop = stickerRects[11].bottom + spPad * 2f
+    donutBoxRect.set(spL + spPad, boxTop, spL + spW - spPad, boxTop + spBoxH)
+    val closeRowY = stickerPanelRect.bottom - spCloseH - spPad
+    stickersCloseRect = RectF(spL + spPad, closeRowY, spL + spW - spPad, stickerPanelRect.bottom - spPad)
+}

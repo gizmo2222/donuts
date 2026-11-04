@@ -151,7 +151,17 @@ donuts/
 │   │   ├── GameBoard.kt     — Match-3 logic (chain detection, fill, cascade, power-ups)
 │   │   ├── ChainResult.kt   — Pre-computed chain clear outcome (cells + bonus + power-up)
 │   │   ├── PowerUp.kt       — Power-up tier enum (NONE, BOMB, ROW_BLAST, COLOR_BURST)
-│   │   ├── GameView.kt      — SurfaceView render loop, animations, settings panel
+│   │   ├── GameView.kt      — The game screen: state, frame order, touch entry, render thread
+│   │   ├── GameTypes.kt     — Small value types used by GameView
+│   │   ├── GameLayout.kt    — GameView: where the board, HUD and panels sit
+│   │   ├── GameAnimation.kt — GameView: per-frame updates (pops, drops, counter, celebrations)
+│   │   ├── GameInput.kt     — GameView: touch handling
+│   │   ├── BoardDraw.kt     — GameView: drawing the board and its cells
+│   │   ├── DonutArt.kt      — GameView: the six donuts, the ball, the sprite cache
+│   │   ├── HudDraw.kt       — GameView: HUD buttons, the counter, text helpers
+│   │   ├── EffectsDraw.kt   — GameView: confetti, banners, float labels, tutorial
+│   │   ├── PanelsDraw.kt    — GameView: stickers panel, donut box, settings panel
+│   │   ├── StickerArt.kt    — GameView: the twelve sticker pictures
 │   │   ├── MainView.kt      — Home screen (logo, play button)
 │   │   ├── MainActivity.kt  — Hosts MainView
 │   │   ├── GameActivity.kt  — Hosts GameView
@@ -163,12 +173,14 @@ donuts/
 │   │   └── drawable/        — Adaptive launcher icon (vector)
 │   └── AndroidManifest.xml
 ├── .claude/settings.json.disabled — the old auto-push hook, kept for reference
+├── tools/             — check.ps1 (quiet build check), code-map.ps1 (find code by line)
 ├── build.gradle
 └── README.md
 ```
 
 ## Tech notes
 
+- `GameView` is one class split across files: `GameView.kt` holds the state and the frame order, and each other `GameView:` file above holds `internal` extension functions for one area
 - Fully canvas-drawn: no XML layouts for the game or home screen
 - `SurfaceView` rendered through a GPU-backed canvas (`lockHardwareCanvas`, API 26+) with a software fallback; the render thread paces itself to a 16 ms budget and stops on `surfaceDestroyed`
 - Every size is expressed in design-dp through `UiScale` (density, boosted up to 1.5x on tablets); layout stays inside the window insets
