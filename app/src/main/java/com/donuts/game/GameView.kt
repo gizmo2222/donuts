@@ -370,15 +370,13 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     override fun surfaceDestroyed(holder: SurfaceHolder) {
         // Bank this board's progress before the app goes to the background
         synchronized(holder) { saveSession() }
-        // Stop the render loop when the surface goes away (e.g. the app is backgrounded)
-        // so we don't keep a thread spinning — and draining battery — with nothing to
-        // draw to. The thread is recreated in surfaceCreated when we return.
-        val t = renderThread
-        renderThread = null
+        // Stop the render loop when the surface goes away (e.g. the app is backgrounded), so no
+        // thread spins with nothing to draw to. surfaceCreated starts a new one when we return.
+        val t = renderThread; renderThread = null
         t?.running = false
-        // Wait briefly for the frame in flight, but never pin the UI thread on the GPU: if the
-        // hardware canvas is stuck in a swap, the thread ends by itself once the surface is
-        // gone (lockFrame fails and the loop sees running == false).
+        // The surface is disconnected as soon as this returns, so wait for the thread: it ends
+        // only after its last frame is fully drawn (see the end of run). Never pin the UI thread
+        // on the GPU though: a thread stuck in a swap ends by itself once the surface is gone.
         try { t?.join(600L) } catch (_: InterruptedException) { }
     }
 
@@ -541,8 +539,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // -----------------------------------------------------------------------
     inner class RenderThread(private val holder: SurfaceHolder) : Thread("GameRenderThread") {
         @Volatile var running = true
-        private var frames = 0
-        private var fpsMarkMs = 0L
+        private var frames = 0; private var fpsMarkMs = 0L
         private var hwFailures = 0
         private fun lockFrame(): Canvas? {
             // The GPU canvas can fail transiently while the surface is being set up, so only
@@ -562,8 +559,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
         override fun run() {
             while (running) {
                 val t0 = System.nanoTime()
-                // GPU-backed canvas (API 26+); falls back to the software canvas if unavailable
-                val canvas = lockFrame()
+                val canvas = lockFrame() // GPU-backed (API 26+), or the software canvas if unavailable
                 if (canvas == null) { sleep(16L); continue }
                 val t1 = System.nanoTime()
                 try { synchronized(holder) { drawFrame(canvas) } }
@@ -587,6 +583,10 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
                 val spent = (System.nanoTime() - t0) / 1_000_000L
                 if (spent < 16L) sleep(16L - spent)
             }
+            // unlockCanvasAndPost returns when the frame is handed over; the system's RenderThread
+            // is still drawing and swapping it. Making and destroying a renderer queues behind that
+            // work, so this thread outlives the last swap (a swap on a dead surface can crash).
+            if (android.os.Build.VERSION.SDK_INT >= 29) try { HardwareRenderer().destroy() } catch (_: Exception) { }
         }
     }
 }
