@@ -347,7 +347,6 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
 
     init {
         holder.addCallback(this); isFocusable = true
-        prefs.sessionCount = prefs.sessionCount + 1   // one "play" per visit to the game screen
         ViewCompat.setOnApplyWindowInsetsListener(this) { _, insets ->
             val bars = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())

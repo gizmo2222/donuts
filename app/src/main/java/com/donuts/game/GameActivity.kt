@@ -19,6 +19,14 @@ class GameActivity : AppCompatActivity() {
         val board = GameBoard(rows = prefs.gridSize, cols = prefs.gridSize)
         gameView  = GameView(this, board, prefs)
 
+        // A restart (rotation, window resize, dark mode, or the system reclaiming the app)
+        // carries on with the same board and is still the same visit.
+        if (savedInstanceState == null) {
+            prefs.sessionCount = prefs.sessionCount + 1   // one "play" per visit to the game screen
+        } else {
+            gameView.restoreState(savedInstanceState)
+        }
+
         setContentView(gameView)
 
         // Back closes an open panel first; only a second Back leaves the game
@@ -30,6 +38,11 @@ class GameActivity : AppCompatActivity() {
                 }
             }
         })
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        gameView.saveState(outState)
     }
 
     // The render thread is started in GameView.surfaceCreated and stopped in

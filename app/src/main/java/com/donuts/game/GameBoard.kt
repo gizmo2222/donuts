@@ -17,6 +17,8 @@ class GameBoard(
     companion object {
         /** Chance that a freshly spawned (gravity-fill) cell is golden. */
         const val GOLDEN_CHANCE = 0.04
+        /** Marks a golden cell in [cellCodes]. */
+        const val GOLDEN_BIT = 0x100
     }
 
     val grid: Array<Array<GameCell>> = Array(rows) { r ->
@@ -311,5 +313,40 @@ class GameBoard(
                 grid[r][c] = GameCell(safeRandom(r, c), r, c)
             }
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Save / restore (the activity can be restarted mid-game)
+    // -----------------------------------------------------------------------
+
+    /** Clears matches until none are left, with no animation. Run before saving the board. */
+    fun settle() {
+        repeat(50) { if (resolveOnce() == 0) return }
+    }
+
+    /** One int per cell, row by row: the type's ordinal, plus [GOLDEN_BIT] when the cell is golden. */
+    fun cellCodes(): IntArray = IntArray(rows * cols) { i ->
+        val cell = grid[i / cols][i % cols]
+        cell.type.ordinal or (if (cell.isGolden) GOLDEN_BIT else 0)
+    }
+
+    /** Donuts cleared per type, indexed by the type's ordinal. */
+    fun clearedCounts(): IntArray = DonutType.values().map { donutsCleared[it] ?: 0 }.toIntArray()
+
+    /**
+     * Puts back a board saved with [cellCodes] and [clearedCounts].
+     * Returns false and changes nothing when the data does not fit this board.
+     */
+    fun restore(cells: IntArray, cleared: IntArray): Boolean {
+        val types = DonutType.values()
+        if (cells.size != rows * cols || cleared.size != types.size) return false
+        if (cells.any { (it and GOLDEN_BIT.inv()) !in types.indices } || cleared.any { it < 0 }) return false
+        for (i in cells.indices) {
+            val r = i / cols; val c = i % cols
+            grid[r][c] = GameCell(types[cells[i] and GOLDEN_BIT.inv()], r, c,
+                isGolden = (cells[i] and GOLDEN_BIT) != 0)
+        }
+        types.forEach { donutsCleared[it] = cleared[it.ordinal] }
+        return true
     }
 }

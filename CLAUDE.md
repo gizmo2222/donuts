@@ -41,6 +41,7 @@ All sources are in `app\src\main\java\com\donuts\game`. No file is over about 60
 | `EffectsDraw.kt` | Float labels, pings, confetti and banners, sticker fly, tutorial, no-moves warning |
 | `PanelsDraw.kt` | The stickers panel (with the donut box) and the settings panel |
 | `StickerArt.kt` | The twelve sticker pictures |
+| `SavedGame.kt` | Keeping the board and counter across an activity restart: `saveState`, `restoreState` |
 | `GameBoard.kt`, `GameCell.kt`, `ChainResult.kt`, `PowerUp.kt`, `DonutType.kt` | Game rules, no drawing |
 | `MainView.kt`, `MainActivity.kt`, `GameActivity.kt` | Home screen and the two activities |
 | `Prefs.kt`, `UiScale.kt`, `GameTheme.kt`, `SoundEngine.kt`, `HapticEngine.kt` | Saved data, dp sizing, palette, sound, haptics |
