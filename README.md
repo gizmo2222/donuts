@@ -91,7 +91,8 @@ means it is correct; `keystore password was incorrect` means it is not.
 
 ### Release checklist
 
-1. Bump `versionCode` (must be higher than the last upload) and `versionName` in `app/build.gradle`.
+1. Bump the version with `.\tools\bump-version.ps1 -Name 2.0.3` (raises `versionCode` by one), and rewrite the
+   tester notes in `app\src\main\play\release-notes\en-US\default.txt` (500 characters at most).
 2. Install the debug build on a real phone (`.\gradlew.bat installDebug`) and play through the first-launch
    demo and a milestone. Debug builds log `fps` once a second under the `Donuts` logcat tag.
 3. Run `.\release.ps1` and confirm it ends with **BUILD SUCCESSFUL**.
