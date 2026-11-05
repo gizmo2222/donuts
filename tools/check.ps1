@@ -6,13 +6,19 @@
   Print only the verdict line (and the error lines when the build fails).
 .PARAMETER Task
   The Gradle task to run. Default: assembleDebug.
+.PARAMETER Test
+  Run the unit tests (testDebugUnitTest) instead. Ignored when -Task is given.
 .EXAMPLE
   .\tools\check.ps1 -Quiet
+.EXAMPLE
+  .\tools\check.ps1 -Test -Quiet
 #>
 param(
     [switch]$Quiet,
+    [switch]$Test,
     [string]$Task = 'assembleDebug'
 )
+if ($Test -and -not $PSBoundParameters.ContainsKey('Task')) { $Task = 'testDebugUnitTest' }
 $root = Split-Path -Parent $PSScriptRoot
 if (-not $env:JAVA_HOME) {
     $jbr = 'C:\Program Files\Android\Android Studio\jbr'
@@ -38,7 +44,7 @@ if ($code -eq 0) {
     Write-Output "CHECK OK: $Task ($warnings warnings). Log: $log"
     exit 0
 }
-Select-String -Path $log -Pattern '^e: |^FAILURE|What went wrong' -Context 0, 1 |
+Select-String -Path $log -Pattern '^e: |^FAILURE|What went wrong| FAILED$' -Context 0, 1 |
     Select-Object -First 40 | ForEach-Object { $_.Line }
 Write-Output "CHECK FAILED: $Task (exit $code). Log: $log"
 exit 1

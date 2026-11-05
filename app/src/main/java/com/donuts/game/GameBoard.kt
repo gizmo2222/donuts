@@ -1,5 +1,7 @@
 package com.donuts.game
 
+import kotlin.random.Random
+
 /**
  * Pure game-logic class — no Android dependencies.
  *
@@ -9,7 +11,8 @@ package com.donuts.game
  */
 class GameBoard(
     val rows: Int = 8,
-    val cols: Int = 8
+    val cols: Int = 8,
+    private val random: Random = Random.Default
 ) {
     companion object {
         /** Chance that a freshly spawned (gravity-fill) cell is golden. */
@@ -17,7 +20,7 @@ class GameBoard(
     }
 
     val grid: Array<Array<GameCell>> = Array(rows) { r ->
-        Array(cols) { c -> GameCell(DonutType.random(), r, c) }
+        Array(cols) { c -> GameCell(randomType(), r, c) }
     }
 
     val donutsCleared: MutableMap<DonutType, Int> =
@@ -38,6 +41,8 @@ class GameBoard(
         }
     }
 
+    private fun randomType(): DonutType = DonutType.values().random(random)
+
     /** Choose a random type that won't immediately form a 3-in-a-row. */
     private fun safeRandom(row: Int, col: Int): DonutType {
         val forbidden = mutableSetOf<DonutType>()
@@ -53,7 +58,7 @@ class GameBoard(
         ) forbidden += grid[row - 1][col].type
 
         val choices = DonutType.values().filterNot { it in forbidden }
-        return choices.randomOrNull() ?: DonutType.random()
+        return choices.randomOrNull(random) ?: randomType()
     }
 
     /**
@@ -62,7 +67,7 @@ class GameBoard(
      * golden-free.
      */
     private fun spawnCell(row: Int, col: Int): GameCell =
-        GameCell(DonutType.random(), row, col, isGolden = Math.random() < GOLDEN_CHANCE)
+        GameCell(randomType(), row, col, isGolden = random.nextDouble() < GOLDEN_CHANCE)
 
     // -----------------------------------------------------------------------
     // Match detection
