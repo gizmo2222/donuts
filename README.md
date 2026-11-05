@@ -140,6 +140,11 @@ A git `post-commit` hook (in `.git/hooks/post-commit`, not versioned) pushes eve
 GitHub immediately. Commits are still made deliberately, one per unit of work; only the push is automatic.
 If the push fails (offline), the hook prints a warning and the commit waits for the next `git push`.
 
+## Next build
+
+The list of what goes into the build after 2.0.3, with the decisions already made, is in
+[NEXT_BUILD.md](NEXT_BUILD.md). Work through it one item per session and delete each item when it ships.
+
 ## Project structure
 
 ```
