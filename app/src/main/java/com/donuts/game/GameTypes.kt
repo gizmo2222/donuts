@@ -1,5 +1,7 @@
 package com.donuts.game
 
+import android.graphics.RectF
+
 // Small value types used by GameView and its extension files.
 
 internal enum class AnimPhase { IDLE, POPPING, DROPPING }
@@ -29,3 +31,11 @@ internal data class FloatLabel(
     val text: String, val cx: Float, val cy: Float,
     val color: Int, val startMs: Long
 )
+
+/** The donut-box strip under the counter: where it sits and its pop timers. */
+internal class BoxStrip {
+    val rect = RectF()
+    var shownLifetime = -1      // lifetime donuts as the player sees them; -1 until the first frame
+    var slotPopMs = -1L
+    var boxPopMs = -1L
+}

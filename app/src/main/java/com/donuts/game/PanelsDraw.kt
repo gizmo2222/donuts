@@ -170,7 +170,7 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
         }
     }
 
-    drawDonutBox(canvas)
+    drawDonutBox(canvas, donutBoxRect, now)
 
     // ---- Stats line ----
     val statsY = donutBoxRect.bottom + 20f * u
@@ -187,26 +187,36 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
 }
 
 /**
- * A bakery box with twelve slots that fill with donuts as Steven pops them, plus the count of
- * boxes already filled. Pictures, not words: he can see how close the next box is.
+ * A bakery box with twelve slots that fill with donuts as Steven pops them, plus a small stack of
+ * closed boxes for the ones already filled. Pictures, not words. Shared by the stickers panel and
+ * the board strip; only the strip passes [strip], which supplies the live lifetime and the pop timers.
  */
-internal fun GameView.drawDonutBox(canvas: Canvas) {
-    val rect   = donutBoxRect
-    val life   = lifetimeDonuts()
+internal fun GameView.drawDonutBox(canvas: Canvas, rect: RectF, now: Long, strip: BoxStrip? = null) {
+    val life   = if (strip != null) strip.shownLifetime.coerceAtLeast(0) else lifetimeDonuts()
     val boxes  = StickerRules.boxesFilled(life)
     val filled = StickerRules.slotsFilled(life)
 
-    // Box: two rows of six slots, sized to the row height
-    val slot = rect.height() * 0.42f
+    // Bounce when a box fills: squash and stretch about the centre, damped
+    val boxT = if (strip != null && strip.boxPopMs >= 0) ((now - strip.boxPopMs) / 520f) else 1f
+    if (boxT >= 1f && strip != null) strip.boxPopMs = -1L
+    val wob = if (boxT < 1f) sin(boxT * PI.toFloat() * 3f) * (1f - boxT) * 0.28f else 0f
+    canvas.save()
+    canvas.scale(1f + wob, 1f - wob, rect.centerX(), rect.bottom)
+
+    // Stack of closed boxes on the right, only once one is full (up to three drawn)
+    val stackN  = min(boxes, 3)
+    val iconS   = rect.height() * 0.78f
+    val off     = iconS * 0.14f
+    val iconW   = if (stackN > 0) iconS + off * (stackN - 1) else 0f
+    val iconGap = if (stackN > 0) 12f * u else 0f
+
+    // Box: two rows of six slots, sized to the row height (and shrunk if the width is tight)
+    val slotMax = (rect.width() - iconW - iconGap) / (6f + 0.14f * 7f)
+    val slot = min(rect.height() * 0.42f, slotMax)
     val gap  = slot * 0.14f
     val boxW = slot * 6f + gap * 7f
     val boxH = slot * 2f + gap * 3f
-    val countSz = rect.height() * 0.62f
-    textPaint.textSize = countSz
-    val countStr = "×$boxes"
-    val countW = textPaint.measureText(countStr)
-    val groupW = boxW + 14f * u + countW
-    val bx = rect.centerX() - groupW / 2f
+    val bx = rect.centerX() - (boxW + iconGap + iconW) / 2f
     val by = rect.centerY() - boxH / 2f
     val bd = 3f * u
 
@@ -215,13 +225,17 @@ internal fun GameView.drawDonutBox(canvas: Canvas) {
     fillPaint.color = Color.rgb(255, 205, 220); fillPaint.alpha = 255     // strawberry-pink bakery box
     canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + boxW, by + boxH) }, 10f * u, 10f * u, fillPaint)
 
+    val slotT = if (strip != null && strip.slotPopMs >= 0) ((now - strip.slotPopMs) / 350f) else 1f
+    if (slotT >= 1f && strip != null) strip.slotPopMs = -1L
     val types = DonutType.values()
     for (i in 0 until StickerRules.BOX_SLOTS) {
         val col = i % 6; val row = i / 6
         val cx = bx + gap + slot / 2f + col * (slot + gap)
         val cy = by + gap + slot / 2f + row * (slot + gap)
         if (i < filled) {
-            drawPiece(canvas, cx, cy, slot * 0.46f, types[i % types.size], false)
+            // The newest donut pops in: 0 -> 1.25 -> 1
+            val k = if (i == filled - 1 && slotT < 1f) popScale(slotT) else 1f
+            if (k > 0.01f) drawPiece(canvas, cx, cy, slot * 0.46f * k, types[i % types.size], false)
         } else {
             // Empty paper cup waiting for a donut
             fillPaint.color = Color.argb(70, 120, 40, 60)
@@ -230,8 +244,42 @@ internal fun GameView.drawDonutBox(canvas: Canvas) {
     }
     fillPaint.alpha = 255
 
-    // How many boxes are already full
-    drawOutlinedText(canvas, countStr, bx + boxW + 14f * u + countW / 2f, rect.centerY(), countSz, Color.rgb(255, 215, 50))
+    // Closed boxes, back to front; the front one carries the number
+    if (stackN > 0) {
+        val ix = bx + boxW + iconGap
+        val pop = if (boxT < 1f) 1f + 0.3f * (1f - boxT) else 1f
+        for (n in 0 until stackN) {
+            val back = stackN - 1 - n
+            val x0 = ix + off * (stackN - 1 - back)
+            val y0 = rect.centerY() - iconS / 2f - off * back * 0.6f
+            drawClosedBox(canvas, x0, y0, iconS, pop, if (back == 0) boxes else 0)
+        }
+    }
+    canvas.restore()
+}
+
+/** Overshoot pop: 0 at t=0, 1.25 around t=0.6, settling at 1. */
+internal fun GameView.popScale(t: Float): Float =
+    if (t < 0.6f) 1.25f * easeOutBack(t / 0.6f).coerceAtMost(1.1f) / 1.1f
+    else 1.25f - 0.25f * ((t - 0.6f) / 0.4f)
+
+/** A closed pink bakery box with a darker lid line and a yellow ribbon; [number] > 0 is printed on it. */
+internal fun GameView.drawClosedBox(canvas: Canvas, x: Float, y: Float, s: Float, pop: Float, number: Int) {
+    canvas.save()
+    canvas.scale(pop, pop, x + s / 2f, y + s)
+    val r = 8f * u
+    fillPaint.color = Color.argb(240, 28, 12, 0)
+    canvas.drawRoundRect(scratchRectF.apply { set(x - 3f * u, y - 3f * u, x + s + 3f * u, y + s + 3f * u) }, r + 3f * u, r + 3f * u, fillPaint)
+    fillPaint.color = Color.rgb(255, 205, 220)
+    canvas.drawRoundRect(scratchRectF.apply { set(x, y, x + s, y + s) }, r, r, fillPaint)
+    fillPaint.color = Color.rgb(230, 120, 160)                       // darker lid band
+    canvas.drawRoundRect(scratchRectF.apply { set(x, y, x + s, y + s * 0.30f) }, r, r, fillPaint)
+    fillPaint.color = Color.rgb(255, 215, 50)                        // ribbon
+    canvas.drawRect(x + s * 0.42f, y, x + s * 0.58f, y + s, fillPaint)
+    strokePaint.color = Color.argb(240, 28, 12, 0); strokePaint.strokeWidth = 2.5f * u; strokePaint.alpha = 255
+    canvas.drawLine(x, y + s * 0.30f, x + s, y + s * 0.30f, strokePaint)
+    if (number > 0) drawOutlinedText(canvas, "$number", x + s / 2f, y + s * 0.62f, s * 0.58f, Color.WHITE)
+    canvas.restore()
 }
 
 // Settings overlay — slides up from bottom

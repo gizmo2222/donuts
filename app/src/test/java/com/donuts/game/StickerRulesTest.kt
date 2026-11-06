@@ -81,4 +81,16 @@ class StickerRulesTest {
         assertEquals(0, StickerRules.boxesFilled(0))
         assertEquals(0, StickerRules.slotsFilled(0))
     }
+
+    @Test fun slotAndBoxJustFilledFollowTheBoundaries() {
+        assertTrue(StickerRules.slotJustFilled(9, 10))
+        assertFalse(StickerRules.slotJustFilled(10, 19))
+        assertTrue(StickerRules.slotJustFilled(119, 120))
+        assertTrue(StickerRules.boxJustFilled(119, 120))
+        assertFalse(StickerRules.boxJustFilled(9, 10))
+        assertTrue(StickerRules.slotJustFilled(5, 47))
+        assertFalse(StickerRules.boxJustFilled(5, 47))
+        assertFalse(StickerRules.slotJustFilled(30, 30))
+        assertFalse(StickerRules.boxJustFilled(120, 120))
+    }
 }

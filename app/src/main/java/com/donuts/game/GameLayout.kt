@@ -30,21 +30,24 @@ internal fun GameView.computeLayout() {
     val btnGap    = 10f * u
     val btnBlockH = btnH + btnGap
     counterH      = 88f * u
+    val stripH    = 64f * u     // the donut-box strip under the counter
 
     // Board: fills the safe width, but never taller than the space left after the
     // button row above and the counter below.
-    val boardPx = min(safeW - margin * 2f, safeH - margin * 2f - btnBlockH - counterH)
+    val boardPx = min(safeW - margin * 2f, safeH - margin * 2f - btnBlockH - counterH - stripH)
     cellSize  = boardPx / board.cols
     boardLeft = safeL + (safeW - boardPx) / 2f
 
     // Centre the whole block (buttons + board + counter) inside the safe area
-    val totalBlockH = btnBlockH + boardPx + counterH
+    val totalBlockH = btnBlockH + boardPx + counterH + stripH
     boardTop = safeT + (safeH - totalBlockH) / 2f + btnBlockH
 
     // HUD: stickers at the board's left edge, settings at its right edge
     val btnY = boardTop - btnH - btnGap
     stickersBtnRect = RectF(boardLeft, btnY, boardLeft + btnH, btnY + btnH)
     settingsBtnRect = RectF(boardLeft + boardPx - btnH, btnY, boardLeft + boardPx, btnY + btnH)
+
+    boxStrip.rect.set(boardLeft, boardTop + boardPx + counterH, boardLeft + boardPx, boardTop + boardPx + counterH + stripH)
 
     excludeBackSwipe(boardPx)
     layoutSettingsPanel(safeL, safeT, safeW, safeH)

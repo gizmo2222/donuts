@@ -226,3 +226,9 @@ internal fun GameView.drawOutlinedText(canvas: Canvas, text: String, x: Float, y
     textPaint.color = fill
     canvas.drawText(text, x, y + sz * 0.36f, textPaint)
 }
+
+// The donut box on the board screen: quiet, under the counter, smaller than it
+internal fun GameView.drawBoxStrip(canvas: Canvas, now: Long) {
+    if (boxStrip.shownLifetime < 0 || boxStrip.rect.isEmpty) return
+    drawDonutBox(canvas, boxStrip.rect, now, boxStrip)
+}

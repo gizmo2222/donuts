@@ -48,4 +48,12 @@ object StickerRules {
 
     /** Filled slots in the box currently being filled. */
     fun slotsFilled(lifetime: Int): Int = (lifetime % (BOX_SLOTS * BOX_SLOT_DONUTS)) / BOX_SLOT_DONUTS
+
+    /** True when going from [before] to [after] donuts crosses at least one slot boundary. */
+    fun slotJustFilled(before: Int, after: Int): Boolean =
+        after / BOX_SLOT_DONUTS > before / BOX_SLOT_DONUTS
+
+    /** True when going from [before] to [after] donuts crosses at least one whole-box boundary. */
+    fun boxJustFilled(before: Int, after: Int): Boolean =
+        after / (BOX_SLOTS * BOX_SLOT_DONUTS) > before / (BOX_SLOTS * BOX_SLOT_DONUTS)
 }

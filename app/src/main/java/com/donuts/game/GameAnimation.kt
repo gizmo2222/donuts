@@ -299,3 +299,16 @@ internal fun GameView.starPulse(now: Long): Float {
     if (t >= 1f) { starPulseMs = -1L; return 1f }
     return 1f + 0.35f * sin(t * PI.toFloat())
 }
+
+// Lifetime donuts as the player sees them (banked + what the counter shows), and the pops when a slot or box fills
+internal fun GameView.advanceBoxStrip(now: Long) {
+    val seen = (prefs.lifetimeDonuts + displayedCount - sessionSaved).coerceAtLeast(0)
+    val before = boxStrip.shownLifetime
+    boxStrip.shownLifetime = seen
+    if (before < 0 || seen <= before) return        // first frame, or a reset: no pop
+    if (StickerRules.slotJustFilled(before, seen)) {
+        boxStrip.slotPopMs = now
+        if (prefs.hapticEnabled) hapticEngine.tick()
+    }
+    if (StickerRules.boxJustFilled(before, seen)) boxStrip.boxPopMs = now
+}
