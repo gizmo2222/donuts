@@ -256,59 +256,7 @@ internal fun GameView.drawCellsInner(canvas: Canvas, now: Long) {
         boardEntryMs = -1L
     }
 
-    if (animPhase == AnimPhase.POPPING) {
-        val t     = ((now - animStartMs).toFloat() / POP_MS).coerceIn(0f, 1f)
-        // Squash-and-stretch: grow → hold → squash wide → vanish
-        val scaleX: Float; val scaleY: Float
-        when {
-            t < 0.25f -> { // punch up: grow tall
-                val p = t / 0.25f
-                scaleX = 1f + p * 0.25f
-                scaleY = 1f + p * 0.75f
-            }
-            t < 0.50f -> { // peak hold
-                scaleX = 1.25f; scaleY = 1.75f
-            }
-            t < 0.75f -> { // squash wide
-                val p = (t - 0.50f) / 0.25f
-                scaleX = 1.25f + p * 0.80f
-                scaleY = 1.75f - p * 1.30f
-            }
-            else -> { // shrink to nothing
-                val p = (t - 0.75f) / 0.25f
-                scaleX = 2.05f * (1f - p)
-                scaleY = 0.45f * (1f - p)
-            }
-        }
-        val alpha = ((1f - t * t * t) * 255).toInt().coerceIn(0, 255)
-        for (cell in popCells) {
-            val cx = boardLeft + cell.col * cellSize + cellSize / 2f
-            val cy = boardTop  + cell.row * cellSize + cellSize / 2f
-            canvas.save()
-            canvas.scale(scaleX, scaleY, cx, cy)
-            if (cell.isGolden) drawBall(canvas, cx, cy, cellSize * 0.43f, false, alpha)
-            else drawPiece(canvas, cx, cy, cellSize * 0.43f, cell.type, false, alpha)
-            canvas.restore()
-        }
-        // Expanding burst ring — gold for bonus cells (power-up), white for chain cells
-        val burstT     = (t / 0.6f).coerceIn(0f, 1f)
-        val burstAlpha = ((1f - burstT) * 200).toInt().coerceIn(0, 255)
-        val chainSet   = pendingResult?.chainCells?.toSet() ?: emptySet()
-        strokePaint.strokeWidth = cellSize * 0.07f
-        strokePaint.alpha       = burstAlpha
-        for (cell in popCells) {
-            val cx = boardLeft + cell.col * cellSize + cellSize / 2f
-            val cy = boardTop  + cell.row * cellSize + cellSize / 2f
-            val isBonus = !isCascade && Pair(cell.row, cell.col) !in chainSet
-            strokePaint.color = if (isBonus)
-                Color.argb(burstAlpha, 255, 210, 0)   // gold ring for power-up bonus
-            else
-                Color.argb(burstAlpha, 255, 255, 255) // white ring for normal
-            val ringScale = if (isBonus) 0.52f + burstT * 0.72f else 0.44f + burstT * 0.52f
-            canvas.drawCircle(cx, cy, cellSize * ringScale, strokePaint)
-        }
-        strokePaint.alpha = 255
-    }
+    if (animPhase == AnimPhase.POPPING) drawPoppingCells(canvas, now)
 
     if (animPhase == AnimPhase.DROPPING) {
         val t     = ((now - animStartMs).toFloat() / DROP_MS).coerceIn(0f, 1f)
@@ -357,4 +305,77 @@ internal fun GameView.drawGoldenOverlay(canvas: Canvas, cx: Float, cy: Float, r:
     scratchPath.close()
     canvas.drawPath(scratchPath, fillPaint)
     fillPaint.alpha = 255
+}
+
+// -----------------------------------------------------------------------
+// Popping cells. Each cell has its own clock (delayMs) so a power-up can pop in a ripple.
+// Before its turn a cell is a normal donut, plus the power-up's build-up:
+// BOOM swells the middle donut and shoves the neighbours, KABOOM wiggles the matching donuts.
+// -----------------------------------------------------------------------
+internal fun GameView.drawPoppingCells(canvas: Canvas, now: Long) {
+    val fx       = powerFx
+    val chainSet = pendingResult?.chainCells?.toSet() ?: emptySet()
+    val lead     = if (fx != null) PopTiming.leadMs(fx.kind).toFloat() else 0f
+    val sinceGo  = (now - animStartMs).toFloat()
+    for (cell in popCells) {
+        val cx0 = boardLeft + cell.col * cellSize + cellSize / 2f
+        val cy0 = boardTop  + cell.row * cellSize + cellSize / 2f
+        val t   = ((now - animStartMs - cell.delayMs).toFloat() / POP_MS).coerceIn(-1f, 1f)
+        val isBonus = !isCascade && Pair(cell.row, cell.col) !in chainSet
+        if (now - animStartMs < cell.delayMs) {
+            // Waiting for its turn
+            var cx = cx0; var cy = cy0
+            var sx = 1f; var sy = 1f; var rot = 0f
+            if (fx != null && !reducedMotion) {
+                when (fx.kind) {
+                    PowerUp.BOMB -> {
+                        val p = (sinceGo / lead).coerceIn(0f, 1f)
+                        if (cell.row == fx.originRow && cell.col == fx.originCol) {
+                            // Squash-and-stretch swell: tall and thin, then fat
+                            val s = 1f + 0.35f * p
+                            sx = s * (1f - 0.12f * kotlin.math.sin(p * 9.4f)); sy = s * (1f + 0.12f * kotlin.math.sin(p * 9.4f))
+                        } else if (isBonus) {
+                            val dx = (cell.col - fx.originCol).toFloat(); val dy = (cell.row - fx.originRow).toFloat()
+                            val len = kotlin.math.sqrt(dx * dx + dy * dy).coerceAtLeast(1f)
+                            val shove = cellSize * 0.18f * p
+                            cx += dx / len * shove; cy += dy / len * shove
+                        }
+                    }
+                    PowerUp.COLOR_BURST -> if (isBonus) {
+                        rot = 12f * kotlin.math.sin(sinceGo * 0.045f + cell.col * 1.7f + cell.row)
+                    }
+                    else -> {}
+                }
+            }
+            canvas.save()
+            canvas.rotate(rot, cx, cy)
+            canvas.scale(sx, sy, cx, cy)
+            if (cell.isGolden) drawBall(canvas, cx, cy, cellSize * 0.43f, false, 255)
+            else drawPiece(canvas, cx, cy, cellSize * 0.43f, cell.type, false, 255)
+            canvas.restore()
+            continue
+        }
+        // Squash-and-stretch: grow, hold, squash wide, vanish
+        val scaleX: Float; val scaleY: Float
+        when {
+            t < 0.25f -> { val p = t / 0.25f; scaleX = 1f + p * 0.25f; scaleY = 1f + p * 0.75f }
+            t < 0.50f -> { scaleX = 1.25f; scaleY = 1.75f }
+            t < 0.75f -> { val p = (t - 0.50f) / 0.25f; scaleX = 1.25f + p * 0.80f; scaleY = 1.75f - p * 1.30f }
+            else      -> { val p = (t - 0.75f) / 0.25f; scaleX = 2.05f * (1f - p); scaleY = 0.45f * (1f - p) }
+        }
+        val alpha = ((1f - t * t * t) * 255).toInt().coerceIn(0, 255)
+        canvas.save()
+        canvas.scale(scaleX, scaleY, cx0, cy0)
+        if (cell.isGolden) drawBall(canvas, cx0, cy0, cellSize * 0.43f, false, alpha)
+        else drawPiece(canvas, cx0, cy0, cellSize * 0.43f, cell.type, false, alpha)
+        canvas.restore()
+        // Expanding burst ring: gold for bonus cells (power-up), white for chain cells
+        val burstT     = (t / 0.6f).coerceIn(0f, 1f)
+        val burstAlpha = ((1f - burstT) * 200).toInt().coerceIn(0, 255)
+        strokePaint.strokeWidth = cellSize * 0.07f
+        strokePaint.color = if (isBonus) Color.argb(burstAlpha, 255, 210, 0) else Color.argb(burstAlpha, 255, 255, 255)
+        val ringScale = if (isBonus) 0.52f + burstT * 0.72f else 0.44f + burstT * 0.52f
+        canvas.drawCircle(cx0, cy0, cellSize * ringScale, strokePaint)
+    }
+    strokePaint.alpha = 255
 }

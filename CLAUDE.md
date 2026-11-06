@@ -44,6 +44,7 @@ All sources are in `app\src\main\java\com\donuts\game`. No file is over about 60
 | `SavedGame.kt` | Keeping the board and counter across an activity restart (`saveState`, `restoreState`), and session banking (`saveSession`, `lifetimeDonuts`, `rebuildBoard`, prefs save) |
 | `RenderThread.kt` | The render thread: lock a canvas, draw a frame, post it, pace to 60 fps |
 | `TwoTapConfirm.kt` | The tap-twice confirm for New game and Reset stickers (pure, tested) |
+| `PopTiming.kt` | When each cell of a power-up clear starts to pop (pure, unit tested) |
 | `GameBoard.kt`, `GameCell.kt`, `ChainResult.kt`, `PowerUp.kt`, `DonutType.kt` | Game rules, no drawing |
 | `MainView.kt`, `MainActivity.kt`, `GameActivity.kt` | Home screen and the two activities |
 | `Prefs.kt`, `UiScale.kt`, `GameTheme.kt`, `SoundEngine.kt`, `HapticEngine.kt` | Saved data, dp sizing, palette, sound, haptics |

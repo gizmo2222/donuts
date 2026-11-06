@@ -104,7 +104,7 @@ internal fun GameView.startOver() {
     particles.clear()
     synchronized(floatLabels) { floatLabels.clear() }
     dragChain.clear(); chainPings.clear(); fingerHeld = false
-    pendingResult    = null
+    pendingResult    = null; powerFx = null
     cascadeCount     = 0
     isCascade        = false
     counterPulseMs   = -1L
@@ -183,15 +183,21 @@ internal fun GameView.handleUp() {
             isCascade     = false
             cascadeCount  = 0
 
-            // Include both the player's chain AND any power-up bonus cells in the
-            // pop animation so everything lights up at once before the clear fires.
+            // The chain and any power-up bonus cells all pop; bonus cells wait their turn.
             popCells.clear()
             val allPop = result.chainCells + result.bonusCells
+            val delays = PopTiming.delays(result)
             popCells.addAll(allPop.map { (r, c) ->
-                AnimCell(r, c, board.grid[r][c].type, isGolden = board.grid[r][c].isGolden)
+                AnimCell(r, c, board.grid[r][c].type, isGolden = board.grid[r][c].isGolden,
+                    delayMs = delays[Pair(r, c)] ?: 0L)
             })
 
             val now = SystemClock.elapsedRealtime()
+            powerFx = if (result.powerUp == PowerUp.NONE) null else {
+                val (orr, occ) = PopTiming.origin(result)
+                PowerUpFx(result.powerUp, orr, occ, result.chainType.bodyColor, now,
+                    PopTiming.totalMs(delays, POP_MS))
+            }
             animStartMs = now; animPhase = AnimPhase.POPPING
             lastActionMs = now; hintCells = emptyList()
             // First chain ever made: the guided demo has done its job

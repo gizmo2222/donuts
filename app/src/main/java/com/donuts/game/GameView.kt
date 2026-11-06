@@ -92,8 +92,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal val POP_MS  = 280L
     internal val DROP_MS = 380L
 
-    // fromRow = starting row for animation (may be negative = above the board)
-    // row     = destination row
+    internal var powerFx: PowerUpFx? = null              // set only for a power-up clear
     internal val popCells    = mutableListOf<AnimCell>()
     internal val dropCells   = mutableListOf<AnimCell>()  // all moving cells during DROPPING
     internal val dropColMask = mutableSetOf<Int>()        // columns hidden from the normal draw loop
@@ -403,7 +402,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
         drawBoardBackground(canvas)
         drawCells(canvas, now)
         drawChainLine(canvas)
-        drawCenterPing(canvas, now)
+        drawPowerUpFx(canvas, now); drawCenterPing(canvas, now)
         drawFloatLabels(canvas, now)
         drawCounter(canvas, now)
         drawNoMovesWarning(canvas, now)

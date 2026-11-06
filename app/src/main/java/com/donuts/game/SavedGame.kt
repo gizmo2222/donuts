@@ -24,7 +24,7 @@ internal fun GameView.settleBoard() {
     pendingResult = null
     board.settle()
     animPhase = AnimPhase.IDLE
-    popCells.clear(); dropCells.clear(); dropColMask.clear()
+    popCells.clear(); dropCells.clear(); dropColMask.clear(); powerFx = null
     cascadeCount = 0; isCascade = false
     dragChain.clear(); fingerHeld = false
     hintCells = emptyList()
@@ -106,7 +106,7 @@ internal fun GameView.rebuildBoard() {
     prefs.savedBoard = null
     board = GameBoard(rows = prefs.gridSize, cols = prefs.gridSize)
     animPhase = AnimPhase.IDLE
-    popCells.clear(); dropCells.clear()
+    popCells.clear(); dropCells.clear(); powerFx = null
     dragChain.clear(); fingerHeld = false
     pendingResult  = null
     cascadeCount   = 0

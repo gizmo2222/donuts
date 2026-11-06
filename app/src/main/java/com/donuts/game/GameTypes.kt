@@ -6,8 +6,15 @@ internal enum class AnimPhase { IDLE, POPPING, DROPPING }
 
 internal data class AnimCell(
     val row: Int, val col: Int, val type: DonutType,
-    val fromRow: Int = row, val isGolden: Boolean = false
+    val fromRow: Int = row, val isGolden: Boolean = false,
+    val delayMs: Long = 0L            // pop starts this long after animStartMs (power-ups)
 )
+
+/** A power-up in flight: which cells have already popped and when the whole show ends. */
+internal class PowerUpFx(
+    val kind: PowerUp, val originRow: Int, val originCol: Int,
+    val color: Int, val startMs: Long, val totalMs: Long
+) { val popped = mutableSetOf<Pair<Int, Int>>() }
 
 internal data class DigitFlip(val from: Char, val to: Char, val startMs: Long)
 

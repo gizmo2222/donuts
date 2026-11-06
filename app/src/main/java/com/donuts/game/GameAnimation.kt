@@ -30,9 +30,24 @@ internal fun GameView.updateHint(now: Long) {
 // -----------------------------------------------------------------------
 // Game animation advance
 // -----------------------------------------------------------------------
+/** Power-up pops: as each bonus cell's turn comes, one soft sound and one tick (not one per cell). */
+internal fun GameView.advancePowerPops(now: Long) {
+    val fx = powerFx ?: return
+    var added = false
+    for (cell in popCells) {
+        val key = Pair(cell.row, cell.col)
+        if (cell.delayMs > 0 && now - animStartMs >= cell.delayMs && fx.popped.add(key)) added = true
+    }
+    if (!added) return
+    if (prefs.soundEnabled)  soundEngine.playConnectBlip(3 + fx.popped.size)
+    if (prefs.hapticEnabled) hapticEngine.tick()
+}
+
 internal fun GameView.advanceAnimation(now: Long) {
+    if (animPhase == AnimPhase.POPPING) advancePowerPops(now)
     when (animPhase) {
-        AnimPhase.POPPING -> if (now - animStartMs >= POP_MS) {
+        AnimPhase.POPPING -> if (now - animStartMs >= (if (isCascade) POP_MS else powerFx?.totalMs ?: POP_MS)) {
+            powerFx = null
             if (!isCascade && popCells.any { it.isGolden }) prefs.goldenPopped = true
 
             // Snapshot golden flags BEFORE mutating the board.

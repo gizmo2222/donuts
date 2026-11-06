@@ -349,3 +349,61 @@ internal fun GameView.drawNoMovesWarning(canvas: Canvas, now: Long) {
     textPaint.color = Color.argb(alpha, 100, 48, 0)
     canvas.drawText(msg, boardCX, lineY, textPaint)
 }
+
+// -----------------------------------------------------------------------
+// Power-up shows: BOOM shockwave, WHOOSH streaks, KABOOM ripple. Thick, cartoony, saturated.
+// Everything travels one cell per PopTiming.STEP_MS so it arrives as each donut pops.
+// -----------------------------------------------------------------------
+internal fun GameView.drawPowerUpFx(canvas: Canvas, now: Long) {
+    val fx = powerFx ?: return
+    if (animPhase != AnimPhase.POPPING) return
+    val cx = boardLeft + fx.originCol * cellSize + cellSize / 2f
+    val cy = boardTop  + fx.originRow * cellSize + cellSize / 2f
+    val lead    = PopTiming.leadMs(fx.kind)
+    val since   = (now - animStartMs - lead).toFloat()
+    if (since < 0f) return
+    val cells   = since / PopTiming.STEP_MS            // how many cells the wave has travelled
+    val reach   = maxOf(board.rows, board.cols).toFloat() + 1f
+    val fade    = (1f - cells / (reach + 1f)).coerceIn(0f, 1f)
+    val light   = Color.argb(255,
+        (Color.red(fx.color) + 255) / 2, (Color.green(fx.color) + 255) / 2, (Color.blue(fx.color) + 255) / 2)
+    fun ring(radius: Float, width: Float, alpha: Float, color: Int) {
+        if (radius <= 0f || alpha <= 0f) return
+        val a = (alpha * 255).toInt().coerceIn(0, 255)
+        strokePaint.strokeWidth = width + cellSize * 0.10f
+        strokePaint.color = Color.argb(a, 40, 20, 30)           // dark outline
+        canvas.drawCircle(cx, cy, radius, strokePaint)
+        strokePaint.strokeWidth = width
+        strokePaint.color = Color.argb(a, Color.red(color), Color.green(color), Color.blue(color))
+        canvas.drawCircle(cx, cy, radius, strokePaint)
+    }
+    when (fx.kind) {
+        PowerUp.BOMB -> ring(cells * cellSize, cellSize * 0.22f, fade + 0.15f, fx.color)
+        PowerUp.COLOR_BURST -> for (i in 0 until 3) {
+            val r = (cells - i * 1.2f) * cellSize
+            ring(r, cellSize * (0.16f - i * 0.03f), fade, if (i == 1) light else fx.color)
+        }
+        PowerUp.ROW_BLAST -> {
+            val head = cells * cellSize + cellSize * 0.5f
+            val tail = cellSize * 1.8f
+            val h    = cellSize * 0.30f
+            for (dir in intArrayOf(-1, 1)) {
+                val x1 = cx + dir * head
+                val x0 = cx + dir * maxOf(0f, head - tail)
+                val left = minOf(x0, x1); val right = maxOf(x0, x1)
+                val a = (fade * 255).toInt().coerceIn(0, 255)
+                // fading tail, then a bright rounded head with a dark outline
+                fillPaint.color = Color.argb((a * 0.45f).toInt(), Color.red(fx.color), Color.green(fx.color), Color.blue(fx.color))
+                canvas.drawRoundRect(left, cy - h * 0.8f, right, cy + h * 0.8f, h, h, fillPaint)
+                val hl = if (dir > 0) x1 - cellSize * 0.9f else x1
+                val hr = if (dir > 0) x1 else x1 + cellSize * 0.9f
+                strokePaint.strokeWidth = cellSize * 0.08f
+                strokePaint.color = Color.argb(a, 40, 20, 30)
+                canvas.drawRoundRect(hl, cy - h, hr, cy + h, h, h, strokePaint)
+                fillPaint.color = Color.argb(a, Color.red(light), Color.green(light), Color.blue(light))
+                canvas.drawRoundRect(hl, cy - h, hr, cy + h, h, h, fillPaint)
+            }
+        }
+        else -> {}
+    }
+}
