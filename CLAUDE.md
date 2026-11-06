@@ -22,6 +22,33 @@ The app should feel like it's having as much fun as Steven is. Big reactions to 
 4. **Celebration is a feature** — milestones, clears, and connections deserve real fanfare. Err on the side of more confetti, not less.
 5. **The board is the hero** — every UI chrome element (HUD, buttons, counter) should recede and let the colorful pieces command attention.
 
+## What this is
+
+Donuts for Steven: an Android match-3 game in Kotlin (min API 26). One module, `app`. The views draw on a
+`SurfaceView` canvas from a render thread; there are no layouts, Compose or web views. Game rules (`GameBoard`
+and the small pure helpers) have no Android types and are unit tested on the JVM. Released through Google Play
+closed testing; see the README for the release checklist.
+
+## Build, run and test
+
+All commands are PowerShell 5.1, run from the repository root. `check.ps1` finds the JDK that ships with
+Android Studio when `$env:JAVA_HOME` is not set.
+
+| Do | Command |
+|---|---|
+| Build the debug APK (`app\build\outputs\apk\debug\app-debug.apk`) | `.\tools\check.ps1 -Quiet` |
+| Build and run the unit tests (the full suite) | `.\tools\check.ps1 -Test -Quiet` |
+| Start an emulator (`Pixel_8a` default, or `-Avd 10_Tablet`) | `.\tools\emu.ps1 Start` |
+| Install the debug build and launch it | `.\tools\emu.ps1 Install` |
+| Screenshot into `build\shots` | `.\tools\emu.ps1 Shot -Name board` |
+| Stop the emulator and the adb server | `.\tools\emu.ps1 Stop` |
+| Raise the version for a Play upload | `.\tools\bump-version.ps1 -Name 2.0.5` |
+| Build the signed release bundle | `.\release.ps1` |
+| Upload the bundle to Play | `.\gradlew.bat publishReleaseBundle` |
+| Regenerate the doc map below | `.\tools\code-map.ps1 -UpdateDoc CLAUDE.md` |
+
+Unit tests live in `app\src\test\java\com\donuts\game`. There are no instrumented tests and no CI.
+
 ## Code map
 
 All sources are in `app\src\main\java\com\donuts\game`. No file is over about 600 lines; keep it that way and split a file when it passes 500.
@@ -31,20 +58,24 @@ All sources are in `app\src\main\java\com\donuts\game`. No file is over about 60
 | File | Holds |
 |---|---|
 | `GameView.kt` | Every field, the surface callbacks, `drawFrame` (the draw order), `onTouchEvent` |
-| `GameTypes.kt` | Small value types: `AnimPhase`, `AnimCell`, `DigitFlip`, `Particle`, `FloatLabel` |
+| `GameTypes.kt` | Small value types: `AnimPhase`, `AnimCell`, `PowerUpFx`, `DigitFlip`, `Particle`, `FloatLabel`, `BoxStrip` |
 | `GameLayout.kt` | Where the board, HUD and both panels sit |
-| `GameAnimation.kt` | Per-frame state updates: pops, drops, counter, hint, celebrations, stickers earned |
+| `GameAnimation.kt` | Per-frame state updates: pops, drops, counter, hint, celebrations, stickers earned, settings panel slide, box strip |
 | `GameInput.kt` | Touch: panel hits, dragging and releasing a chain, New game |
 | `BoardDraw.kt` | The board: background, cells, chain string, hint ring, flashes |
 | `DonutArt.kt` | The six donuts and the ball: vector art and the sprite cache |
-| `HudDraw.kt` | Backdrop, icon buttons, pretty buttons, the counter, text helpers |
-| `EffectsDraw.kt` | Float labels, pings, confetti and banners, sticker fly, tutorial, no-moves warning |
+| `HudDraw.kt` | Backdrop, icon buttons (star, gear), pretty buttons, the counter, box strip, text helpers |
+| `EffectsDraw.kt` | Float labels, pings, confetti and banners, sticker fly, tutorial, no-moves warning, power-up effects |
 | `PanelsDraw.kt` | The stickers panel (with the donut box) and the settings panel |
 | `StickerArt.kt` | The twelve sticker pictures |
 | `SavedGame.kt` | Keeping the board and counter across an activity restart (`saveState`, `restoreState`), and session banking (`saveSession`, `lifetimeDonuts`, `rebuildBoard`, prefs save) |
 | `RenderThread.kt` | The render thread: lock a canvas, draw a frame, post it, pace to 60 fps |
 | `TwoTapConfirm.kt` | The tap-twice confirm for New game and Reset stickers (pure, tested) |
 | `PopTiming.kt` | When each cell of a power-up clear starts to pop (pure, unit tested) |
+| `ChainBadge.kt` | Where the chain-count badge sits: a chain cell next to the last one (pure, unit tested) |
+| `LayoutMath.kt` | Pure layout arithmetic: `spareShare`, sticker tile `gutter` and `fitSide` (unit tested) |
+| `SavedBoard.kt` | `SavedBoard` and its text `encode`/`decode` form for `Prefs`, no Android types (unit tested) |
+| `StickerRules.kt` | `StickerStats` and `StickerRules`: which stickers are earned, donut-box slot maths (pure, unit tested) |
 | `GameBoard.kt`, `GameCell.kt`, `ChainResult.kt`, `PowerUp.kt`, `DonutType.kt` | Game rules, no drawing |
 | `MainView.kt`, `MainActivity.kt`, `GameActivity.kt` | Home screen and the two activities |
 | `Prefs.kt`, `UiScale.kt`, `GameTheme.kt`, `SoundEngine.kt`, `HapticEngine.kt` | Saved data, dp sizing, palette, sound, haptics |
@@ -54,6 +85,63 @@ Rules for this layout:
 1. Find code with `.\tools\code-map.ps1 -Match <regex>` (or `-File <name>`), then read only that line range. Never read a source file whole.
 2. New state is an `internal` field in `GameView.kt`. A new function goes in the file for its area as `internal fun GameView.name()`. Do not add functions to `GameView.kt` itself unless they are overrides.
 3. A type used by more than one file goes in `GameTypes.kt`, not nested in the class (extensions cannot see nested types by their short name).
+
+## Doc map
+
+Generated by `.\tools\code-map.ps1 -UpdateDoc CLAUDE.md`; do not edit by hand. Each symbol is `name start-end`,
+so read just that range.
+
+<!-- doc-map:start -->
+### Main sources
+
+| File | Lines | Symbols (line ranges) |
+|---|---|---|
+| BoardDraw.kt | 381 | `drawResetFlash` 20-32, `drawChainFlash` 33-44, `drawBoardBackground` 45-75, `drawChainLine` 76-103, `drawCells` 104-113, `drawHintRing` 114-123, `nearMissOffset` 124-139, `drawCellsInner` 140-281, `drawGoldenOverlay` 282-314, `drawPoppingCells` 315-381 |
+| ChainBadge.kt | 21 | `ChainBadge` 5-10, `spot` 11-21 |
+| ChainResult.kt | 16 | `ChainResult` 11-16 |
+| DonutArt.kt | 330 | `buildSprites` 17-41, `blit` 42-55, `drawPiece` 56-64, `drawBall` 65-70, `drawPieceVector` 71-85, `ringBase` 86-99, `drawHole` 100-110, `drawDrippyRing` 111-137, `drawStripedRing` 138-155, `drawJellyBun` 156-170, `buildScallop` 171-181, `drawFlowerRing` 182-206, `drawHalfDipRing` 207-236, `drawSquareDonut` 237-266, `drawBallVector` 267-292, `drawPentagon` 293-311, `addSheen` 312-330 |
+| DonutType.kt | 23 | `DonutType` 7-20, `random` 21-23 |
+| EffectsDraw.kt | 411 | `drawFloatLabels` 20-59, `drawCenterPing` 60-85, `drawCelebration` 86-158, `drawStickerFly` 159-205, `drawTutorial` 206-272, `chainOrder` 273-275, `adj` 276-285, `drawFinger` 286-306, `drawNoMovesWarning` 307-358, `drawPowerUpFx` 359-371, `ring` 372-411 |
+| GameActivity.kt | 57 | `GameActivity` 8-11, `onCreate` 12-34, `handleOnBackPressed` 35-43, `onSaveInstanceState` 44-48, `onPause` 49-57 |
+| GameAnimation.kt | 314 | `updateHint` 20-33, `advancePowerPops` 34-45, `advanceAnimation` 46-170, `advanceSettingsAnim` 171-192, `easeOutQuint` 193-200, `advanceCounter` 201-234, `celebrate` 235-243, `spawnParticles` 244-267, `easeOutBack` 268-273, `checkStickers` 274-295, `starPulse` 296-303, `advanceBoxStrip` 304-314 |
+| GameBoard.kt | 352 | `GameBoard` 12-45, `randomType` 46-48, `safeRandom` 49-70, `spawnCell` 71-78, `findMatches` 79-119, `resolveOnce` 120-148, `findHint` 149-163, `floodFill` 164-203, `peekChainClear` 204-256, `clearChain` 257-282, `hasValidMoves` 283-289, `shuffle` 290-300, `reset` 301-322, `settle` 323-327, `cellCodes` 328-333, `clearedCounts` 334-339, `restore` 340-352 |
+| GameCell.kt | 20 | `GameCell` 14-20 |
+| GameInput.kt | 263 | `settingsHit` 19-31, `stickersHit` 32-38, `panelHitRect` 39-49, `handleSettingsTouch` 50-77, `handleStickersTouch` 78-82, `resetStickers` 83-92, `startOver` 93-121, `startHeldDrag` 122-128, `handleDown` 129-140, `handleMove` 141-176, `handleUp` 177-246, `cellCol` 247-248, `cellRow` 249-250, `inBounds` 251-252, `adjacent8` 253-256, `onBackPressed` 257-263 |
+| GameLayout.kt | 159 | `computeLayout` 17-68, `layoutSettingsPanel` 69-79, `placeSettings` 80-92, `row` 93-114, `layoutStickersPanel` 115-150, `excludeBackSwipe` 151-159 |
+| GameTheme.kt | 16 | `GameTheme` 6-16 |
+| GameTypes.kt | 41 | `AnimPhase` 7-8, `AnimCell` 9-15, `PowerUpFx` 16-20, `DigitFlip` 21-22, `Particle` 23-29, `FloatLabel` 30-35, `BoxStrip` 36-41 |
+| GameView.kt | 499 | `GameView` 14-363, `surfaceCreated` 364-368, `surfaceChanged` 369-372, `surfaceDestroyed` 373-392, `drawFrame` 393-440, `onTouchEvent` 441-499 |
+| HapticEngine.kt | 34 | `HapticEngine` 10-21, `tick` 22-24, `pop` 25-27, `milestone` 28-31, `shuffle` 32-34 |
+| HudDraw.kt | 234 | `drawHUD` 20-24, `drawBackdrop` 25-38, `drawIconButton` 39-46, `drawStarIcon` 47-63, `drawGearIcon` 64-81, `pressScaleFor` 82-85, `buttonPressScale` 86-92, `drawPrettyButton` 93-134, `drawCounter` 135-203, `drawLabel` 204-219, `drawOutlinedText` 220-230, `drawBoxStrip` 231-234 |
+| LayoutMath.kt | 20 | `LayoutMath` 6-7, `spareShare` 8-11, `gutter` 12-14, `fitSide` 15-20 |
+| MainActivity.kt | 17 | `MainActivity` 8-9, `onCreate` 10-17 |
+| MainView.kt | 366 | `MainView` 13-65, `onSizeChanged` 66-71, `relayout` 72-93, `onDraw` 94-115, `drawDotGrid` 116-130, `drawLogo` 131-149, `drawDonut` 150-189, `drawSoccerBall` 190-228, `regularPolygon` 229-243, `addSheen` 244-260, `drawTitle` 261-301, `buttonPressScale` 302-308, `drawPlayButton` 309-350, `onTouchEvent` 351-366 |
+| PanelsDraw.kt | 454 | `stickerStats` 21-30, `isStickerEarned` 31-32, `drawStickersPanel` 33-194, `drawDonutBox` 195-262, `popScale` 263-267, `drawClosedBox` 268-287, `drawSettings` 288-355, `drawConfirmButton` 356-375, `drawCheckBadge` 376-386, `drawSectionLabel` 387-417, `drawSettingsBtn` 418-454 |
+| PopTiming.kt | 40 | `PopTiming` 8-11, `leadMs` 12-19, `origin` 20-22, `delays` 23-37, `totalMs` 38-40 |
+| PowerUp.kt | 11 | `PowerUp` 11-11 |
+| Prefs.kt | 61 | `Prefs` 5-61 |
+| RenderThread.kt | 60 | `RenderThread` 9-12, `lockFrame` 13-27, `run` 28-60 |
+| SavedBoard.kt | 30 | `SavedBoard` 4-5, `encode` 6-10, `decode` 11-22, `ints` 23-30 |
+| SavedGame.kt | 120 | `settleBoard` 19-34, `saveState` 35-49, `restoreState` 50-56, `applySaved` 57-73, `saveToPrefs` 74-82, `restoreFromPrefs` 83-88, `saveSession` 89-100, `lifetimeDonuts` 101-102, `rebuildBoard` 103-120 |
+| SoundEngine.kt | 122 | `SoundEngine` 12-15, `waveSample` 16-22, `playConnectBlip` 23-28, `playPopClear` 29-33, `playBoop` 34-38, `playDropLand` 39-43, `playMilestone` 44-54, `playShuffle` 55-62, `playTone` 63-66, `playToneBlocking` 67-77, `playSweep` 78-93, `playPCM` 94-122 |
+| StickerArt.kt | 114 | `drawStickerArt` 20-46, `drawChainArt` 47-58, `drawBatchArt` 59-68, `drawCrown` 69-87, `drawMiniBoard` 88-100, `drawHeart` 101-114 |
+| StickerRules.kt | 59 | `StickerStats` 6-14, `StickerRules` 15-19, `isEarned` 20-39, `earnedMask` 40-46, `boxesFilled` 47-49, `slotsFilled` 50-52, `slotJustFilled` 53-56, `boxJustFilled` 57-59 |
+| TwoTapConfirm.kt | 21 | `TwoTapConfirm` 4-7, `tap` 8-13, `isArmed` 14-16, `progress` 17-19, `cancel` 20-21 |
+| UiScale.kt | 26 | `UiScale` 14-21, `update` 22-26 |
+
+### Tests
+
+| File | Lines | Symbols (line ranges) |
+|---|---|---|
+| ChainBadgeTest.kt | 49 | `ChainBadgeTest` 8-49 |
+| GameBoardTest.kt | 392 | `GameBoardTest` 19-27, `typeOf` 28-32, `boardOf` 33-42, `GameBoard` 43-45, `cells` 46-47, `rowOf` 48-54, `sameSeedGivesTheSameBoard` 55-61, `differentSeedsGiveDifferentBoards` 62-71, `newBoardHasNoThreeInARow` 72-79, `newBoardHasNoGoldenCells` 80-85, `shuffledBoardHasNoThreeInARow` 86-94, `shuffleRemovesGoldenCells` 95-101, `resetZeroesCountsAndLeavesNoThreeInARow` 102-114, `peekRejectsChainsUnderThree` 115-122, `peekRejectsMixedTypes` 123-128, `peekAcceptsPlainChainOfThree` 129-138, `peekTreatsGoldenCellAsWild` 139-146, `peekTakesChainTypeFromFirstNonGoldenCell` 147-154, `peekAcceptsAnAllGoldenChain` 155-162, `peekStillRejectsMixedTypesAroundAGoldenCell` 163-172, `powerUpTierFollowsChainLength` 173-188, `bombClearsThreeByThreeAroundTheMiddleCell` 189-205, `bombIsClippedAtTheBoardEdge` 206-220, `rowBlastClearsTheRowOfTheMiddleCell` 221-236, `colorBurstClearsEveryOtherCellOfTheChainType` 237-257, `clearChainDropsSurvivorsToTheBottomInOrderAndKeepsGolden` 258-282, `clearChainCountsEachClearedCellOnce` 283-290, `clearChainCountsBonusCellsOnceEach` 291-309, `resolveOnceClearsAPlantedLine` 310-327, `resolveOnceDoesNothingWithoutAMatch` 328-340, `findHintFindsAConnectedTrioIncludingDiagonals` 341-351, `findHintIsEmptyWhenNoTypeHasThreeConnected` 352-362, `findHintOnSeededBoardsIsThreeConnectedSameTypeCells` 363-385, `findHintSeesAMoveThatNeedsAGoldenCell` 386-392 |
+| LayoutMathTest.kt | 28 | `LayoutMathTest` 6-28 |
+| PopTimingTest.kt | 88 | `PopTimingTest` 9-10, `boardOf` 11-21, `resultOf` 22-24, `checkEveryCellHasAnEntry` 25-29, `plainChainPopsAllAtOnce` 30-40, `bombOriginSwellsFirstThenNeighboursPopTogether` 41-55, `rowBlastGrowsWithColumnDistanceAndMatchesBothSides` 56-72, `colorBurstBonusStartsAfterLeadAndRipplesOutward` 73-88 |
+| SavedBoardCodecTest.kt | 49 | `SavedBoardCodecTest` 11-12, `seeded` 13-49 |
+| SavedBoardTest.kt | 86 | `SavedBoardTest` 10-11, `seeded` 12-20, `roundTrip` 21-37, `assertUnchanged` 38-67, `quietBoard` 68-86 |
+| StickerRulesTest.kt | 96 | `StickerRulesTest` 8-11, `earned` 12-13, `edge` 14-96 |
+| TwoTapConfirmTest.kt | 49 | `TwoTapConfirmTest` 8-49 |
+<!-- doc-map:end -->
 
 ## Sessions and workers
 
