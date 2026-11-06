@@ -399,6 +399,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal fun rebuildBoard() {
         saveSession()
         sessionSaved = 0
+        prefs.savedBoard = null
         board = GameBoard(rows = prefs.gridSize, cols = prefs.gridSize)
         animPhase = AnimPhase.IDLE
         popCells.clear(); dropCells.clear()

@@ -46,6 +46,7 @@ internal fun GameView.computeLayout() {
     stickersBtnRect = RectF(boardLeft, btnY, boardLeft + btnH, btnY + btnH)
     settingsBtnRect = RectF(boardLeft + boardPx - btnH, btnY, boardLeft + boardPx, btnY + btnH)
 
+    excludeBackSwipe(boardPx)
     layoutSettingsPanel(safeL, safeT, safeW, safeH)
     layoutStickersPanel(safeL, safeT, safeW, safeH)
     buildSprites()
@@ -124,4 +125,15 @@ internal fun GameView.layoutStickersPanel(safeL: Float, safeT: Float, safeW: Flo
     donutBoxRect.set(spL + spPad, boxTop, spL + spW - spPad, boxTop + spBoxH)
     val closeRowY = stickerPanelRect.bottom - spCloseH - spPad
     stickersCloseRect = RectF(spL + spPad, closeRowY, spL + spW - spPad, stickerPanelRect.bottom - spPad)
+}
+
+/** Keeps the system back swipe off the screen edges beside the board, so a chain can start there. */
+internal fun GameView.excludeBackSwipe(boardPx: Float) {
+    val strip = (24f * u).roundToInt()
+    val tall  = min(boardPx, 200f * u)
+    val top   = (boardTop + (boardPx - tall) / 2f).roundToInt()
+    val bottom = top + tall.roundToInt()
+    ViewCompat.setSystemGestureExclusionRects(this, listOf(
+        Rect(0, top, strip, bottom),
+        Rect(surfaceW - strip, top, surfaceW, bottom)))
 }

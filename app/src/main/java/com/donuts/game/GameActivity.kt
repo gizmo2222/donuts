@@ -23,6 +23,7 @@ class GameActivity : AppCompatActivity() {
         // carries on with the same board and is still the same visit.
         if (savedInstanceState == null) {
             prefs.sessionCount = prefs.sessionCount + 1   // one "play" per visit to the game screen
+            gameView.restoreFromPrefs()
         } else {
             gameView.restoreState(savedInstanceState)
         }
@@ -43,6 +44,11 @@ class GameActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         gameView.saveState(outState)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        gameView.saveToPrefs()
     }
 
     // The render thread is started in GameView.surfaceCreated and stopped in

@@ -53,4 +53,9 @@ class Prefs(context: Context) {
     var sessionCount: Int
         get()  = p.getInt("sessions", 0)
         set(v) { p.edit().putInt("sessions", v).apply() }
+
+    // The board and counter as left by the last pause (see SavedBoard); null = none
+    var savedBoard: String?
+        get()  = p.getString("saved_board", null)
+        set(v) { p.edit().apply { if (v == null) remove("saved_board") else putString("saved_board", v) }.apply() }
 }

@@ -76,6 +76,7 @@ internal fun GameView.startOver() {
     val now = SystemClock.elapsedRealtime()
     saveSession()
     sessionSaved = 0
+    prefs.savedBoard = null
     board.reset()
     displayedCount   = 0
     prevDisplayCount = -1

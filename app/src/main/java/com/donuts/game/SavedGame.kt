@@ -50,18 +50,37 @@ internal fun GameView.saveState(out: Bundle) {
 internal fun GameView.restoreState(state: Bundle): Boolean {
     val cells   = state.getIntArray(KEY_CELLS) ?: return false
     val cleared = state.getIntArray(KEY_CLEARED) ?: return false
-    val size    = state.getInt(KEY_SIZE)
-    if (size != prefs.gridSize) return false
-    val saved = GameBoard(rows = size, cols = size)
-    if (!saved.restore(cells, cleared)) return false
+    return applySaved(SavedBoard(state.getInt(KEY_SIZE), cells, cleared, state.getInt(KEY_SAVED)))
+}
+
+/** Puts [s] on the board and the counter. False, changing nothing, when it does not fit. */
+internal fun GameView.applySaved(s: SavedBoard): Boolean {
+    if (s.size != prefs.gridSize) return false
+    val saved = GameBoard(rows = s.size, cols = s.size)
+    if (!saved.restore(s.cells, s.cleared)) return false
     synchronized(holder) {
         board = saved
         val total = saved.donutsCleared.values.sum()
-        sessionSaved = state.getInt(KEY_SAVED).coerceIn(0, total)
+        sessionSaved = s.sessionSaved.coerceIn(0, total)
         // Show the counter where it was: no count-up from zero, no second milestone party
         displayedCount = total; prevDisplayCount = total
         lastMilestone = MILESTONES.lastOrNull { it <= total } ?: 0
         if (!saved.hasValidMoves()) noMovesWarningMs = SystemClock.elapsedRealtime()
     }
     return true
+}
+
+/** Settles the board, banks its progress and keeps the board in [Prefs] for the next Play. */
+internal fun GameView.saveToPrefs() {
+    synchronized(holder) {
+        settleBoard()
+        saveSession()
+        prefs.savedBoard = SavedBoard(board.cols, board.cellCodes(), board.clearedCounts(), sessionSaved).encode()
+    }
+}
+
+/** Brings back the board kept by [saveToPrefs]. False when there is none or it is the other size. */
+internal fun GameView.restoreFromPrefs(): Boolean {
+    val s = SavedBoard.decode(prefs.savedBoard) ?: return false
+    return applySaved(s)
 }
