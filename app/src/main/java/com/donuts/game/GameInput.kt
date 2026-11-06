@@ -250,3 +250,12 @@ internal fun GameView.inBounds(r: Int, c: Int) = r in 0 until board.rows && c in
 
 internal fun GameView.adjacent8(r1: Int, c1: Int, r2: Int, c2: Int) =
     abs(r1 - r2) <= 1 && abs(c1 - c2) <= 1 && !(r1 == r2 && c1 == c2)
+
+// System Back: close an open panel first; false means nothing was open
+internal fun GameView.onBackPressed(): Boolean {
+    synchronized(holder) {
+        if (settingsOpen) { settingsOpen = false; newGameConfirm.cancel(); stickersConfirm.cancel(); return true }
+        if (stickersOpen) { stickersOpen = false; return true }
+    }
+    return false
+}

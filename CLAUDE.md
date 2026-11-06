@@ -30,7 +30,7 @@ All sources are in `app\src\main\java\com\donuts\game`. No file is over about 60
 
 | File | Holds |
 |---|---|
-| `GameView.kt` | Every field, the surface callbacks, `drawFrame` (the draw order), `onTouchEvent`, session saving, the render thread |
+| `GameView.kt` | Every field, the surface callbacks, `drawFrame` (the draw order), `onTouchEvent` |
 | `GameTypes.kt` | Small value types: `AnimPhase`, `AnimCell`, `DigitFlip`, `Particle`, `FloatLabel` |
 | `GameLayout.kt` | Where the board, HUD and both panels sit |
 | `GameAnimation.kt` | Per-frame state updates: pops, drops, counter, hint, celebrations, stickers earned |
@@ -41,7 +41,8 @@ All sources are in `app\src\main\java\com\donuts\game`. No file is over about 60
 | `EffectsDraw.kt` | Float labels, pings, confetti and banners, sticker fly, tutorial, no-moves warning |
 | `PanelsDraw.kt` | The stickers panel (with the donut box) and the settings panel |
 | `StickerArt.kt` | The twelve sticker pictures |
-| `SavedGame.kt` | Keeping the board and counter across an activity restart: `saveState`, `restoreState` |
+| `SavedGame.kt` | Keeping the board and counter across an activity restart (`saveState`, `restoreState`), and session banking (`saveSession`, `lifetimeDonuts`, `rebuildBoard`, prefs save) |
+| `RenderThread.kt` | The render thread: lock a canvas, draw a frame, post it, pace to 60 fps |
 | `TwoTapConfirm.kt` | The tap-twice confirm for New game and Reset stickers (pure, tested) |
 | `GameBoard.kt`, `GameCell.kt`, `ChainResult.kt`, `PowerUp.kt`, `DonutType.kt` | Game rules, no drawing |
 | `MainView.kt`, `MainActivity.kt`, `GameActivity.kt` | Home screen and the two activities |

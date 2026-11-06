@@ -84,3 +84,37 @@ internal fun GameView.restoreFromPrefs(): Boolean {
     val s = SavedBoard.decode(prefs.savedBoard) ?: return false
     return applySaved(s)
 }
+
+// Session banking: fold this board's donuts into the lifetime total and high scores, or start a new board
+internal fun GameView.saveSession() {
+    val sessionTotal = board.donutsCleared.values.sum()
+    val delta = sessionTotal - sessionSaved
+    if (delta > 0) { prefs.lifetimeDonuts = prefs.lifetimeDonuts + delta; sessionSaved = sessionTotal }
+    val hs = if (board.cols == 6) prefs.highScore6x6 else prefs.highScore8x8
+    if (sessionTotal > hs) {
+        if (board.cols == 6) prefs.highScore6x6 = sessionTotal
+        else prefs.highScore8x8 = sessionTotal
+    }
+}
+
+// Donuts popped ever: what is banked plus what this board has added since the last save
+internal fun GameView.lifetimeDonuts(): Int = prefs.lifetimeDonuts + (board.donutsCleared.values.sum() - sessionSaved)
+
+internal fun GameView.rebuildBoard() {
+    saveSession()
+    sessionSaved = 0
+    prefs.savedBoard = null
+    board = GameBoard(rows = prefs.gridSize, cols = prefs.gridSize)
+    animPhase = AnimPhase.IDLE
+    popCells.clear(); dropCells.clear()
+    dragChain.clear(); fingerHeld = false
+    pendingResult  = null
+    cascadeCount   = 0
+    isCascade      = false
+    hintCells = emptyList()
+    tutorialCells = emptyList()
+    displayedCount = 0
+    lastActionMs = SystemClock.elapsedRealtime()
+    computeLayout()
+    boardEntryMs = SystemClock.elapsedRealtime()
+}

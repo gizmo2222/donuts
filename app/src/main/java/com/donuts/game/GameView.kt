@@ -363,7 +363,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
 
     override fun surfaceCreated(holder: SurfaceHolder) {
         boardEntryMs = SystemClock.elapsedRealtime()
-        renderThread = RenderThread(holder).also { it.start() }
+        renderThread = RenderThread(this).also { it.start() }
     }
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, w: Int, h: Int) {
@@ -386,39 +386,6 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // Donuts of the current board already folded into lifetimeDonuts, so saveSession can run
     // any number of times (on background, on board-size change, on New game) without double counting.
     internal var sessionSaved = 0
-
-    internal fun saveSession() {
-        val sessionTotal = board.donutsCleared.values.sum()
-        val delta = sessionTotal - sessionSaved
-        if (delta > 0) { prefs.lifetimeDonuts = prefs.lifetimeDonuts + delta; sessionSaved = sessionTotal }
-        val hs = if (board.cols == 6) prefs.highScore6x6 else prefs.highScore8x8
-        if (sessionTotal > hs) {
-            if (board.cols == 6) prefs.highScore6x6 = sessionTotal
-            else prefs.highScore8x8 = sessionTotal
-        }
-    }
-
-    // Donuts popped ever: what is banked plus what this board has added since the last save
-    internal fun lifetimeDonuts(): Int = prefs.lifetimeDonuts + (board.donutsCleared.values.sum() - sessionSaved)
-
-    internal fun rebuildBoard() {
-        saveSession()
-        sessionSaved = 0
-        prefs.savedBoard = null
-        board = GameBoard(rows = prefs.gridSize, cols = prefs.gridSize)
-        animPhase = AnimPhase.IDLE
-        popCells.clear(); dropCells.clear()
-        dragChain.clear(); fingerHeld = false
-        pendingResult  = null
-        cascadeCount   = 0
-        isCascade      = false
-        hintCells = emptyList()
-        tutorialCells = emptyList()
-        displayedCount = 0
-        lastActionMs = SystemClock.elapsedRealtime()
-        computeLayout()
-        boardEntryMs = SystemClock.elapsedRealtime()
-    }
 
     // -----------------------------------------------------------------------
     // Frame
@@ -527,70 +494,5 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
             }
         }
         return true
-    }
-
-    // System Back: close an open panel first; false means nothing was open
-    fun onBackPressed(): Boolean {
-        synchronized(holder) {
-            if (settingsOpen) { settingsOpen = false; newGameConfirm.cancel(); stickersConfirm.cancel(); return true }
-            if (stickersOpen) { stickersOpen = false; return true }
-        }
-        return false
-    }
-
-    // -----------------------------------------------------------------------
-    // Render thread
-    // -----------------------------------------------------------------------
-    inner class RenderThread(private val holder: SurfaceHolder) : Thread("GameRenderThread") {
-        @Volatile var running = true
-        private var frames = 0; private var fpsMarkMs = 0L
-        private var hwFailures = 0
-        private fun lockFrame(): Canvas? {
-            // The GPU canvas can fail transiently while the surface is being set up, so only
-            // give up on it after a long run of consecutive failures.
-            if (hwFailures < 120) {
-                try {
-                    val c = holder.lockHardwareCanvas()
-                    if (c != null) { hwFailures = 0; return c }
-                } catch (e: Exception) {
-                    if (debuggable && hwFailures == 0) android.util.Log.d("Donuts", "hardware canvas unavailable: " + e)
-                }
-                hwFailures++
-            }
-            return try { holder.lockCanvas() } catch (_: Exception) { null }
-        }
-        private var lockNs = 0L; private var drawNs = 0L; private var postNs = 0L
-        override fun run() {
-            while (running) {
-                val t0 = System.nanoTime()
-                val canvas = lockFrame() // GPU-backed (API 26+), or the software canvas if unavailable
-                if (canvas == null) { sleep(16L); continue }
-                val t1 = System.nanoTime()
-                try { synchronized(holder) { drawFrame(canvas) } }
-                finally {
-                    val t2 = System.nanoTime()
-                    // The surface can vanish under us while we hold a canvas; that is not fatal
-                    try { holder.unlockCanvasAndPost(canvas) } catch (_: Exception) { }
-                    val t3 = System.nanoTime()
-                    if (debuggable) {
-                        lockNs += t1 - t0; drawNs += t2 - t1; postNs += t3 - t2
-                        frames++
-                        val t = SystemClock.elapsedRealtime()
-                        if (t - fpsMarkMs >= 1000L) {
-                            if (fpsMarkMs > 0L && frames > 0) android.util.Log.d("Donuts",
-                                "fps=" + frames + " hw=" + (hwFailures == 0) + " lock=" + (lockNs / frames / 1_000_000) + "ms draw=" + (drawNs / frames / 1_000_000) + "ms post=" + (postNs / frames / 1_000_000) + "ms")
-                            frames = 0; lockNs = 0; drawNs = 0; postNs = 0; fpsMarkMs = t
-                        }
-                    }
-                }
-                // Pace to ~60 fps: only sleep for whatever is left of the 16 ms budget
-                val spent = (System.nanoTime() - t0) / 1_000_000L
-                if (spent < 16L) sleep(16L - spent)
-            }
-            // unlockCanvasAndPost returns when the frame is handed over; the system's RenderThread
-            // is still drawing and swapping it. Making and destroying a renderer queues behind that
-            // work, so this thread outlives the last swap (a swap on a dead surface can crash).
-            if (android.os.Build.VERSION.SDK_INT >= 29) try { HardwareRenderer().destroy() } catch (_: Exception) { }
-        }
     }
 }
