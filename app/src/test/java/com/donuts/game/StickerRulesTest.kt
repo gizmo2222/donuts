@@ -93,4 +93,17 @@ class StickerRulesTest {
         assertFalse(StickerRules.slotJustFilled(30, 30))
         assertFalse(StickerRules.boxJustFilled(120, 120))
     }
+
+    @Test fun toAnnounceIsEarnedMinusAnnounced() {
+        assertEquals(0b0100, StickerRules.toAnnounce(0b0111, 0b0011))
+        assertEquals(0, StickerRules.toAnnounce(0b0011, 0b0111))
+        assertEquals(0b0011, StickerRules.toAnnounce(0b0011, 0))
+    }
+
+    @Test fun stickerEarnedOutsideTheFrameLoopStillGetsAnnounced() {
+        // announced mask saved at 0b01; sticker 1 earned while no frames ran
+        val announced = 0b01
+        val earned = StickerRules.earnedMask(StickerStats(60, 0, 0, 0, false, 0))
+        assertTrue(StickerRules.toAnnounce(earned, announced) and 0b10 != 0)
+    }
 }

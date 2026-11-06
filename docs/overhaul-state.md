@@ -6,7 +6,7 @@ marked done or skipped, commits on its branch (no push, no merge, no PR) and upd
 | # | Phase | Status |
 |---|---|---|
 | 1 | Map | done |
-| 2 | Bug hunt | todo |
+| 2 | Bug hunt | done |
 | 3 | Tests | todo |
 | 4 | Security | todo |
 | 5 | Clean-up | todo |
@@ -20,6 +20,14 @@ marked done or skipped, commits on its branch (no push, no merge, no PR) and upd
 **1 Map (done, branch `overhaul/phase-1`).** CLAUDE.md now has what the project is, a PowerShell build/run/test
 table, a corrected code map table (four files were missing) and a generated doc map with line ranges per symbol.
 `code-map.ps1` gained `-Doc` and `-UpdateDoc`. `GameView.kt` is 499 lines, at the split limit: phase 5 should look.
+
+**2 Bug hunt (done, branch `overhaul/phase-2`).** 9 finders (area x bug class) and 9 skeptics: 31 reports, 28
+confirmed (13 distinct bugs), 3 refuted (listed in `docs/overhaul-findings.md`). All 13 are fixed; 9 have new JVM
+tests (`ChainRules`, `ChainPointer`, `BannerQueue`, `LayoutMath` helpers, board-has-a-move and golden-hint tests).
+Decision: the 4 `GameView`/activity-state fixes have no JVM test (adding Robolectric is a big dependency); their
+emulator checks are in the findings file for phase 6. Phase 3: the new tests were not mutation-checked yet, and
+`Prefs.stickersAnnounced` is a new prefs key (-1 = unset, seeded from the earned mask on first frame).
+Phase 5: `GameView.kt` is now 515 lines (new fields), past the 500-line split rule.
 
 ## Which later phases apply
 

@@ -54,6 +54,11 @@ class Prefs(context: Context) {
         get()  = p.getInt("sessions", 0)
         set(v) { p.edit().putInt("sessions", v).apply() }
 
+    // Bitmask of stickers already shown to the player; -1 = never set (see GameView.checkStickers)
+    var stickersAnnounced: Int
+        get()  = p.getInt("stickers_announced", -1)
+        set(v) { p.edit().putInt("stickers_announced", v).apply() }
+
     // The board and counter as left by the last pause (see SavedBoard); null = none
     var savedBoard: String?
         get()  = p.getString("saved_board", null)

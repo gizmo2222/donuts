@@ -19,6 +19,8 @@ class GameBoard(
         const val GOLDEN_CHANCE = 0.04
         /** Marks a golden cell in [cellCodes]. */
         const val GOLDEN_BIT = 0x100
+        /** Cap on refill attempts when looking for a board with a valid move. */
+        const val REFILL_TRIES = 100
     }
 
     val grid: Array<Array<GameCell>> = Array(rows) { r ->
@@ -33,13 +35,29 @@ class GameBoard(
     // -----------------------------------------------------------------------
 
     init {
-        repeat(20) {
-            val matches = findMatches()
-            if (matches.isEmpty()) return@repeat
-            matches.forEach { (r, c) ->
-                // Replace with a random type that doesn't match neighbours
-                grid[r][c] = GameCell(safeRandom(r, c), r, c)
+        refill(randomFirst = false)
+    }
+
+    /**
+     * Fills the grid with fresh random cells, repairs 3-in-a-rows, and repeats until
+     * a valid chain exists (at most [REFILL_TRIES] tries).
+     */
+    private fun refill(randomFirst: Boolean = true) {
+        var fill = randomFirst
+        repeat(REFILL_TRIES) {
+            // The first try may keep the grid the constructor filled; every retry starts fresh.
+            if (fill) {
+                for (r in 0 until rows)
+                    for (c in 0 until cols)
+                        grid[r][c] = GameCell(safeRandom(r, c), r, c)
             }
+            fill = true
+            repeat(20) {
+                val matches = findMatches()
+                if (matches.isEmpty()) return@repeat
+                matches.forEach { (r, c) -> grid[r][c] = GameCell(safeRandom(r, c), r, c) }
+            }
+            if (hasValidMoves()) return
         }
     }
 
@@ -174,7 +192,8 @@ class GameBoard(
                 if (dr == 0 && dc == 0) continue
                 val nr = r + dr; val nc = c + dc
                 if (nr in 0 until rows && nc in 0 until cols &&
-                    Pair(nr, nc) !in seen && grid[nr][nc].type == type) {
+                    Pair(nr, nc) !in seen &&
+                    (grid[nr][nc].type == type || grid[nr][nc].isGolden)) {
                     seen.add(Pair(nr, nc))
                     queue.add(Pair(nr, nc))
                 }
@@ -288,31 +307,12 @@ class GameBoard(
 
     /** Rerandomizes all cells without touching score or counter — used when no moves remain. */
     fun shuffle() {
-        for (r in 0 until rows)
-            for (c in 0 until cols)
-                grid[r][c] = GameCell(safeRandom(r, c), r, c)
-        repeat(20) {
-            val matches = findMatches()
-            if (matches.isEmpty()) return@repeat
-            matches.forEach { (r, c) -> grid[r][c] = GameCell(safeRandom(r, c), r, c) }
-        }
+        refill()
     }
 
     fun reset() {
         DonutType.values().forEach { donutsCleared[it] = 0 }
-        for (r in 0 until rows) {
-            for (c in 0 until cols) {
-                grid[r][c] = GameCell(safeRandom(r, c), r, c)
-            }
-        }
-        // Clear any initial matches after reset
-        repeat(20) {
-            val matches = findMatches()
-            if (matches.isEmpty()) return@repeat
-            matches.forEach { (r, c) ->
-                grid[r][c] = GameCell(safeRandom(r, c), r, c)
-            }
-        }
+        refill()
     }
 
     // -----------------------------------------------------------------------

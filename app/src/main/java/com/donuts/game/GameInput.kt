@@ -84,7 +84,7 @@ internal fun GameView.resetStickers() {
     startOver()
     prefs.lifetimeDonuts = 0; prefs.highScore6x6 = 0; prefs.highScore8x8 = 0
     prefs.bestChainLength = 0; prefs.sessionCount = 0; prefs.goldenPopped = false
-    sessionSaved = 0; earnedMask = -1; boxesSeen = -1; allStickersParty = false
+    sessionSaved = 0; earnedMask = 0; prefs.stickersAnnounced = 0; boxesSeen = -1; allStickersParty = false
     newGameConfirm.cancel(); stickersConfirm.cancel()
     settingsOpen = false
 }
@@ -92,30 +92,17 @@ internal fun GameView.resetStickers() {
 /** Fresh board and counter. Session stats are saved first so stickers keep counting. */
 internal fun GameView.startOver() {
     val now = SystemClock.elapsedRealtime()
-    saveSession()
-    sessionSaved = 0
-    prefs.savedBoard = null
-    board.reset()
-    displayedCount   = 0
-    prevDisplayCount = -1
-    digitFlips.clear()
-    lastMilestone    = 0
-    celebrateMs      = -1L
-    particles.clear()
-    synchronized(floatLabels) { floatLabels.clear() }
-    dragChain.clear(); chainPings.clear(); fingerHeld = false
-    pendingResult    = null; powerFx = null
-    cascadeCount     = 0
-    isCascade        = false
-    counterPulseMs   = -1L
-    chainFlashMs     = -1L
-    shuffleAnimMs    = -1L
-    hintCells        = emptyList()
-    tutorialCells    = emptyList()
-    noMovesWarningMs = -1L
-    resetFlashMs     = now
-    lastActionMs     = now
-    boardEntryMs     = now
+    synchronized(holder) {
+        settleBoard()      // apply the in-flight chain first so its donuts are banked
+        saveSession()
+        sessionSaved = 0
+        prefs.savedBoard = null
+        board.reset()
+        resetPlayState()
+        resetFlashMs     = now
+        lastActionMs     = now
+        boardEntryMs     = now
+    }
 }
 
 /** A finger that went down mid-animation and is still down: start its drag where it is now. */
@@ -138,8 +125,8 @@ internal fun GameView.handleDown(x: Float, y: Float) {
     }
 }
 
-internal fun GameView.handleMove(event: MotionEvent) {
-    val col = cellCol(event.x); val row = cellRow(event.y)
+internal fun GameView.handleMove(x: Float, y: Float) {
+    val col = cellCol(x); val row = cellRow(y)
     if (!inBounds(row, col)) return
     val cell = Pair(row, col)
     if (dragChain.size >= 2 && dragChain[dragChain.size - 2] == cell) {
@@ -153,11 +140,13 @@ internal fun GameView.handleMove(event: MotionEvent) {
     if (cell in dragChain) return
     val last = dragChain.lastOrNull() ?: return
     if (!adjacent8(last.first, last.second, row, col)) return
-    // Golden cells are wild — they join any chain regardless of type.
-    // Non-golden cells must match the chain type.
-    val chainType = dragChainType ?: return
-    val cellIsGolden = board.grid[row][col].isGolden
-    if (!cellIsGolden && board.grid[row][col].type != chainType) {
+    // Golden cells are wild; an all-golden chain takes any type (see ChainRules).
+    val next = board.grid[row][col]
+    val accepted = ChainRules.accepts(
+        dragChain.map { (r, c) -> board.grid[r][c].type },
+        dragChain.map { (r, c) -> board.grid[r][c].isGolden },
+        next.type, next.isGolden)
+    if (!accepted) {
         // Wrong flavour: that donut shakes its head (once per visit, not every move event)
         if (rejectedCell != cell) {
             rejectedCell = cell
@@ -244,9 +233,9 @@ internal fun GameView.handleUp() {
     dragChain.clear(); chainPings.clear(); rejectedCell = null
 }
 
-internal fun GameView.cellCol(x: Float) = ((x - boardLeft) / cellSize).toInt()
+internal fun GameView.cellCol(x: Float) = LayoutMath.cellIndex(x, boardLeft, cellSize)
 
-internal fun GameView.cellRow(y: Float) = ((y - boardTop)  / cellSize).toInt()
+internal fun GameView.cellRow(y: Float) = LayoutMath.cellIndex(y, boardTop, cellSize)
 
 internal fun GameView.inBounds(r: Int, c: Int) = r in 0 until board.rows && c in 0 until board.cols
 

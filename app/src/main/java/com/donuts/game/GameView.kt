@@ -76,6 +76,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // Touch / drag
     // -----------------------------------------------------------------------
     internal val dragChain = mutableListOf<Pair<Int, Int>>()
+    internal val chainPointer = ChainPointer()
 
     // Returns the type of the chain: first non-golden cell's type, or first cell's type
     // if every cell in the chain is golden (all-golden chain is valid).
@@ -218,6 +219,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var celebrateMs     = -1L
     internal val CELEBRATE_MS    = 2600L
     internal var celebrateLabel  = ""
+    internal val bannerQueue     = BannerQueue(BANNER_FIRST_PART_MS)
     internal var physicsMs       = -1L      // last confetti physics step
     // Mutable class (not data class) so physics can update fields in-place each frame,
     // avoiding the 60-object copy + new-list allocation that a data-class copy() would incur.
@@ -439,10 +441,24 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // Touch
     // -----------------------------------------------------------------------
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (event.action != MotionEvent.ACTION_DOWN &&
-            event.action != MotionEvent.ACTION_MOVE &&
-            event.action != MotionEvent.ACTION_UP &&
-            event.action != MotionEvent.ACTION_CANCEL) return true
+        val act = event.actionMasked
+        if (act != MotionEvent.ACTION_DOWN && act != MotionEvent.ACTION_MOVE &&
+            act != MotionEvent.ACTION_UP && act != MotionEvent.ACTION_CANCEL &&
+            act != MotionEvent.ACTION_POINTER_DOWN && act != MotionEvent.ACTION_POINTER_UP) return true
+
+        // One finger owns the touch: later fingers are ignored, and lifting the owner releases.
+        var action = act
+        if (act == MotionEvent.ACTION_DOWN) chainPointer.onDown(event.getPointerId(0))
+        if (act == MotionEvent.ACTION_POINTER_DOWN) { chainPointer.onPointerDown(event.getPointerId(event.actionIndex)); return true }
+        if (act == MotionEvent.ACTION_POINTER_UP) {
+            if (!chainPointer.onPointerUp(event.getPointerId(event.actionIndex))) return true
+            action = MotionEvent.ACTION_UP
+        } else if (act == MotionEvent.ACTION_UP || act == MotionEvent.ACTION_CANCEL) {
+            if (chainPointer.activeId == ChainPointer.NONE) return true
+        }
+        val pi = event.findPointerIndex(chainPointer.activeId).let { if (it < 0) event.actionIndex else it }
+        val px = event.getX(pi); val py = event.getY(pi)
+        if (act == MotionEvent.ACTION_UP || act == MotionEvent.ACTION_CANCEL) chainPointer.reset()
 
         synchronized(holder) {
             // When settings or stickers is open or animating, consume touch
@@ -452,9 +468,9 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
                 val inSettings = settingsOpen || settingsAnim > 0f
                 val slideY = if (inSettings) panelRect.height() * (1f - easeOutQuint(settingsAnim))
                              else stickerPanelRect.height() * (1f - easeOutQuint(stickersAnim))
-                val x = event.x; val y = event.y + slideY
+                val x = px; val y = LayoutMath.panelLocalY(py, slideY)
                 val hit = if (inSettings) settingsHit(x, y) else stickersHit(x, y)
-                when (event.action) {
+                when (action) {
                     MotionEvent.ACTION_DOWN -> {
                         panelDownHit = hit
                         panelHitRect(hit)?.let { optPressRect = it; optPressMs = SystemClock.elapsedRealtime() }
@@ -470,26 +486,26 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
                 return true
             }
 
-            if (event.action == MotionEvent.ACTION_DOWN) {
+            if (action == MotionEvent.ACTION_DOWN) {
                 val now = SystemClock.elapsedRealtime()
-                if (stickersBtnRect.contains(event.x, event.y)) { stickersPressMs = now; stickersOpen = true; return true }
-                if (settingsBtnRect.contains(event.x, event.y)) { settingsPressMs = now; settingsOpen = true; return true }
+                if (stickersBtnRect.contains(px, py)) { stickersPressMs = now; stickersOpen = true; return true }
+                if (settingsBtnRect.contains(px, py)) { settingsPressMs = now; settingsOpen = true; return true }
             }
 
             // Board still popping or dropping: hold the finger instead of dropping it, so a
             // drag started early begins the moment the pieces land (see startHeldDrag).
             if (animPhase != AnimPhase.IDLE) {
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> { fingerHeld = true; heldX = event.x; heldY = event.y }
-                    MotionEvent.ACTION_MOVE -> if (fingerHeld) { heldX = event.x; heldY = event.y }
+                when (action) {
+                    MotionEvent.ACTION_DOWN -> { fingerHeld = true; heldX = px; heldY = py }
+                    MotionEvent.ACTION_MOVE -> if (fingerHeld) { heldX = px; heldY = py }
                     else -> fingerHeld = false
                 }
                 return true
             }
 
-            when (event.action) {
-                MotionEvent.ACTION_DOWN   -> handleDown(event.x, event.y)
-                MotionEvent.ACTION_MOVE   -> { startHeldDrag(); handleMove(event) }
+            when (action) {
+                MotionEvent.ACTION_DOWN   -> handleDown(px, py)
+                MotionEvent.ACTION_MOVE   -> { startHeldDrag(); handleMove(px, py) }
                 MotionEvent.ACTION_UP     -> { fingerHeld = false; handleUp() }
                 MotionEvent.ACTION_CANCEL -> { fingerHeld = false; dragChain.clear() }
             }

@@ -381,12 +381,43 @@ class GameBoardTest {
     // A golden donut is a valid wild link in a chain, but findHint (and so hasValidMoves,
     // which decides when to offer a shuffle) does not count it: "S S golden-C" is a legal
     // move that findHint reports as no move.
-    @Ignore("Known gap: findHint ignores golden wild cells, so moves that need one are missed")
     @Test
     fun findHintSeesAMoveThatNeedsAGoldenCell() {
         val board = boardOf("SSc")
         assertNotNull(board.peekChainClear(rowOf(0, 0, 2)))   // the chain is legal
         assertEquals(3, board.findHint().size)                // ...so the hint should find it
         assertTrue(board.hasValidMoves())
+    }
+
+    private fun adjacent(a: Pair<Int, Int>, b: Pair<Int, Int>) =
+        a != b && kotlin.math.abs(a.first - b.first) <= 1 && kotlin.math.abs(a.second - b.second) <= 1
+
+    @Test
+    fun findHintIsAlwaysAChainPeekAcceptsOnGoldenBoards() {
+        for (seed in 0..400) {
+            val rnd = Random(seed)
+            val board = GameBoard(6, 6, rnd)
+            for (r in 0 until 6) for (c in 0 until 6)
+                board.grid[r][c] = GameCell(DonutType.values().random(rnd), r, c, isGolden = rnd.nextDouble() < 0.3)
+            val hint = board.findHint()
+            if (hint.isEmpty()) continue
+            assertEquals(3, hint.size)
+            assertNotNull("seed $seed", board.peekChainClear(hint))
+            // some ordering of the three is a drag path
+            val ok = hint.any { mid -> hint.filter { it != mid }.all { adjacent(mid, it) } }
+            assertTrue("seed $seed", ok)
+        }
+    }
+
+    @Test
+    fun everyBoardHasAValidMoveAfterConstructShuffleAndReset() {
+        for (size in listOf(6, 8)) for (seed in 0..3000) {
+            val board = GameBoard(size, size, Random(seed))
+            assertTrue("construct $size/$seed", board.hasValidMoves())
+            board.shuffle()
+            assertTrue("shuffle $size/$seed", board.hasValidMoves())
+            board.reset()
+            assertTrue("reset $size/$seed", board.hasValidMoves())
+        }
     }
 }

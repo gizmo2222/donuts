@@ -20,8 +20,8 @@ import kotlin.math.*
 /** What the sticker rules need, read from prefs and the current board. */
 internal fun GameView.stickerStats() = StickerStats(
     lifetime     = lifetimeDonuts(),
-    highScore6x6 = prefs.highScore6x6,
-    highScore8x8 = prefs.highScore8x8,
+    highScore6x6 = if (board.cols == 6) maxOf(prefs.highScore6x6, board.donutsCleared.values.sum()) else prefs.highScore6x6,
+    highScore8x8 = if (board.cols != 6) maxOf(prefs.highScore8x8, board.donutsCleared.values.sum()) else prefs.highScore8x8,
     bestChain    = prefs.bestChainLength,
     goldenPopped = prefs.goldenPopped,
     sessions     = prefs.sessionCount

@@ -34,7 +34,7 @@ internal fun GameView.computeLayout() {
     // Board: fills the safe width, but never taller than the space left after the
     // button row above and the counter below. Sized from the base chrome, so spare
     // height never widens it.
-    val boardPx = min(safeW - margin * 2f, safeH - margin * 2f - (btnH + baseGap) - baseCtrH - baseStrip)
+    val boardPx = LayoutMath.boardSide(safeW - margin * 2f, safeH - margin * 2f - (btnH + baseGap) - baseCtrH - baseStrip)
     cellSize  = boardPx / board.cols
     boardLeft = safeL + (safeW - boardPx) / 2f
 

@@ -43,6 +43,9 @@ object StickerRules {
         return mask
     }
 
+    /** Stickers earned but not yet announced to the player. */
+    fun toAnnounce(earned: Int, announced: Int): Int = earned and announced.inv()
+
     /** Full donut boxes banked. */
     fun boxesFilled(lifetime: Int): Int = lifetime / (BOX_SLOTS * BOX_SLOT_DONUTS)
 

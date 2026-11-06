@@ -152,7 +152,7 @@ internal fun GameView.advanceAnimation(now: Long) {
             if (shuffleAnimMs >= 0 && now - shuffleAnimMs > SHUFFLE_ANIM_MS + SHUFFLE_MAX_DELAY)
                 shuffleAnimMs = -1L
             // Auto-shuffle after warning delay
-            if (noMovesWarningMs >= 0 && now - noMovesWarningMs >= NO_MOVES_DELAY_MS) {
+            if (noMovesWarningMs >= 0 && now - noMovesWarningMs >= NO_MOVES_DELAY_MS && dragChain.isEmpty()) {
                 board.shuffle()
                 shuffleAnimMs    = now
                 noMovesWarningMs = -1L
@@ -233,6 +233,10 @@ internal fun GameView.advanceCounter(now: Long) {
 
 // Full-screen party: a banner plus confetti cannons from both bottom corners of the board
 internal fun GameView.celebrate(now: Long, label: String) {
+    bannerQueue.offer(now, label)?.let { startCelebration(now, it) }
+}
+
+internal fun GameView.startCelebration(now: Long, label: String) {
     celebrateMs    = now
     physicsMs      = now
     celebrateLabel = label
@@ -272,21 +276,30 @@ internal fun GameView.easeOutBack(t: Float): Float {
 
 // Every sticker earned mid-game gets its moment; so does every full donut box
 internal fun GameView.checkStickers(now: Long) {
-    val boxes = StickerRules.boxesFilled(lifetimeDonuts())
+    bannerQueue.poll(now)?.let { startCelebration(now, it) }
+    // The displayed lifetime, as advanceBoxStrip sees it, so the banner matches the box strip
+    val shown = (prefs.lifetimeDonuts + displayedCount - sessionSaved).coerceAtLeast(0)
+    val boxes = StickerRules.boxesFilled(shown)
     if (boxesSeen < 0) boxesSeen = boxes
-    else if (boxes > boxesSeen && celebrateMs < 0 && stickerFlyMs < 0) {
+    else if (boxes > boxesSeen && stickerFlyMs < 0) {
         boxesSeen = boxes
         celebrate(now, "BOX FULL!")
         starPulseMs = now
     }
 
     val mask = StickerRules.earnedMask(stickerStats())
-    if (earnedMask < 0) { earnedMask = mask; return }
+    if (earnedMask < 0) {
+        // First frame: an unset announced mask starts at what is earned now, so an update replays nothing
+        var announced = prefs.stickersAnnounced
+        if (announced < 0) { announced = mask; prefs.stickersAnnounced = mask }
+        earnedMask = announced
+    }
     if (stickerFlyMs >= 0) return
-    val fresh = mask and earnedMask.inv()
+    val fresh = StickerRules.toAnnounce(mask, earnedMask)
     if (fresh == 0) return
     val idx = Integer.numberOfTrailingZeros(fresh)
     earnedMask = earnedMask or (1 shl idx)
+    prefs.stickersAnnounced = earnedMask
     if (earnedMask == (1 shl 12) - 1) allStickersParty = true
     stickerFlyIdx = idx; stickerFlyMs = now
     if (prefs.soundEnabled)  soundEngine.playMilestone()

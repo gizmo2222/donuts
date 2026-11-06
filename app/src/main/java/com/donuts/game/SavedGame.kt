@@ -101,20 +101,30 @@ internal fun GameView.saveSession() {
 internal fun GameView.lifetimeDonuts(): Int = prefs.lifetimeDonuts + (board.donutsCleared.values.sum() - sessionSaved)
 
 internal fun GameView.rebuildBoard() {
-    saveSession()
-    sessionSaved = 0
-    prefs.savedBoard = null
-    board = GameBoard(rows = prefs.gridSize, cols = prefs.gridSize)
+    synchronized(holder) {
+        settleBoard()
+        saveSession()
+        sessionSaved = 0
+        prefs.savedBoard = null
+        board = GameBoard(rows = prefs.gridSize, cols = prefs.gridSize)
+        resetPlayState()
+        computeLayout()
+        boardEntryMs = SystemClock.elapsedRealtime()
+    }
+}
+
+/** Clears every animation, counter and drag leftover of the old board; shared by New game and a grid-size change. */
+internal fun GameView.resetPlayState() {
     animPhase = AnimPhase.IDLE
-    popCells.clear(); dropCells.clear(); powerFx = null
-    dragChain.clear(); fingerHeld = false
-    pendingResult  = null
-    cascadeCount   = 0
-    isCascade      = false
-    hintCells = emptyList()
-    tutorialCells = emptyList()
-    displayedCount = 0
+    popCells.clear(); dropCells.clear(); dropColMask.clear(); landedCols.clear(); landMs = -1L
+    powerFx = null; pendingResult = null
+    cascadeCount = 0; isCascade = false
+    displayedCount = 0; prevDisplayCount = -1; digitFlips.clear(); lastMilestone = 0
+    celebrateMs = -1L; bannerQueue.clear(); particles.clear()
+    synchronized(floatLabels) { floatLabels.clear() }
+    dragChain.clear(); chainPings.clear(); fingerHeld = false
+    counterPulseMs = -1L; chainFlashMs = -1L
+    shuffleAnimMs = -1L; noMovesWarningMs = -1L
+    hintCells = emptyList(); tutorialCells = emptyList()
     lastActionMs = SystemClock.elapsedRealtime()
-    computeLayout()
-    boardEntryMs = SystemClock.elapsedRealtime()
 }
