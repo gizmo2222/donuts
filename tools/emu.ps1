@@ -6,12 +6,18 @@
   Start   - boot the AVD and wait until Android has finished booting.
   Install - install app\build\outputs\apk\debug\app-debug.apk over the old one and open the app.
   Shot    - save a screenshot to build\shots\<Name>.png.
+  Tap     - tap the first point of -Path (for example Play on the home screen).
   Drag    - press at the first point of -Path, move through the others, lift (draws a chain).
+  Plant   - stop the app, write -Board as the saved board in its prefs, and reopen it. Press Play to
+            load it. Use it to set up a chain on purpose, for example a power-up.
   Stop    - shut the emulator and the adb server down.
+.PARAMETER Board
+  Plant only: a SavedBoard text, "v1;<size>;<sessionSaved>;<cells>;<cleared>". Cells are row by row,
+  each a DonutType ordinal (add 256 for golden); size must match the grid size in Settings.
 .PARAMETER Avd
   The AVD to boot (Start only). Default: Pixel_8a.
 .PARAMETER Path
-  Drag only: screen points in pixels, "x,y x,y x,y".
+  Drag and Tap: screen points in pixels, "x,y x,y x,y". Tap uses the first point only.
 .PARAMETER ColdBoot
   Start only: boot from scratch instead of from the saved snapshot (use when the device stays "offline").
 .PARAMETER Name
@@ -21,8 +27,9 @@
 #>
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('Start', 'Install', 'Shot', 'Drag', 'Stop')]
+    [ValidateSet('Start', 'Install', 'Shot', 'Tap', 'Drag', 'Plant', 'Stop')]
     [string]$Action,
+    [string]$Board = '',
     [string]$Avd = 'Pixel_8a',
     [string]$Name = 'shot',
     [string]$Path = '',
@@ -79,6 +86,13 @@ switch ($Action) {
         & $adb shell rm /sdcard/donuts-shot.png
         Write-Output "EMU OK: $file"
     }
+    'Tap' {
+        $first = @($Path.Trim() -split '\s+' | Where-Object { $_ -match '^\d+,\d+$' }) | Select-Object -First 1
+        if (-not $first) { Write-Output 'EMU FAILED: -Path needs a point, like "540,1740"'; exit 1 }
+        & $adb shell input tap ($first -replace ',', ' ')
+        if ($LASTEXITCODE -ne 0) { Write-Output 'EMU FAILED: tap'; exit 1 }
+        Write-Output "EMU OK: tapped $first"
+    }
     'Drag' {
         $points = @($Path.Trim() -split '\s+' | Where-Object { $_ -match '^\d+,\d+$' })
         if ($points.Count -lt 2) { Write-Output 'EMU FAILED: -Path needs at least two points, like "222,1134 96,1260"'; exit 1 }
@@ -92,6 +106,26 @@ switch ($Action) {
         & $adb shell ($steps -join ' && sleep 0.1 && ')
         if ($LASTEXITCODE -ne 0) { Write-Output 'EMU FAILED: drag'; exit 1 }
         Write-Output "EMU OK: dragged through $($points.Count) points"
+    }
+    'Plant' {
+        if ($Board -notmatch '^v1;\d+;\d+;[\d,]+;[\d,]*$') { Write-Output 'EMU FAILED: -Board must be a SavedBoard text like "v1;6;0;0,1,...;0,0,0,0,0,0"'; exit 1 }
+        & $adb shell am force-stop com.donuts.game | Out-Null    # no onPause, so the planted board is not overwritten
+        $xml = (& $adb exec-out run-as com.donuts.game cat shared_prefs/donuts.xml 2>$null | Out-String)
+        if ($xml -notmatch '<map') { $xml = "<?xml version='1.0' encoding='utf-8' standalone='yes' ?>`n<map>`n</map>`n" }
+        $entry = '<string name="saved_board">' + $Board + '</string>'
+        if ($xml -match '<string name="saved_board">[^<]*</string>') { $xml = $xml -replace '<string name="saved_board">[^<]*</string>', $entry }
+        else { $xml = $xml -replace '</map>', "    $entry`n</map>" }
+        $tmp = Join-Path $env:TEMP 'donuts-plant.xml'
+        [System.IO.File]::WriteAllText($tmp, $xml)
+        & $adb push $tmp /data/local/tmp/donuts.xml | Out-Null
+        & $adb shell chmod 644 /data/local/tmp/donuts.xml
+        & $adb shell run-as com.donuts.game cp /data/local/tmp/donuts.xml shared_prefs/donuts.xml
+        $ok = $LASTEXITCODE -eq 0
+        & $adb shell rm /data/local/tmp/donuts.xml
+        Remove-Item $tmp -ErrorAction SilentlyContinue
+        if (-not $ok) { Write-Output 'EMU FAILED: could not write the prefs (is the debug build installed?)'; exit 1 }
+        & $adb shell am start -n com.donuts.game/.MainActivity | Out-Null
+        Write-Output 'EMU OK: board planted; wait about 6 s (taps during start-up are lost), then Tap Play to load it'
     }
     'Stop' {
         $devices = (& $adb devices 2>$null | Out-String)
