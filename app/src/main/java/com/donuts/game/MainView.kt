@@ -74,16 +74,18 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         val safeL = insetL.toFloat();    val safeT = insetT.toFloat()
         val safeW = w - insetL - insetR; val safeH = h - insetT - insetB
 
-        logoR  = min(safeW, safeH) * 0.20f
+        // Bigger logo on tall phones; the width limits it on wide ones
+        logoR  = min(safeW * 0.27f, safeH * 0.17f)
         logoCX = safeL + safeW / 2f
-        // Logo sits at 34% of the safe height, leaving room for title + button below
-        logoCY = safeT + safeH * 0.34f
-        val line1Y = logoCY + logoR * 1.82f
-        val line2Y = line1Y + logoR * 0.56f
-        // Play: big and thumb-friendly. 72dp tall, ~70% of the width, capped at 300dp.
+        // Play: big and thumb-friendly. 80dp tall, ~70% of the width, capped at 300dp.
         val btnW = min(safeW * 0.70f, 300f * u)
-        val btnH = 72f * u
-        val btnY = (line2Y + logoR * 0.72f).coerceAtMost(safeT + safeH - btnH - 80f * u)
+        val btnH = 80f * u
+        // The group (logo top down to the button bottom) is centred at 46% of the safe height.
+        // Offsets from logoCY: title line 1 at 1.82r, line 2 at +0.60r (same as drawTitle), button at +0.72r.
+        val groupH = logoR + logoR * (1.82f + 0.60f + 0.72f) + btnH
+        val groupTop = safeT + safeH * 0.46f - groupH / 2f
+        logoCY = groupTop + logoR
+        val btnY = (logoCY + logoR * (1.82f + 0.60f + 0.72f)).coerceAtMost(safeT + safeH - btnH - 80f * u)
         playRect = RectF(logoCX - btnW / 2f, btnY, logoCX + btnW / 2f, btnY + btnH)
 
         bgPaint.shader = LinearGradient(0f, 0f, 0f, h, bgTop, bgBot, Shader.TileMode.CLAMP)

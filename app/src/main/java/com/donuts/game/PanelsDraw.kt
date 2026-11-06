@@ -145,8 +145,9 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
             // White with a dark cartoon outline, so it reads on the pale tiles (yellow, mint) too
             drawLabel(canvas, STICKER_NAMES[i], cx, rect.bottom - rect.height() * 0.09f,
                 rect.height() * 0.150f, rect.width() - 10f * u, Color.WHITE, outlined = true)
-            // Earned checkmark badge — top right
-            val bx = rect.right - 1f; val by = rect.top + 1f; val br2 = 8f * u
+            // Earned checkmark badge — inside the tile's top right corner
+            val br2 = min(8f * u, rect.width() * 0.11f); val inset = 3f * u + 1.5f * u
+            val bx = rect.right - br2 - inset; val by = rect.top + br2 + inset
             fillPaint.color = Color.argb(220, 28, 12, 0)
             canvas.drawCircle(bx, by, br2 + 1.5f * u, fillPaint)
             fillPaint.color = Color.rgb(80, 210, 80)

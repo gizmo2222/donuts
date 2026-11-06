@@ -27,16 +27,23 @@ internal fun GameView.computeLayout() {
 
     // Chrome in design-dp: one quiet button row above the board, one number below it
     val btnH      = 56f * u
-    val btnGap    = 10f * u
-    val btnBlockH = btnH + btnGap
-    counterH      = 88f * u
-    val stripH    = 64f * u     // the donut-box strip under the counter
+    val baseGap   = 10f * u
+    val baseCtrH  = 88f * u
+    val baseStrip = 64f * u     // the donut-box strip under the counter
 
     // Board: fills the safe width, but never taller than the space left after the
-    // button row above and the counter below.
-    val boardPx = min(safeW - margin * 2f, safeH - margin * 2f - btnBlockH - counterH - stripH)
+    // button row above and the counter below. Sized from the base chrome, so spare
+    // height never widens it.
+    val boardPx = min(safeW - margin * 2f, safeH - margin * 2f - (btnH + baseGap) - baseCtrH - baseStrip)
     cellSize  = boardPx / board.cols
     boardLeft = safeL + (safeW - boardPx) / 2f
+
+    // Spare height (tall phones) goes to the chrome: bigger counter, taller strip, a wider gap
+    val spare     = safeH - (btnH + baseGap + boardPx + baseCtrH + baseStrip)
+    counterH      = baseCtrH + LayoutMath.spareShare(spare, 0.25f, 32f * u)
+    val stripH    = baseStrip + LayoutMath.spareShare(spare, 0.25f, 28f * u)
+    val btnGap    = baseGap + LayoutMath.spareShare(spare, 0.15f, 16f * u)
+    val btnBlockH = btnH + btnGap
 
     // Centre the whole block (buttons + board + counter) inside the safe area
     val totalBlockH = btnBlockH + boardPx + counterH + stripH
@@ -106,26 +113,32 @@ internal fun GameView.placeSettings(pw: Float, safeL: Float, safeT: Float, safeW
 
 /** Sticker panel: 4 rows of 3 tiles sized by whichever of width or height is tighter. */
 internal fun GameView.layoutStickersPanel(safeL: Float, safeT: Float, safeW: Float, safeH: Float) {
-    val spW      = min(safeW - 24f * u, 560f * u)
+    val maxW     = min(safeW - 24f * u, 560f * u)
+    val minW     = min(320f * u, maxW)   // still fits the donut box row, the stats line and Close
     val spPad    = 10f * u
     val spTitleH = 56f * u
     val spBoxH   = 64f * u      // the donut box: the goal that never runs out
     val spStatsH = 28f * u
     val spCloseH = 56f * u
-    val tileFromW = (spW - spPad * 4f) / 3f
-    val tileFromH = (safeH - 24f * u - spTitleH - spBoxH - spStatsH - spCloseH - spPad * 8f) / 4f
-    val side = min(tileFromW, tileFromH)
-    val spH  = spTitleH + side * 4f + spPad * 4f + spBoxH + spStatsH + spCloseH + spPad * 3f
+    val minGut   = 14f * u
+    val sideFromW = LayoutMath.fitSide(maxW - spPad * 2f, 3, minGut)
+    val fixedH    = spTitleH + spBoxH + spStatsH + spCloseH + spPad * 5f
+    val sideFromH = LayoutMath.fitSide(safeH - 24f * u - fixedH, 4, minGut)
+    val side = min(sideFromW, sideFromH)
+    val gut  = LayoutMath.gutter(side, minGut)
+    val gridW = side * 3f + gut * 2f
+    // Hugs the grid when height limits the tiles; never narrower than minW
+    val spW  = (gridW + spPad * 2f).coerceIn(minW, maxW)
+    val spH  = fixedH + side * 4f + gut * 3f
     val spL  = safeL + (safeW - spW) / 2f
     val spT  = safeT + (safeH - spH) / 2f
     stickerPanelRect = RectF(spL, spT, spL + spW, spT + spH)
-    val gridW  = side * 3f + spPad * 2f
     val gridX0 = spL + (spW - gridW) / 2f
     val row1Y  = spT + spTitleH
     for (i in 0 until 12) {
         val col = i % 3; val row = i / 3
-        val sx = gridX0 + col * (side + spPad)
-        val sy = row1Y + row * (side + spPad)
+        val sx = gridX0 + col * (side + gut)
+        val sy = row1Y + row * (side + gut)
         stickerRects[i].set(sx, sy, sx + side, sy + side)
     }
     val boxTop = stickerRects[11].bottom + spPad * 2f
