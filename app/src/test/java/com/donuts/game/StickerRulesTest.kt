@@ -75,4 +75,10 @@ class StickerRulesTest {
             assertEquals("slots at $life", slots, StickerRules.slotsFilled(life))
         }
     }
+
+    @Test fun allZeroStatsEarnNothingAndEmptyTheBox() {
+        assertEquals(0, StickerRules.earnedMask(empty))
+        assertEquals(0, StickerRules.boxesFilled(0))
+        assertEquals(0, StickerRules.slotsFilled(0))
+    }
 }

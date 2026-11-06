@@ -74,7 +74,8 @@ internal fun GameView.placeSettings(pw: Float, safeL: Float, safeT: Float, safeW
     val rowH   = 56f * k
     val secGap = 40f * k      // room for a section label above each row
     val closeH = 56f * k
-    val ph = titleH + rowH + (secGap + rowH) * 3f + secGap + closeH + pad
+    val verH   = 24f * k      // the small version line under Done
+    val ph = titleH + rowH + (secGap + rowH) * 4f + secGap + closeH + pad + verH
     val pl = safeL + (safeW - pw) / 2f
     val pt = safeT + (safeH - ph) / 2f
     panelRect = RectF(pl, pt, pl + pw, pt + ph)
@@ -88,12 +89,15 @@ internal fun GameView.placeSettings(pw: Float, safeL: Float, safeT: Float, safeW
         }
     }
     val sTop = pt + titleH
-    val hTop = sTop + rowH + secGap
+    val bTop = sTop + rowH + secGap
+    val hTop = bTop + rowH + secGap
     val gTop = hTop + rowH + secGap
     val rTop = gTop + rowH + secGap
-    row(soundRects, sTop); row(hintRects, hTop); row(gridRects, gTop)
-    settingsResetRect = RectF(pl + pad, rTop, pl + pw - pad, rTop + rowH)
-    settingsCloseRect = RectF(pl + pad, pt + ph - closeH - pad, pl + pw - pad, pt + ph - pad)
+    row(soundRects, sTop); row(buzzRects, bTop); row(hintRects, hTop); row(gridRects, gTop)
+    val rw = (pw - pad * 3f) / 2f
+    settingsResetRect    = RectF(pl + pad, rTop, pl + pad + rw, rTop + rowH)
+    settingsStickersRect = RectF(pl + pad * 2f + rw, rTop, pl + pw - pad, rTop + rowH)
+    settingsCloseRect = RectF(pl + pad, pt + ph - verH - closeH - pad, pl + pw - pad, pt + ph - verH - pad)
     return ph
 }
 

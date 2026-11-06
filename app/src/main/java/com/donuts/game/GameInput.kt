@@ -14,13 +14,15 @@ import kotlin.math.*
 // Touch handling: panel hits, dragging a chain, releasing it, New game.
 // Part of GameView: these are extension functions on it, split out of GameView.kt.
 
-// Panel hit ids: 0-5 option buttons (sound, hints, size), 6 New game, 7 Done, 8 outside the panel,
+// Panel hit ids: 0-5 option buttons (sound, hints, size), 10-11 buzz, 6 New game, 9 Reset stickers, 7 Done, 8 outside the panel,
 // -1 the panel itself (not a button)
 internal fun GameView.settingsHit(x: Float, y: Float): Int {
-    val opts = arrayOf(soundRects[0], soundRects[1], hintRects[0], hintRects[1], gridRects[0], gridRects[1])
-    for (i in opts.indices) if (opts[i].contains(x, y)) return i
+    val opts = arrayOf(soundRects[0], soundRects[1], hintRects[0], hintRects[1], gridRects[0], gridRects[1],
+                       buzzRects[0], buzzRects[1])
+    for (i in opts.indices) if (opts[i].contains(x, y)) return if (i < 6) i else i + 4
     return when {
         settingsResetRect.contains(x, y) -> 6
+        settingsStickersRect.contains(x, y) -> 9
         settingsCloseRect.contains(x, y) -> 7
         !panelRect.contains(x, y)        -> 8
         else -> -1
@@ -39,6 +41,7 @@ internal fun GameView.panelHitRect(hit: Int): RectF? {
     return when (hit) {
         0 -> soundRects[0]; 1 -> soundRects[1]; 2 -> hintRects[0]; 3 -> hintRects[1]
         4 -> gridRects[0];  5 -> gridRects[1];  6 -> settingsResetRect
+        9 -> settingsStickersRect; 10 -> buzzRects[0]; 11 -> buzzRects[1]
         7 -> if (inSettings) settingsCloseRect else stickersCloseRect
         else -> null
     }
@@ -49,6 +52,8 @@ internal fun GameView.handleSettingsTouch(x: Float, y: Float) {
     when {
         soundRects[0].contains(x, y) -> prefs.soundEnabled = true
         soundRects[1].contains(x, y) -> prefs.soundEnabled = false
+        buzzRects[0].contains(x, y)  -> { prefs.hapticEnabled = true; hapticEngine.tick() }
+        buzzRects[1].contains(x, y)  -> prefs.hapticEnabled = false
         hintRects[0].contains(x, y)  -> prefs.hintDelayMs = hintOptions[0]
         hintRects[1].contains(x, y)  -> prefs.hintDelayMs = hintOptions[1]
         gridRects[0].contains(x, y) || gridRects[1].contains(x, y) -> {
@@ -56,12 +61,15 @@ internal fun GameView.handleSettingsTouch(x: Float, y: Float) {
             if (prefs.gridSize != size) { prefs.gridSize = size; rebuildBoard() }
         }
         settingsResetRect.contains(x, y) -> {
-            val confirmActive = resetConfirmMs >= 0 && (now - resetConfirmMs) < RESET_CONFIRM_MS
-            if (confirmActive) { resetConfirmMs = -1L; startOver(); settingsOpen = false }
-            else resetConfirmMs = now
+            stickersConfirm.cancel()
+            if (newGameConfirm.tap(now)) { startOver(); settingsOpen = false }
+        }
+        settingsStickersRect.contains(x, y) -> {
+            newGameConfirm.cancel()
+            if (stickersConfirm.tap(now)) resetStickers()
         }
         settingsCloseRect.contains(x, y) || !panelRect.contains(x, y) -> {
-            resetConfirmMs = -1L
+            newGameConfirm.cancel(); stickersConfirm.cancel()
             settingsOpen = false
         }
     }
@@ -69,6 +77,16 @@ internal fun GameView.handleSettingsTouch(x: Float, y: Float) {
 
 internal fun GameView.handleStickersTouch(x: Float, y: Float) {
     if (stickersCloseRect.contains(x, y) || !stickerPanelRect.contains(x, y)) stickersOpen = false
+}
+
+/** Back to 0 of 12 stickers and an empty donut box. The board is banked and cleared first so nothing from it counts again. */
+internal fun GameView.resetStickers() {
+    startOver()
+    prefs.lifetimeDonuts = 0; prefs.highScore6x6 = 0; prefs.highScore8x8 = 0
+    prefs.bestChainLength = 0; prefs.sessionCount = 0; prefs.goldenPopped = false
+    sessionSaved = 0; earnedMask = -1; boxesSeen = -1; allStickersParty = false
+    newGameConfirm.cancel(); stickersConfirm.cancel()
+    settingsOpen = false
 }
 
 /** Fresh board and counter. Session stats are saved first so stickers keep counting. */

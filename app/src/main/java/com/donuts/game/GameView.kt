@@ -44,6 +44,8 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var panelRect         = RectF()
     internal val soundRects        = Array(2) { RectF() }
     internal val hintRects         = Array(2) { RectF() }
+    internal val buzzRects         = Array(2) { RectF() }
+    internal var settingsStickersRect = RectF()
     internal val gridRects         = Array(2) { RectF() }
     internal var settingsResetRect = RectF()
     internal var settingsCloseRect = RectF()
@@ -57,8 +59,11 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal val gridLabels  = arrayOf("Big  6×6", "Small  8×8")
 
     // "Start over" two-tap confirm. It lives in Settings so a stray tap cannot wipe the board.
-    internal var resetConfirmMs   = -1L
-    internal val RESET_CONFIRM_MS = 1500L
+    internal val newGameConfirm   = TwoTapConfirm(1500L)
+    internal val stickersConfirm  = TwoTapConfirm(1500L)
+    internal val appVersion: String = try {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: ""
+    } catch (_: Exception) { "" }
 
     // -----------------------------------------------------------------------
     // Hint
@@ -527,7 +532,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // System Back: close an open panel first; false means nothing was open
     fun onBackPressed(): Boolean {
         synchronized(holder) {
-            if (settingsOpen) { settingsOpen = false; resetConfirmMs = -1L; return true }
+            if (settingsOpen) { settingsOpen = false; newGameConfirm.cancel(); stickersConfirm.cancel(); return true }
             if (stickersOpen) { stickersOpen = false; return true }
         }
         return false

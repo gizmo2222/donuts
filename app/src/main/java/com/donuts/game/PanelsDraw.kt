@@ -275,6 +275,10 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
     drawSettingsBtn(canvas, now, soundRects[0], onOffLabels[0], prefs.soundEnabled)
     drawSettingsBtn(canvas, now, soundRects[1], onOffLabels[1], !prefs.soundEnabled)
 
+    drawSectionLabel(canvas, "Buzz", pl + pad, buzzRects[0].top - 8f * k)
+    drawSettingsBtn(canvas, now, buzzRects[0], onOffLabels[0], prefs.hapticEnabled)
+    drawSettingsBtn(canvas, now, buzzRects[1], onOffLabels[1], !prefs.hapticEnabled)
+
     drawSectionLabel(canvas, "Hints", pl + pad, hintRects[0].top - 8f * k)
     val hintsOn = prefs.hintDelayMs != 0L
     drawSettingsBtn(canvas, now, hintRects[0], onOffLabels[0], hintsOn)
@@ -283,17 +287,33 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
     drawSectionLabel(canvas, "Donut size", pl + pad, gridRects[0].top - 8f * k)
     for (i in 0 until 2) drawSettingsBtn(canvas, now, gridRects[i], gridLabels[i], gridOptions[i] == prefs.gridSize)
 
-    // New game: two-tap confirm so a stray tap cannot wipe the board
-    val confirmActive = resetConfirmMs >= 0 && (now - resetConfirmMs) < RESET_CONFIRM_MS
-    if (resetConfirmMs >= 0 && !confirmActive) resetConfirmMs = -1L
-    val resetColor = if (confirmActive) Color.rgb(220, 130, 30) else Color.rgb(200, 70, 50)
-    val resetLabel = if (confirmActive) "Tap again!" else "New game"
-    drawPrettyButton(canvas, settingsResetRect, resetColor, resetLabel, 18f * k, pressScaleFor(settingsResetRect, now))
-    if (confirmActive) {
-        val progress = 1f - (now - resetConfirmMs).toFloat() / RESET_CONFIRM_MS
-        val bx = settingsResetRect.left + 10f * k
-        val bw = settingsResetRect.width() - 20f * k
-        val by = settingsResetRect.bottom - 8f * k
+    // Two-tap confirm buttons so a stray tap cannot wipe the board or the stickers
+    drawConfirmButton(canvas, now, settingsResetRect, newGameConfirm, "New game", Color.rgb(200, 70, 50))
+    drawConfirmButton(canvas, now, settingsStickersRect, stickersConfirm, "Reset stickers", Color.rgb(150, 70, 170))
+
+    drawPrettyButton(canvas, settingsCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 18f * k, pressScaleFor(settingsCloseRect, now))
+
+    // Version: small and muted, not a button
+    if (appVersion.isNotEmpty()) {
+        textPaint.textSize = 13f * k; textPaint.textAlign = Paint.Align.CENTER
+        textPaint.color = Color.argb(110, 60, 30, 0)
+        canvas.drawText("v$appVersion", panelRect.centerX(), panelRect.bottom - 14f * k, textPaint)
+    }
+
+    canvas.restore()
+}
+
+/** A pretty button that needs two taps within the window, with a draining bar while armed. */
+internal fun GameView.drawConfirmButton(canvas: Canvas, now: Long, rect: RectF, confirm: TwoTapConfirm, label: String, color: Int) {
+    val k = u * settingsSc
+    val armed = confirm.isArmed(now)
+    drawPrettyButton(canvas, rect, if (armed) Color.rgb(220, 130, 30) else color,
+        if (armed) "Tap again!" else label, 16f * k, pressScaleFor(rect, now))
+    if (armed) {
+        val progress = confirm.progress(now)
+        val bx = rect.left + 10f * k
+        val bw = rect.width() - 20f * k
+        val by = rect.bottom - 8f * k
         val bh = 3f * k
         fillPaint.color = Color.argb(60, 28, 12, 0)
         canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + bw, by + bh) }, bh / 2, bh / 2, fillPaint)
@@ -301,10 +321,6 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
         canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + bw * progress, by + bh) }, bh / 2, bh / 2, fillPaint)
         fillPaint.alpha = 255
     }
-
-    drawPrettyButton(canvas, settingsCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 18f * k, pressScaleFor(settingsCloseRect, now))
-
-    canvas.restore()
 }
 
 /** Small green check badge used on selected settings buttons. */
