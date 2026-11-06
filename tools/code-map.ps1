@@ -3,7 +3,7 @@
   Maps the Kotlin sources so a function can be read by line range instead of opening a whole file.
   With no parameters it lists every source file with its line count.
 .PARAMETER File
-  A source file name (for example BoardDraw.kt). Lists its functions and types with start lines.
+  A source file name (for example BoardDraw.kt, or BoardDraw). Lists its functions and types with start lines.
 .PARAMETER Match
   A regex on function or type names. Searches every file and prints file:line for each hit.
 .EXAMPLE
@@ -26,6 +26,7 @@ if (-not $File -and -not $Match) {
     }
     exit 0
 }
+if ($File -and -not $File.EndsWith('.kt')) { $File += '.kt' }
 $files = if ($File) { Get-Item (Join-Path $src $File) } else { Get-ChildItem $src -Filter *.kt | Sort-Object Name }
 foreach ($f in $files) {
     $n = 0

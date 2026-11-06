@@ -257,7 +257,7 @@ internal fun GameView.easeOutBack(t: Float): Float {
 
 // Every sticker earned mid-game gets its moment; so does every full donut box
 internal fun GameView.checkStickers(now: Long) {
-    val boxes = lifetimeDonuts() / (BOX_SLOTS * BOX_SLOT_DONUTS)
+    val boxes = StickerRules.boxesFilled(lifetimeDonuts())
     if (boxesSeen < 0) boxesSeen = boxes
     else if (boxes > boxesSeen && celebrateMs < 0 && stickerFlyMs < 0) {
         boxesSeen = boxes
@@ -265,8 +265,7 @@ internal fun GameView.checkStickers(now: Long) {
         starPulseMs = now
     }
 
-    var mask = 0
-    for (i in 0 until 12) if (isStickerEarned(i)) mask = mask or (1 shl i)
+    val mask = StickerRules.earnedMask(stickerStats())
     if (earnedMask < 0) { earnedMask = mask; return }
     if (stickerFlyMs >= 0) return
     val fresh = mask and earnedMask.inv()

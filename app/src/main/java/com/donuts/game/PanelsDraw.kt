@@ -17,26 +17,18 @@ import kotlin.math.*
 // -----------------------------------------------------------------------
 // Stickers panel
 // -----------------------------------------------------------------------
+/** What the sticker rules need, read from prefs and the current board. */
+internal fun GameView.stickerStats() = StickerStats(
+    lifetime     = lifetimeDonuts(),
+    highScore6x6 = prefs.highScore6x6,
+    highScore8x8 = prefs.highScore8x8,
+    bestChain    = prefs.bestChainLength,
+    goldenPopped = prefs.goldenPopped,
+    sessions     = prefs.sessionCount
+)
+
 /** Returns true if sticker i has been earned. */
-internal fun GameView.isStickerEarned(i: Int): Boolean {
-    val lifetime  = lifetimeDonuts()
-    val bestScore = max(prefs.highScore6x6, prefs.highScore8x8)
-    return when (i) {
-        0  -> lifetime >= 10
-        1  -> lifetime >= 50
-        2  -> lifetime >= 500
-        3  -> prefs.bestChainLength >= 4
-        4  -> prefs.bestChainLength >= 6
-        5  -> prefs.bestChainLength >= 8
-        6  -> bestScore >= 20
-        7  -> bestScore >= 60
-        8  -> bestScore >= 200
-        9  -> prefs.goldenPopped
-        10 -> prefs.highScore6x6 > 0 && prefs.highScore8x8 > 0
-        11 -> prefs.sessionCount >= 10
-        else -> false
-    }
-}
+internal fun GameView.isStickerEarned(i: Int): Boolean = StickerRules.isEarned(i, stickerStats())
 
 internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
     val eased  = easeOutQuint(stickersAnim)
@@ -200,10 +192,9 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
  */
 internal fun GameView.drawDonutBox(canvas: Canvas) {
     val rect   = donutBoxRect
-    val perBox = BOX_SLOTS * BOX_SLOT_DONUTS
     val life   = lifetimeDonuts()
-    val boxes  = life / perBox
-    val filled = (life % perBox) / BOX_SLOT_DONUTS
+    val boxes  = StickerRules.boxesFilled(life)
+    val filled = StickerRules.slotsFilled(life)
 
     // Box: two rows of six slots, sized to the row height
     val slot = rect.height() * 0.42f
@@ -225,7 +216,7 @@ internal fun GameView.drawDonutBox(canvas: Canvas) {
     canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + boxW, by + boxH) }, 10f * u, 10f * u, fillPaint)
 
     val types = DonutType.values()
-    for (i in 0 until BOX_SLOTS) {
+    for (i in 0 until StickerRules.BOX_SLOTS) {
         val col = i % 6; val row = i / 6
         val cx = bx + gap + slot / 2f + col * (slot + gap)
         val cy = by + gap + slot / 2f + row * (slot + gap)

@@ -120,11 +120,9 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal val stickerRects      = Array(12) { RectF() }
     internal var stickersCloseRect = RectF()
 
-    // Donut box: one slot fills every BOX_SLOT_DONUTS donuts popped, ever; a full box is banked
-    // and a fresh one starts. It never runs out, so there is always something filling up.
+    // Donut box: one slot fills every StickerRules.BOX_SLOT_DONUTS donuts popped, ever; a full box
+    // is banked and a fresh one starts. It never runs out, so there is always something filling up.
     internal val donutBoxRect     = RectF()
-    internal val BOX_SLOTS        = 12
-    internal val BOX_SLOT_DONUTS  = 10
     internal var boxesSeen        = -1        // full boxes at the last check; -1 until first frame
     internal var allStickersParty = false     // "all 12" banner waits until the sticker fly lands
 
