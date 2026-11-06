@@ -1,2 +1,6 @@
-Your board and donut count are now kept if the game has to restart.
-Fixed a crash that could happen when leaving the game.
+Play takes you back to the board you left.
+Settings: switch buzzing off, see the version, reset stickers.
+Big chains now go BOOM, WHOOSH and KABOOM.
+The donut box fills up under the counter.
+Layout fits tall screens better.
+New icon with the soccer ball.
