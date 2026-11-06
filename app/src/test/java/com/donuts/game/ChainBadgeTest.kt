@@ -2,6 +2,7 @@ package com.donuts.game
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ChainBadgeTest {
@@ -19,12 +20,26 @@ class ChainBadgeTest {
         assertEquals(1 to 2, ChainBadge.spot(listOf(2 to 1, 1 to 1, 1 to 2, 2 to 2)))
     }
 
-    @Test fun nonChainNeighbourIsNeverPicked() {
-        // (1,3) sits above the last cell (2,3) but is not in the chain; (2,2) is
-        assertEquals(2 to 2, ChainBadge.spot(listOf(2 to 1, 2 to 2, 2 to 3)))
-        // last (4,3): (3,3) above is in the chain, (4,4) is not a neighbour pick candidate
-        val spot = ChainBadge.spot(listOf(3 to 3, 4 to 3))
-        assertEquals(3 to 3, spot)
+    @Test fun spotIsAlwaysAnEarlierChainCellNextToTheLast() {
+        // Random walks on an 8x8 board, as a finger draws them (8-neighbour steps, no repeats)
+        val rnd = java.util.Random(7)
+        repeat(500) {
+            val chain = mutableListOf(rnd.nextInt(8) to rnd.nextInt(8))
+            val len = 2 + rnd.nextInt(12)
+            while (chain.size < len) {
+                val (r, c) = chain.last()
+                val next = (r + rnd.nextInt(3) - 1) to (c + rnd.nextInt(3) - 1)
+                if (next.first !in 0..7 || next.second !in 0..7 || next in chain) {
+                    if (rnd.nextInt(20) == 0) break else continue
+                }
+                chain += next
+            }
+            if (chain.size < 2) return@repeat
+            val spot = ChainBadge.spot(chain)!!
+            val (lr, lc) = chain.last()
+            assertTrue(spot in chain.dropLast(1))
+            assertTrue(Math.abs(spot.first - lr) <= 1 && Math.abs(spot.second - lc) <= 1)
+        }
     }
 
     @Test fun loopBackPicksPreferredDirection() {
