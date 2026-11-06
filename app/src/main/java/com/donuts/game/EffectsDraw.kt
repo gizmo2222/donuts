@@ -60,7 +60,8 @@ internal fun GameView.drawFloatLabels(canvas: Canvas, now: Long) {
 internal fun GameView.drawCenterPing(canvas: Canvas, now: Long) {
     if (dragChain.isEmpty()) return
     val t = if (centerPingMs < 0) 1f else ((now - centerPingMs).toFloat() / PING_MS).coerceIn(0f, 1f)
-    val (lr, lc) = dragChain.last()
+    val spot = ChainBadge.spot(dragChain)
+    val (lr, lc) = spot ?: dragChain.last()
     val baseCx = boardLeft + lc * cellSize + cellSize / 2f
     val baseCy = boardTop  + lr * cellSize + cellSize / 2f
     val pop = if (reducedMotion) 1f else if (t < 0.3f) 1f + (t / 0.3f) * 0.6f else 1.6f - ((t - 0.3f) / 0.7f) * 0.6f
@@ -68,7 +69,8 @@ internal fun GameView.drawCenterPing(canvas: Canvas, now: Long) {
     val sz  = cellSize * (if (big) 0.95f else 0.70f) * pop
     val cx  = baseCx.coerceIn(boardLeft + sz * 0.6f, boardLeft + board.cols * cellSize - sz * 0.6f)
     val above = baseCy - cellSize * 0.85f
-    val cy  = if (above - sz * 0.5f < boardTop - cellSize * 0.3f) baseCy + cellSize * 0.85f + sz * 0.3f else above
+    val cy  = if (spot != null) baseCy
+              else if (above - sz * 0.5f < boardTop - cellSize * 0.3f) baseCy + cellSize * 0.85f + sz * 0.3f else above
     textPaint.textSize = sz; textPaint.textAlign = Paint.Align.CENTER
     textOutlinePaint.textSize = sz; textOutlinePaint.textAlign = Paint.Align.CENTER
     textOutlinePaint.typeface = boldTypeface; textOutlinePaint.strokeWidth = sz * 0.14f

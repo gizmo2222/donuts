@@ -224,11 +224,7 @@ internal fun GameView.handleUp() {
             label?.let {
                 val cx = allPop.map { (_, c) -> boardLeft + c * cellSize + cellSize / 2f }.average().toFloat()
                 val cy = allPop.map { (r, _) -> boardTop  + r * cellSize + cellSize / 2f }.average().toFloat()
-                val colors = intArrayOf(
-                    Color.rgb(255, 80, 60), Color.rgb(255, 180, 0),
-                    Color.rgb(80, 210, 80), Color.rgb(60, 160, 255), Color.rgb(200, 80, 255)
-                )
-                val col = colors[(chainLen - 4).coerceIn(0, colors.size - 1)]
+                val col = result.chainType.labelColor
                 synchronized(floatLabels) { floatLabels.add(FloatLabel(it, cx, cy, col, now)) }
             }
         }
