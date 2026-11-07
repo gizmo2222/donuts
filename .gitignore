@@ -1,6 +1,10 @@
 *.iml
 *.jks
+*.jks.*
 *.keystore
+*.keystore.*
+*.p12
+*.pem
 app/release/
 .gradle
 /local.properties
