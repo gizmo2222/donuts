@@ -1,7 +1,7 @@
 # Overhaul state
 
-One phase per session, on branch `overhaul/phase-N`. Each session reads this file, does the first phase not
-marked done or skipped, commits on its branch (no push, no merge, no PR) and updates this file.
+The overhaul is finished and merged into `master` (phase 10). Phases 1-9 ran one per session on branches
+`overhaul/phase-N`; those branches are deleted. What is left is under **Deferred** below.
 
 | # | Phase | Status |
 |---|---|---|
@@ -14,6 +14,7 @@ marked done or skipped, commits on its branch (no push, no merge, no PR) and upd
 | 7 | Simulation or game balance | done |
 | 8 | Research | done |
 | 9 | Wrap-up | done |
+| 10 | Land | done |
 
 ## Phase log
 
@@ -61,6 +62,50 @@ Phase 9: the two phase-7 questions are answered with low confidence; the next st
 New `docs/overhaul-summary.md`: per-phase changes, scripts added, what was left (the `.claude/settings.json.disabled` and `NEXT_BUILD.md` decisions are yours), and the top ten next steps, with merge commands and the push-hook warning.
 Overhaul complete; the merge decision is the user's (`git merge --ff-only overhaul/phase-9` on `master`; the post-commit hook pushes the next commit there).
 
+**10 Land (done, on `master`, 2026-11-07).** Fixed on `overhaul/phase-9`, each with a test, full suite green:
+float labels clamped inside the board (`LayoutMath.clampCenter`), a still red ring on a refused donut under reduced
+motion (`drawRefusedCue`, `RefusedCueTest`), keystore backups git-ignored (`*.jks.*`, `*.keystore.*`, `*.p12`, `*.pem`).
+Clean-up the user approved: `.claude/settings.json.disabled` (dormant edit-commit-push-release hook) deleted,
+`NEXT_BUILD.md` reduced to a stub. Merged with `git merge --no-ff` as `0eac174` and pushed by hand (the post-commit
+hook does not fire on a merge). All phase, worker and worktree branches deleted; only `master` remains.
+Released 2.0.5 (versionCode 37, bump commit `45ec917`) to the Play `alpha` track (closed testing) with
+`.\release.ps1` and `.\gradlew.bat publishReleaseBundle`; Play reported the release completed. Smoke check: emulator
+play-through before the upload, then versionCode 37 on alpha.
+
+## Deferred
+
+Each item has its source id from `docs/overhaul-findings.md` or `docs/research.md`; look it up there for the detail.
+
+- **Play production (user only).** Production needs 12 testers opted in for 14 days of closed testing, then
+  Data safety, privacy policy and content rating in the Play Console. Nothing in the repo can do this.
+- **B1. Gradle 9.3 upgrade** (build-1). Gradle 9.2.1 has two CVEs fixed in 9.3.0, not exploitable here. It changes
+  the toolchain that signs the app, so do it at the start of a build cycle, then `.\release.ps1` and a device check.
+- **B2. AndroidX, Material, AGP and Robolectric 4.17 updates** (build-8, build-9). One at a time; each needs a
+  release build, the full suite and a device check.
+- **B3. Drop appcompat/material, the `values-v27` theme, and a `windowBackground` splash fix** (rules-24, build-7).
+  The app draws everything on a `SurfaceView`, so the libraries are mostly dead weight. Check on the emulator at
+  API 26 and 34+.
+- **B4. Build tidy-ups** (build-10, 11, 12): the launcher icon XMLs, the SDK/JDK lookup repeated across scripts,
+  and the proguard rules.
+- **B5. Merge duplicate drawing code and add an `ink()` colour helper** (draw-10/11/15/22/23/24). Pixel-changing
+  with no player benefit; check with `.\tools\gallery.ps1 -Quiet` before and after.
+- **B6. Close rules-18 and tests-8 as kept on purpose.** `ChainRules.accepts` keeps its own all-golden rule.
+  Only the findings file needs editing.
+- **B7. `kidLearner` model in `BalanceSim.kt` and a test-only `GOLDEN_CHANCE`/type-count parameter** (top ten #8).
+  Answers whether real kids reach row blasts and whether 6x6 needs a higher golden chance.
+- **B8. Mutation check of `GameInput`** with `.\tools\mutate.ps1 -File GameInput.kt -Tests 'com.donuts.game.GameInputTest'`.
+  About 1-2 hours of runs; no known bug behind it.
+- **B9. Still untested:** real audio output, `RenderThread` frame pacing, the `saveState` race, pixel checks, sprites.
+- **B10. Real-phone checks:** "Amazing!" over an edge cell on a device, and the landscape layout on Android 16 large
+  screens (top ten #4).
+- **C3. Icons beside the settings labels** (a11y-10, research #6). Needs icon design first.
+- **C5. The sticker box looks small on a tablet** (responsive-7). Needs a layout decision; look at the
+  `10_Tablet` gallery shots.
+- **C6. Research features, one session each** (`docs/research.md` top five): #1 voice cheers that read the words
+  aloud (needs recordings from the user), #2 praise that names the act and Steven (needs the user's OK on the
+  wording), #3 a grown-up moment, #4 loop-the-ring, #5 deterministic donut friends in the box.
+- **Dropped: C4**, silhouettes on locked stickers (states-4); research #5 and #13 advise against them.
+
 ## Which later phases apply
 
 - **6 UI: applies.** Native Android UI drawn on a `SurfaceView` canvas, no web front end. "Phone, tablet and
@@ -74,18 +119,15 @@ Overhaul complete; the merge decision is the user's (`git merge --ff-only overha
 
 ## Notes for later phases
 
-- The git post-commit hook pushes every commit made on `master`. Never commit on `master` during the
-  overhaul; commits on `overhaul/*` branches stay local.
-- The check is `.\tools\check.ps1 -Test -Quiet` (build plus unit tests). Phase branches are made from the
-  previous phase branch, since nothing is merged to `master` until the user does it.
+- The git post-commit hook pushes every commit made on `master`, but not a merge commit: push a merge with
+  `git push origin master`. Commits on other branches stay local.
+- The check is `.\tools\check.ps1 -Test -Quiet` (build plus unit tests).
 - Phase 4: the keystores (`*.jks`) and `play-service-account.json` sit in the repo root but are git-ignored
   and untracked. `keys\` is now git-ignored (phase 4) and untracked. Do not move or change any of them.
 - The doc map in `CLAUDE.md` is generated: `.\tools\code-map.ps1 -UpdateDoc CLAUDE.md`. Re-run it after any
   change to the sources (phase 9 must).
-- Workflow worktrees are cut from `master`, not from the phase branch: a worker that edits code must
-  `git reset --hard overhaul/phase-N` first, and its commits are cherry-picked or checked out file by file.
 - The full suite takes several minutes (Robolectric drawing tests). Run `.\tools\check.ps1 -Test -Quiet` in
   the background and use `-Tests '<class>'` while iterating.
 - Phase 5 choices: anything that changes pixels, dependencies, the theme or release config was logged as risky
-  instead of applied. `ChainRules.accepts` keeps its own all-golden rule (rules-18). The tracked
-  `.claude/settings.json.disabled` push hook is still the user's decision.
+  instead of applied. `ChainRules.accepts` keeps its own all-golden rule (rules-18). The
+  `.claude/settings.json.disabled` push hook was deleted in phase 10.
