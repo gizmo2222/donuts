@@ -12,7 +12,7 @@ marked done or skipped, commits on its branch (no push, no merge, no PR) and upd
 | 5 | Clean-up | done |
 | 6 | UI | done |
 | 7 | Simulation or game balance | done |
-| 8 | Research | todo |
+| 8 | Research | done |
 | 9 | Wrap-up | todo |
 
 ## Phase log
@@ -49,9 +49,13 @@ Phase 6: check by screenshot the settings and stickers taps (dispatch is now `ha
 Fixes include: historical touch points in a drag, panels pausing the game behind them, an opaque "Shuffle time!" banner, reduced-motion caps, and opaque rims (draw-4 decided). The sticker panel is 6x2 on landscape tablets, with hints that wrap.
 Phase 7: the `GameBoard` rules did not change. The gallery is a handy way to look at a balance change without the emulator.
 
-**7 Game balance (done, branch `overhaul/phase-7`).** New `toolsalance.ps1` plays 250 scripted scenarios (5 player models x 2 grids x 25 seeds x 150 moves) and checks the chain rules every move; 9 balance findings, all refuted by skeptics, so no thresholds or `GOLDEN_CHANCE` changed (`docs/overhaul-findings.md`).
+**7 Game balance (done, branch `overhaul/phase-7`).** New `tools\balance.ps1` plays 250 scripted scenarios (5 player models x 2 grids x 25 seeds x 150 moves) and checks the chain rules every move; 9 balance findings, all refuted by skeptics, so no thresholds or `GOLDEN_CHANCE` changed (`docs/overhaul-findings.md`).
 Fixed: `findHint` now returns its cells in drag order (was flood-fill order, 1312 sim moves). New content: cascade words Again!/Wow!/Hooray!/Yippee!/Amazing!, picked by 3 generators and 2 judges who rejected 14 words. 18 agents used.
 Phase 8: open questions worth research are a `kidLearner` model (do real kids reach row blasts?) and whether 6x6 should get a higher golden chance. Check on a device that "Amazing!" fits over an edge cell.
+
+**8 Research (done, branch `overhaul/phase-8`).** New `docs/research.md`: 7 Sonnet researchers, a citation checker per angle (100 URLs opened, 51 items removed), a design and an engineering judge, a writer and a critic (18 agents); the critic's 9 fixes were applied (duplicate ids merged, 72 references, scores re-sorted).
+Top ranked: voice cheers that read the words aloud, praise that names the act and Steven, a grown-up moment, loop-the-ring, deterministic donut friends in the box. 30 features ranked, rejected ideas and a pre-production Play checklist are in the doc. No code changed.
+Phase 9: the two phase-7 questions are answered with low confidence; the next step is a `kidLearner` model in `BalanceSim.kt` and a test-only `GOLDEN_CHANCE`/type-count parameter. List the research top ten in the summary's next steps.
 
 ## Which later phases apply
 
