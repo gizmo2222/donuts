@@ -236,7 +236,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var panelDownHit = -2           // panel hit id under the finger at ACTION_DOWN
 
     // Honour the system animator scale: 0 means the user asked for no animation
-    internal val reducedMotion: Boolean = try {
+    internal var reducedMotion: Boolean = try {
         android.provider.Settings.Global.getFloat(context.contentResolver,
             android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
     } catch (_: Exception) { false }
@@ -270,6 +270,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal val chainOutlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
     internal val chainLinePaint    = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
     internal val hintRingPaint     = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    internal val refusedPaint      = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND }
     internal val dimPaint          = Paint().apply { color = Color.argb(160, 0, 0, 0) }
     internal val shadowPaint       = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     internal val flashPaint        = Paint().apply { style = Paint.Style.FILL }

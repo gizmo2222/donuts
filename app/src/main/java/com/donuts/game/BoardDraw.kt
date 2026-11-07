@@ -101,7 +101,22 @@ internal fun GameView.drawCells(canvas: Canvas, now: Long) {
     canvas.clipRect(boardLeft - frame, boardTop - frame,
                     boardLeft + board.cols * cellSize + frame, boardTop + board.rows * cellSize + frame)
     drawCellsInner(canvas, now)
+    drawRefusedCue(canvas, now)
     canvas.restore()
+}
+
+/** Reduced-motion stand-in for the refusal shake: a still red ring that fades out. */
+internal fun GameView.drawRefusedCue(canvas: Canvas, now: Long) {
+    if (!reducedMotion || shakeMs < 0) return
+    val t = (now - shakeMs).toFloat() / SHAKE_MS
+    val cell = shakeCell
+    if (t >= 1f || cell == null) { shakeMs = -1L; shakeCell = null; return }
+    val a = (220f * (1f - t.coerceAtLeast(0f))).toInt().coerceIn(0, 255)
+    refusedPaint.color = Color.argb(a, 230, 70, 50)
+    refusedPaint.strokeWidth = cellSize * 0.07f
+    val cx = boardLeft + (cell.second + 0.5f) * cellSize
+    val cy = boardTop + (cell.first + 0.5f) * cellSize
+    canvas.drawCircle(cx, cy, cellSize * 0.46f, refusedPaint)
 }
 
 /** The "try these" ring used by the idle hint and the first-run demo. */
