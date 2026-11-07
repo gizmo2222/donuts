@@ -10,7 +10,7 @@ marked done or skipped, commits on its branch (no push, no merge, no PR) and upd
 | 3 | Tests | done |
 | 4 | Security | done |
 | 5 | Clean-up | done |
-| 6 | UI | todo |
+| 6 | UI | done |
 | 7 | Simulation or game balance | todo |
 | 8 | Research | todo |
 | 9 | Wrap-up | todo |
@@ -44,6 +44,10 @@ Phase 5: Gradle 9.2.1 has two CVEs fixed in 9.3.0 (not exploitable here), clamp 
 **5 Clean-up (done, branch `overhaul/phase-5`).** 6 finders and a skeptic per finding: 43 safe items applied in 5 built-and-tested batches (unused imports and resources, dead fields, `onTouchEvent` moved to `GameInput.handleTouch`, `GameBoard.chainTypeOf`/`totalCleared`, `grid_size` clamp, `ValidatePattern` in `check.ps1`/`mutate.ps1`, shared test fixtures, `EnginesTest`); 45 files, net -89 lines, `GameView.kt` now 431 lines.
 17 risky items are logged, not applied, in `docs/overhaul-findings.md`: the Gradle 9.3 CVE upgrade, AndroidX/Material/AGP/Robolectric bumps, dropping appcompat/material, the icon XMLs, proguard, and pixel-changing art merges.
 Phase 6: check by screenshot the settings and stickers taps (dispatch is now `handleSettingsTap`), the panel drawing (shared scratch `RectF`) and the home ball (`ringBase`), and decide the draw-4 border alpha.
+
+**6 UI (done, branch `overhaul/phase-6`).** New `tools\gallery.ps1` renders 18 states at five sizes on the JVM, and the emulator checks passed. 32 of 56 audit findings were confirmed, and all but 4 low ones are fixed (`docs/overhaul-findings.md`).
+Fixes include: historical touch points in a drag, panels pausing the game behind them, an opaque "Shuffle time!" banner, reduced-motion caps, and opaque rims (draw-4 decided). The sticker panel is 6x2 on landscape tablets, with hints that wrap.
+Phase 7: the `GameBoard` rules did not change. The gallery is a handy way to look at a balance change without the emulator.
 
 ## Which later phases apply
 

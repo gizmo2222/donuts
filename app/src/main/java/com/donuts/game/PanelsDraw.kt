@@ -36,8 +36,8 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
         scratchRectF.apply { set(stickerPanelRect.left - bd, stickerPanelRect.top - bd,
               stickerPanelRect.right + bd, stickerPanelRect.bottom + bd) },
         pr + bd, pr + bd, fillPaint)
-    strokePaint.color = Color.argb(200, 255, 255, 255)
-    strokePaint.strokeWidth = ring; strokePaint.alpha = 255
+    strokePaint.color = Color.WHITE
+    strokePaint.strokeWidth = ring
     canvas.drawRoundRect(
         scratchRectF.apply { set(stickerPanelRect.left - ring, stickerPanelRect.top - ring,
               stickerPanelRect.right + ring, stickerPanelRect.bottom + ring) },
@@ -54,14 +54,7 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
     // ---- Title ----
     val titleX = stickerPanelRect.centerX()
     val titleY = stickerPanelRect.top + 36f * u
-    textPaint.textAlign = Paint.Align.CENTER
-    textPaint.color = Color.argb(100, 0, 0, 0); textPaint.textSize = 28f * u
-    canvas.drawText("My Stickers", titleX + 2f * u, titleY + 2.5f * u, textPaint)
-    textPaint.color = theme.textPrimary
-    canvas.drawText("My Stickers", titleX, titleY, textPaint)
-    textOutlinePaint.color = Color.argb(80, 0, 0, 0); textOutlinePaint.strokeWidth = 3f * u
-    textOutlinePaint.textSize = 28f * u; textOutlinePaint.textAlign = Paint.Align.CENTER
-    canvas.drawText("My Stickers", titleX, titleY, textOutlinePaint)
+    drawOutlinedText(canvas, "My Stickers", titleX, titleY - 28f * u * 0.36f, 28f * u, Color.WHITE)
 
     val earnedMask  = StickerRules.earnedMask(stickerStats())
     val earnedCount = Integer.bitCount(earnedMask)
@@ -133,7 +126,7 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
             // Name — bottom
             // White with a dark cartoon outline, so it reads on the pale tiles (yellow, mint) too
             drawLabel(canvas, STICKER_NAMES[i], cx, rect.bottom - rect.height() * 0.09f,
-                rect.height() * 0.150f, rect.width() - 10f * u, Color.WHITE, outlined = true)
+                rect.height() * 0.150f, rect.width() - 16f * u, Color.WHITE, outlined = true)
             // Earned checkmark badge — inside the tile's top right corner
             val br2 = min(8f * u, rect.width() * 0.11f); val inset = 3f * u + 1.5f * u
             val bx = rect.right - br2 - inset; val by = rect.top + br2 + inset
@@ -144,19 +137,19 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
             textPaint.textSize = br2 * 1.4f; textPaint.color = Color.WHITE
             canvas.drawText("\u2713", bx, by + br2 * 0.42f, textPaint)
         } else {
-            // Mystery "?" — warm and inviting, not a broken/disabled lock
-            val qSz = rect.height() * 0.48f
-            val qY  = cy + qSz * 0.36f
+            // Condition hint — tells Steven how to earn it
+            // Big and fully opaque: an early reader has to be able to sound it out
+            val lines = drawTileCaption(canvas, STICKER_DESCS[i], cx, rect.bottom - rect.height() * 0.10f,
+                rect.height() * 0.16f, rect.width() - 16f * u, theme.textPrimary)
+            // Mystery "?" — warm and inviting, not a broken/disabled lock; smaller and higher over a two-line hint
+            val qSz = rect.height() * (if (lines > 1) 0.36f else 0.48f)
+            val qY  = if (lines > 1) rect.top + rect.height() * 0.50f else cy + qSz * 0.36f
             textPaint.textSize  = qSz
             textPaint.textAlign = Paint.Align.CENTER
             textPaint.color     = Color.argb(45, 28, 12, 0)
             canvas.drawText("?", cx + 2f, qY + 2f, textPaint)
             textPaint.color     = Color.argb(140, 100, 60, 10)
             canvas.drawText("?", cx, qY, textPaint)
-            // Condition hint — tells Steven how to earn it
-            // Big and fully opaque: an early reader has to be able to sound it out
-            drawLabel(canvas, STICKER_DESCS[i], cx, rect.bottom - rect.height() * 0.10f,
-                rect.height() * 0.16f, rect.width() - 10f * u, theme.textPrimary, outlined = false)
         }
     }
 
@@ -165,15 +158,33 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
     // ---- Stats line ----
     val statsY = donutBoxRect.bottom + 20f * u
     val lifetime = lifetimeDonuts()
-    textPaint.textSize = 14f * u; textPaint.textAlign = Paint.Align.CENTER
-    textPaint.color = theme.textSecondary
-    canvas.drawText(
-        "$lifetime donuts popped  \u00B7  $earnedCount of 12 stickers",
-        stickerPanelRect.centerX(), statsY, textPaint)
+    drawLabel(canvas, "$lifetime donuts popped  ·  $earnedCount of 12 stickers",
+        stickerPanelRect.centerX(), statsY, 18f * u, stickerPanelRect.width() - 20f * u, theme.textPrimary, outlined = false)
 
     drawPrettyButton(canvas, stickersCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 18f * u, pressScaleFor(stickersCloseRect, now))
 
     canvas.restore()
+}
+
+/**
+ * A locked sticker's hint, kept inside its tile: one line when it fits at 85% of [size] or more,
+ * otherwise two lines split at the space nearest the middle, so an early reader keeps big letters.
+ */
+internal fun GameView.drawTileCaption(canvas: Canvas, text: String, cx: Float, baseline: Float,
+                                      size: Float, maxW: Float, fill: Int): Int {
+    textPaint.textSize = size * 0.85f
+    val split = text.indices.filter { text[it] == ' ' }.minByOrNull { abs(it - text.length / 2) }
+    if (split == null || textPaint.measureText(text) <= maxW) {
+        drawLabel(canvas, text, cx, baseline, size, maxW, fill, outlined = false)
+        return 1
+    }
+    val a = text.substring(0, split); val b = text.substring(split + 1)
+    while (textPaint.textSize > 8f * u && max(textPaint.measureText(a), textPaint.measureText(b)) > maxW)
+        textPaint.textSize *= 0.92f
+    val sz = textPaint.textSize
+    drawLabel(canvas, a, cx, baseline - sz * 1.05f, sz, maxW, fill, outlined = false)
+    drawLabel(canvas, b, cx, baseline, sz, maxW, fill, outlined = false)
+    return 2
 }
 
 /**
@@ -266,7 +277,7 @@ internal fun GameView.drawClosedBox(canvas: Canvas, x: Float, y: Float, s: Float
     canvas.drawRoundRect(scratchRectF.apply { set(x, y, x + s, y + s * 0.30f) }, r, r, fillPaint)
     fillPaint.color = Color.rgb(255, 215, 50)                        // ribbon
     canvas.drawRect(x + s * 0.42f, y, x + s * 0.58f, y + s, fillPaint)
-    strokePaint.color = Color.argb(240, 28, 12, 0); strokePaint.strokeWidth = 2.5f * u; strokePaint.alpha = 255
+    strokePaint.color = Color.rgb(28, 12, 0); strokePaint.strokeWidth = 2.5f * u
     canvas.drawLine(x, y + s * 0.30f, x + s, y + s * 0.30f, strokePaint)
     if (number > 0) drawOutlinedText(canvas, "$number", x + s / 2f, y + s * 0.62f, s * 0.58f, Color.WHITE)
     canvas.restore()
@@ -291,7 +302,7 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
     // Panel: dark cartoon outline, white ring, cream fill
     fillPaint.color = Color.argb(230, 28, 12, 0)
     canvas.drawRoundRect(scratchRectF.apply { set(panelRect.left - bd, panelRect.top - bd, panelRect.right + bd, panelRect.bottom + bd) }, pr + bd, pr + bd, fillPaint)
-    strokePaint.color = Color.argb(200, 255, 255, 255); strokePaint.strokeWidth = ring; strokePaint.alpha = 255
+    strokePaint.color = Color.WHITE; strokePaint.strokeWidth = ring
     canvas.drawRoundRect(scratchRectF.apply { set(panelRect.left - ring, panelRect.top - ring, panelRect.right + ring, panelRect.bottom + ring) }, pr + ring, pr + ring, strokePaint)
     fillPaint.color = theme.panelBg; fillPaint.alpha = 255
     canvas.drawRoundRect(panelRect, pr, pr, fillPaint)
@@ -301,13 +312,7 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
 
     // Title
     val titleX = pl + pw / 2f; val titleY = pt + 48f * k; val titleSz = 30f * k
-    textPaint.color = Color.argb(100, 0, 0, 0); textPaint.textSize = titleSz; textPaint.textAlign = Paint.Align.CENTER
-    canvas.drawText("Settings", titleX + 2f * k, titleY + 2.5f * k, textPaint)
-    textPaint.color = theme.textPrimary
-    canvas.drawText("Settings", titleX, titleY, textPaint)
-    textOutlinePaint.color = Color.argb(90, 0, 0, 0); textOutlinePaint.strokeWidth = 2.5f * k
-    textOutlinePaint.textSize = titleSz; textOutlinePaint.textAlign = Paint.Align.CENTER
-    canvas.drawText("Settings", titleX, titleY, textOutlinePaint)
+    drawOutlinedText(canvas, "Settings", titleX, titleY - titleSz * 0.36f, titleSz, Color.WHITE)
 
     drawSectionLabel(canvas, "Sound", pl + pad, soundRects[0].top - 8f * k)
     drawSettingsBtn(canvas, now, soundRects[0], onOffLabels[0], prefs.soundEnabled)
@@ -326,8 +331,8 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
     for (i in gridOptions.indices) drawSettingsBtn(canvas, now, gridRects[i], gridLabels[i], gridOptions[i] == prefs.gridSize)
 
     // Two-tap confirm buttons so a stray tap cannot wipe the board or the stickers
-    drawConfirmButton(canvas, now, settingsResetRect, newGameConfirm, "New game", Color.rgb(200, 70, 50))
-    drawConfirmButton(canvas, now, settingsStickersRect, stickersConfirm, "Reset stickers", Color.rgb(150, 70, 170))
+    drawConfirmButton(canvas, now, settingsResetRect, newGameConfirm, "New game", "New game?", Color.rgb(200, 70, 50))
+    drawConfirmButton(canvas, now, settingsStickersRect, stickersConfirm, "Reset stickers", "Clear all?", Color.rgb(150, 70, 170))
 
     drawPrettyButton(canvas, settingsCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 18f * k, pressScaleFor(settingsCloseRect, now))
 
@@ -342,11 +347,11 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
 }
 
 /** A pretty button that needs two taps within the window, with a draining bar while armed. */
-internal fun GameView.drawConfirmButton(canvas: Canvas, now: Long, rect: RectF, confirm: TwoTapConfirm, label: String, color: Int) {
+internal fun GameView.drawConfirmButton(canvas: Canvas, now: Long, rect: RectF, confirm: TwoTapConfirm, label: String, armedLabel: String, color: Int) {
     val k = u * settingsSc
     val armed = confirm.isArmed(now)
     drawPrettyButton(canvas, rect, if (armed) Color.rgb(220, 130, 30) else color,
-        if (armed) "Tap again!" else label, 16f * k, pressScaleFor(rect, now))
+        if (armed) armedLabel else label, 16f * k, pressScaleFor(rect, now))
     if (armed) {
         val progress = confirm.progress(now)
         val bx = rect.left + 10f * k
@@ -375,7 +380,7 @@ internal fun GameView.drawCheckBadge(canvas: Canvas, bx: Float, by: Float, br: F
 /** Draws a section label with a chunky left accent bar — bold and readable. */
 internal fun GameView.drawSectionLabel(canvas: Canvas, text: String, x: Float, baselineY: Float) {
     val k        = u * settingsSc
-    val labelSz  = 15f * k
+    val labelSz  = 17f * k
     val barW     = 5f * k
     val barPad   = 2f * k
     val textX    = x + barW + 8f * k
@@ -395,13 +400,10 @@ internal fun GameView.drawSectionLabel(canvas: Canvas, text: String, x: Float, b
         barW / 2f, barW / 2f, fillPaint)
     fillPaint.alpha = 255
 
-    val upper = text.uppercase()
-    textPaint.letterSpacing = 0.10f
     textPaint.color = Color.argb(70, 0, 0, 0)
-    canvas.drawText(upper, textX + 1f * k, baselineY + 1f * k, textPaint)
+    canvas.drawText(text, textX + 1f * k, baselineY + 1f * k, textPaint)
     textPaint.color = theme.textPrimary
-    canvas.drawText(upper, textX, baselineY, textPaint)
-    textPaint.letterSpacing = 0f
+    canvas.drawText(text, textX, baselineY, textPaint)
 }
 
 internal fun GameView.drawSettingsBtn(canvas: Canvas, now: Long, rect: RectF, label: String, selected: Boolean) {
@@ -409,6 +411,12 @@ internal fun GameView.drawSettingsBtn(canvas: Canvas, now: Long, rect: RectF, la
     val pressScale = pressScaleFor(rect, now)
     canvas.save(); canvas.scale(pressScale, pressScale, rect.centerX(), rect.centerY())
     val borderPad = if (selected) 4f * k else 3f * k
+    // Drop shadow, same as the pretty buttons
+    shadowPaint.color = Color.argb(90, 0, 0, 0)
+    canvas.drawRoundRect(
+        scratchRectF.apply { set(rect.left + 2f * k, rect.top + 4f * k, rect.right + 2f * k, rect.bottom + 4f * k) },
+        14f * k, 14f * k, shadowPaint
+    )
     // Dark cartoon border
     fillPaint.color = Color.argb(210, 28, 12, 0)
     canvas.drawRoundRect(

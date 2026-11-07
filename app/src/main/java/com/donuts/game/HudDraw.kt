@@ -94,8 +94,8 @@ internal fun GameView.drawPrettyButton(canvas: Canvas, rect: RectF, baseColor: I
         rx, rx, shadowPaint
     )
     // Cartoon border
-    val bd = 2f * u
-    fillPaint.color = Color.argb(200, 30, 15, 0)
+    val bd = 3f * u
+    fillPaint.color = Color.rgb(28, 12, 0)
     canvas.drawRoundRect(
         scratchRectF.apply { set(rect.left - bd, rect.top - bd, rect.right + bd, rect.bottom + bd) },
         rx + bd, rx + bd, fillPaint
@@ -110,8 +110,8 @@ internal fun GameView.drawPrettyButton(canvas: Canvas, rect: RectF, baseColor: I
     canvas.drawRoundRect(rect, rx, rx, fillPaint)
     canvas.restore()
     // Inner border
-    strokePaint.color       = Color.argb(100, 255, 255, 255)
-    strokePaint.strokeWidth = 1.5f * u; strokePaint.alpha = 255
+    strokePaint.strokeWidth = 1.5f * u
+    strokePaint.color = Color.argb(100, 255, 255, 255)
     canvas.drawRoundRect(rect, rx, rx, strokePaint)
     // Label: white with a dark cartoon outline, readable on any button colour
     if (label.isNotEmpty())

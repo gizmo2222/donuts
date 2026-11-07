@@ -18,7 +18,7 @@ internal fun GameView.drawFloatLabels(canvas: Canvas, now: Long) {
             if (t >= 1f) { iter.remove(); continue }
             val alpha = if (t > 0.6f) ((1f - (t - 0.6f) / 0.4f) * 255).toInt().coerceIn(0, 255) else 255
             val rise  = cellSize * 1.8f * t
-            val scale = if (t < 0.12f) (t / 0.12f) * 1.3f else 1.3f - (t - 0.12f) * 0.3f
+            val scale = if (reducedMotion) 1f else if (t < 0.12f) (t / 0.12f) * 1.3f else 1.3f - (t - 0.12f) * 0.3f
             val sz    = 28f * u * scale
             canvas.save()
             canvas.translate(fl.cx, fl.cy - rise)
@@ -187,6 +187,7 @@ internal fun GameView.drawStickerFly(canvas: Canvas, now: Long) {
         canvas.drawText("NEW!", cx, cy - r - 14f * u, textOutlinePaint)
         textPaint.color = Color.rgb(255, 215, 50)
         canvas.drawText("NEW!", cx, cy - r - 14f * u, textPaint)
+        drawOutlinedText(canvas, STICKER_NAMES[i], cx, cy + r + 30f * u, 22f * u, Color.WHITE)
     }
     fillPaint.alpha = 255
 }
@@ -212,12 +213,12 @@ internal fun GameView.drawTutorial(canvas: Canvas, now: Long) {
     canvas.save()
     canvas.clipOutPath(scratchPath)
     fillPaint.color = Color.argb(140, 40, 20, 0)
-    canvas.drawRect(boardLeft - 8f * u, boardTop - 8f * u,
-                    boardLeft + board.cols * cellSize + 8f * u, boardTop + board.rows * cellSize + 8f * u, fillPaint)
+    canvas.drawRoundRect(scratchRectF.apply { set(boardLeft - 7f * u, boardTop - 7f * u,
+        boardLeft + board.cols * cellSize + 7f * u, boardTop + board.rows * cellSize + 7f * u) }, 16f * u, 16f * u, fillPaint)
     canvas.restore()
 
     // Pulsing gold ring on each of the three
-    val pulse = 0.5f + 0.5f * sin(now / 220f)
+    val pulse = if (reducedMotion) 1f else 0.5f + 0.5f * sin(now / 220f)
     for (i in 0 until 3) drawHintRing(canvas, xs[i], ys[i], r * (1.12f + 0.06f * pulse), (150 + 105 * pulse).toInt())
 
     // Timeline: fade in, sweep 0->1, sweep 1->2, hold with a burst, fade out
@@ -298,49 +299,74 @@ internal fun GameView.drawFinger(canvas: Canvas, x: Float, y: Float, alpha: Int)
 internal fun GameView.drawNoMovesWarning(canvas: Canvas, now: Long) {
     if (noMovesWarningMs < 0) return
     val elapsed = (now - noMovesWarningMs).toFloat()
-    // Fade in over 300ms
-    val alpha = ((elapsed / 300f).coerceIn(0f, 1f) * 220).toInt()
+    // Fade in over 300ms; the banner is drawn opaque inside one layer at this alpha
+    val alpha = ((elapsed / 300f).coerceIn(0f, 1f) * 255).toInt()
     // Progress bar filling left to right over NO_MOVES_DELAY_MS
     val progress = (elapsed / NO_MOVES_DELAY_MS).coerceIn(0f, 1f)
 
     val boardCX = boardLeft + board.cols * cellSize / 2f
     val boardCY = boardTop  + board.rows * cellSize / 2f
     val bw = min(board.cols * cellSize * 0.82f, 280f * u)
-    val bh = 64f * u
+    val bh = 80f * u
     val bx = boardCX - bw / 2f
     val by = boardCY - bh / 2f
     val bd = 4f * u
 
+    canvas.saveLayerAlpha(bx - bd, by - bd, bx + bw + bd, by + bh + bd, alpha)
     // Dark cartoon border
-    fillPaint.color = Color.argb(alpha, 28, 12, 0)
+    fillPaint.color = Color.argb(255, 28, 12, 0)
     canvas.drawRoundRect(scratchRectF.apply { set(bx - bd, by - bd, bx + bw + bd, by + bh + bd) }, 16f * u, 16f * u, fillPaint)
     // Panel fill
-    fillPaint.color = Color.argb(alpha, 255, 230, 80)
+    fillPaint.color = Color.argb(255, 255, 150, 30)
     canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + bw, by + bh) }, 12f * u, 12f * u, fillPaint)
     // Top highlight
     canvas.save()
     canvas.clipRect(bx, by, bx + bw, by + bh * 0.45f)
-    fillPaint.color = Color.argb((alpha * 0.30f).toInt(), 255, 255, 255)
+    fillPaint.color = Color.argb(77, 255, 255, 255)
     canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + bw, by + bh) }, 12f * u, 12f * u, fillPaint)
     canvas.restore()
     // Progress bar (countdown to shuffle)
-    val pbH = 6f * u; val pbPad = 10f * u
+    val pbH = 8f * u; val pbPad = 12f * u
     val pbY = by + bh - pbH - pbPad
-    fillPaint.color = Color.argb((alpha * 0.25f).toInt(), 28, 12, 0)
+    fillPaint.color = Color.argb(70, 28, 12, 0)
     canvas.drawRoundRect(scratchRectF.apply { set(bx + pbPad, pbY, bx + bw - pbPad, pbY + pbH) }, pbH / 2, pbH / 2, fillPaint)
-    fillPaint.color = Color.argb(alpha, 200, 120, 0)
+    fillPaint.color = Color.argb(255, 255, 255, 255)
     canvas.drawRoundRect(scratchRectF.apply { set(bx + pbPad, pbY, bx + pbPad + (bw - pbPad * 2) * progress, pbY + pbH) }, pbH / 2, pbH / 2, fillPaint)
 
-    // Text: shadow then fill; shrinks to fit the banner width
-    val lineY = by + bh * 0.46f
-    val msg   = "Mixing it up!"
-    textPaint.textSize  = 18f * u
-    textPaint.textAlign = Paint.Align.CENTER
-    while (textPaint.textSize > 8f * u && textPaint.measureText(msg) > bw - 16f * u) textPaint.textSize *= 0.92f
-    textPaint.color = Color.argb(alpha / 2, 0, 0, 0)
-    canvas.drawText(msg, boardCX + 1.5f * u, lineY + 1.5f * u, textPaint)
-    textPaint.color = Color.argb(alpha, 100, 48, 0)
-    canvas.drawText(msg, boardCX, lineY, textPaint)
+    // Two chasing arrows in a circle, turning with time
+    val ir = 17f * u
+    val iconCX = bx + pbPad + ir + 4f * u
+    val iconCY = by + (pbY - by) * 0.5f
+    val iconSpace = ir * 2f + 14f * u
+    val spin = if (reducedMotion) 0f else elapsed * 0.28f
+    strokePaint.strokeCap = Paint.Cap.ROUND
+    for (k in 0 until 2) {
+        val start = spin + k * 180f + 10f
+        val sweep = 140f
+        scratchRectF.set(iconCX - ir, iconCY - ir, iconCX + ir, iconCY + ir)
+        strokePaint.strokeWidth = 7f * u; strokePaint.color = Color.argb(255, 28, 12, 0)
+        canvas.drawArc(scratchRectF, start, sweep, false, strokePaint)
+        strokePaint.strokeWidth = 4f * u; strokePaint.color = Color.WHITE
+        canvas.drawArc(scratchRectF, start, sweep, false, strokePaint)
+        // triangle head at the end of the arc, pointing along the circle
+        val ang = Math.toRadians((start + sweep).toDouble())
+        val hx = iconCX + ir * cos(ang).toFloat(); val hy = iconCY + ir * sin(ang).toFloat()
+        val tx = -sin(ang).toFloat(); val ty = cos(ang).toFloat()       // tangent
+        val nx = cos(ang).toFloat();  val ny = sin(ang).toFloat()       // outward
+        val hl = 8f * u; val hw = 7f * u
+        scratchPath.rewind()
+        scratchPath.moveTo(hx + tx * hl, hy + ty * hl)
+        scratchPath.lineTo(hx + nx * hw, hy + ny * hw)
+        scratchPath.lineTo(hx - nx * hw, hy - ny * hw)
+        scratchPath.close()
+        fillPaint.color = Color.WHITE
+        canvas.drawPath(scratchPath, fillPaint)
+    }
+    strokePaint.strokeCap = Paint.Cap.BUTT
+
+    val lineY = by + (pbY - by) * 0.5f + 10f * u
+    drawLabel(canvas, "Shuffle time!", boardCX + iconSpace / 2f, lineY, 28f * u, bw - 16f * u - iconSpace, Color.WHITE, outlined = true)
+    canvas.restore()
 }
 
 // -----------------------------------------------------------------------
@@ -362,7 +388,7 @@ internal fun GameView.drawPowerUpFx(canvas: Canvas, now: Long) {
         (Color.red(fx.color) + 255) / 2, (Color.green(fx.color) + 255) / 2, (Color.blue(fx.color) + 255) / 2)
     fun ring(radius: Float, width: Float, alpha: Float, color: Int) {
         if (radius <= 0f || alpha <= 0f) return
-        val a = (alpha * 255).toInt().coerceIn(0, 255)
+        val a = 255
         strokePaint.strokeWidth = width + cellSize * 0.10f
         strokePaint.color = Color.argb(a, 40, 20, 30)           // dark outline
         canvas.drawCircle(cx, cy, radius, strokePaint)
@@ -370,6 +396,11 @@ internal fun GameView.drawPowerUpFx(canvas: Canvas, now: Long) {
         strokePaint.color = Color.argb(a, Color.red(color), Color.green(color), Color.blue(color))
         canvas.drawCircle(cx, cy, radius, strokePaint)
     }
+    val pad = 8f * u
+    canvas.save()
+    canvas.clipRect(boardLeft - pad, boardTop - pad, boardLeft + board.cols * cellSize + pad, boardTop + board.rows * cellSize + pad)
+    canvas.saveLayerAlpha(boardLeft - pad, boardTop - pad, boardLeft + board.cols * cellSize + pad,
+        boardTop + board.rows * cellSize + pad, (fade * 255).toInt().coerceIn(0, 255))
     when (fx.kind) {
         PowerUp.BOMB -> ring(cells * cellSize, cellSize * 0.22f, fade + 0.15f, fx.color)
         PowerUp.COLOR_BURST -> for (i in 0 until 3) {
@@ -384,7 +415,7 @@ internal fun GameView.drawPowerUpFx(canvas: Canvas, now: Long) {
                 val x1 = cx + dir * head
                 val x0 = cx + dir * maxOf(0f, head - tail)
                 val left = minOf(x0, x1); val right = maxOf(x0, x1)
-                val a = (fade * 255).toInt().coerceIn(0, 255)
+                val a = 255
                 // fading tail, then a bright rounded head with a dark outline
                 fillPaint.color = Color.argb((a * 0.45f).toInt(), Color.red(fx.color), Color.green(fx.color), Color.blue(fx.color))
                 canvas.drawRoundRect(left, cy - h * 0.8f, right, cy + h * 0.8f, h, h, fillPaint)
@@ -399,4 +430,6 @@ internal fun GameView.drawPowerUpFx(canvas: Canvas, now: Long) {
         }
         else -> {}
     }
+    canvas.restore()
+    canvas.restore()
 }

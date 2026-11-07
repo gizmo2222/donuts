@@ -26,6 +26,7 @@ internal class RenderThread(private val view: GameView) : Thread("GameRenderThre
     }
     private var lockNs = 0L; private var drawNs = 0L; private var postNs = 0L
     override fun run() {
+        var next = System.nanoTime()
         while (running) {
             val t0 = System.nanoTime()
             val canvas = lockFrame() // GPU-backed (API 26+), or the software canvas if unavailable
@@ -48,9 +49,10 @@ internal class RenderThread(private val view: GameView) : Thread("GameRenderThre
                     }
                 }
             }
-            // Pace to ~60 fps: only sleep for whatever is left of the 16 ms budget
-            val spent = (System.nanoTime() - t0) / 1_000_000L
-            if (spent < 16L) sleep(16L - spent)
+            // Pace to 60 fps against a nanosecond deadline; resync when a frame ran long
+            next += 16_666_667L
+            val wait = next - System.nanoTime()
+            if (wait > 0) sleep(wait / 1_000_000L, (wait % 1_000_000L).toInt()) else next = System.nanoTime()
         }
         // unlockCanvasAndPost returns when the frame is handed over; the system's RenderThread
         // is still drawing and swapping it. Making and destroying a renderer queues behind that

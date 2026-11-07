@@ -69,6 +69,12 @@ class GameLayoutTest {
         assertTrue("$n: strip under board", !overlap(b, v.boxStrip.rect))
     }
 
+    @Test fun chromeKeepsTheMarginFromTheTopAndBottomEdges() = forAll { n, v ->
+        val margin = 12f * v.u
+        assertTrue("$n: stickers btn keeps top margin", v.stickersBtnRect.top >= v.insetT + margin - 0.5f)
+        assertTrue("$n: strip keeps bottom margin", v.boxStrip.rect.bottom <= v.surfaceH - v.insetB - margin + 0.5f)
+    }
+
     @Test fun hudButtonsAreInsideAndBigEnough() = forAll { n, v ->
         val minPx = 48f * v.uiScale.density
         for ((name, r) in listOf("stickers" to v.stickersBtnRect, "settings" to v.settingsBtnRect)) {

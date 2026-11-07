@@ -121,3 +121,35 @@ clamp, AudioTrack release, count-and-gravity). The rest were not dead code (`cor
 `gradle.properties` flags are needed) or would change behaviour.
 
 **Still the user's call:** whether to delete the tracked `.claude/settings.json.disabled` add-commit-push hook.
+
+## Phase 6: UI
+
+**Method.** New `tools\gallery.ps1` renders 18 screen states on the JVM (Robolectric native graphics) at phone,
+phone-landscape, small, tablet and tablet-portrait sizes. The emulator (`Pixel_8a`, `10_Tablet`, both at 4 GB)
+covered insets and the phase-2 device checks. Auditors covered accessibility, performance, responsiveness,
+states, copy and polish. A skeptic checked each report: 32 confirmed, 24 refuted.
+
+**Fixed (six workers plus one fix by hand, each built and tested):**
+
+| Area | Fix |
+|---|---|
+| Input | `ACTION_MOVE` replays the batched historical points, so a fast swipe no longer skips cells. A chain of 1 or 2 now gives a boop and a tick |
+| Animation | While a panel is open, the counter, the sticker fly and the auto-shuffle wait. The cascade label is "Again!" then "Wow!". Sticker hints are easier to read: "Pop a ball", "Pop 20 in a game" |
+| Effects | The no-moves banner is opaque and says "Shuffle time!" with a spinning arrow icon. Power-up rings are clipped to the board. The sticker name shows while it flies in. Reduced motion stops the tutorial pulse and the label scale |
+| Board | No `Pair` or `Set` is allocated per cell per frame. Reduced motion caps the reset and chain flashes |
+| Panels | **draw-4 decided:** rims and rings are opaque; only the pretty-button inner ring stays translucent. Titles are outlined. The confirm buttons say "New game?" / "Clear all?". Section labels are mixed case, 17 dp |
+| Home, layout | The ball outline is opaque and its sheen is clipped. Render-thread pacing uses a nanosecond deadline. The chrome keeps its margin at the top and bottom edges |
+| copy-1 (high) | The stickers panel uses a 6x2 grid on wide, short screens (landscape tablets) when that gives bigger tiles. Locked hints wrap to two lines instead of spilling out of the tile, and the "?" moves up and shrinks above a two-line hint |
+
+**Deferred (low, not done):**
+
+- a11y-4: a still cue for a refused donut when reduced motion is on.
+- a11y-10: icons beside the settings section labels.
+- states-4: silhouettes on locked stickers.
+- responsive-7: the sticker box and stats look small on a tablet. The suggested fix was circular, since the panel size depends on them.
+
+**Device notes.**
+
+- Both activities are locked to portrait. With targetSdk 36, Android 16 ignores that lock on large screens, so the landscape tablet layout is real. The tablet AVD (API 35) letterboxes the app instead.
+- A short splash and a black first frame show on a cold start.
+- The phase-2 checks all passed on the emulator: grid change mid-animation, New game mid-animation, auto-shuffle mid-drag, double tap on PLAY, multi-touch.

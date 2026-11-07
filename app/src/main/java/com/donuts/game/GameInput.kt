@@ -201,15 +201,13 @@ internal fun GameView.handleUp() {
             label?.let { addFloatLabelAt(allPop, it, result.chainType.labelColor, now) }
         }
     } else if (chain.isNotEmpty()) {
-        // Too short to pop: the donuts wobble. Two in a row also get a "boop" and a "3!"
-        // so the rule is taught by the board itself, not by a text tutorial.
+        // Too short to pop: the donuts wobble with a "boop" and a tick, so a tap is never dead.
+        // Two in a row also get a "3!" so the rule is taught by the board itself.
         val now = SystemClock.elapsedRealtime()
         wobbleCells = chain; wobbleMs = now
-        if (chain.size == 2) {
-            addFloatLabelAt(chain, "3!", Color.WHITE, now)
-            if (prefs.soundEnabled)  soundEngine.playBoop()
-            if (prefs.hapticEnabled) hapticEngine.tick()
-        }
+        if (chain.size == 2) addFloatLabelAt(chain, "3!", Color.WHITE, now)
+        if (prefs.soundEnabled)  soundEngine.playBoop()
+        if (prefs.hapticEnabled) hapticEngine.tick()
     }
     dragChain.clear(); chainPings.clear(); rejectedCell = null
 }
@@ -279,7 +277,14 @@ internal fun GameView.handleTouch(event: MotionEvent): Boolean {
 
         when (action) {
             MotionEvent.ACTION_DOWN   -> handleDown(px, py)
-            MotionEvent.ACTION_MOVE   -> { startHeldDrag(); handleMove(px, py) }
+            MotionEvent.ACTION_MOVE   -> {
+                startHeldDrag()
+                // A fast swipe batches several samples into one event; feed the real ones in order.
+                if (act == MotionEvent.ACTION_MOVE) {
+                    for (h in 0 until event.historySize) handleMove(event.getHistoricalX(pi, h), event.getHistoricalY(pi, h))
+                }
+                handleMove(px, py)
+            }
             MotionEvent.ACTION_UP     -> { fingerHeld = false; handleUp() }
             MotionEvent.ACTION_CANCEL -> { fingerHeld = false; dragChain.clear() }
         }

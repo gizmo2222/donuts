@@ -169,7 +169,7 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         fillP.color = Color.WHITE
         val glazeR = r * 0.82f
         val dotR   = glazeR * 0.09f
-        val dist   = glazeR * 0.50f
+        val dist   = glazeR * 0.64f
         for (i in 0 until 5) {
             val a = Math.toRadians(i * 72.0 + 15.0)
             canvas.drawCircle(cx + dist * cos(a).toFloat(), cy + dist * sin(a).toFloat(), dotR, fillP)
@@ -188,11 +188,13 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
     // -----------------------------------------------------------------------
     // Soccer ball
     // -----------------------------------------------------------------------
+    private val ballPath = Path()
+
     private fun drawSoccerBall(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         val ow = r * 0.13f
 
         // Dark outer outline
-        fillP.color = Color.argb(220, 28, 12, 0)
+        fillP.color = Color.rgb(28, 12, 0)
         canvas.drawCircle(cx, cy, r + ow, fillP)
         // Drop shadow
         fillP.color = Color.argb(35, 0, 0, 0)
@@ -203,7 +205,8 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
 
         // --- Classic soccer ball patches ---
         // Clip everything to the ball circle
-        val ballClip = Path().apply { addCircle(cx, cy, r, Path.Direction.CW) }
+        ballPath.rewind(); ballPath.addCircle(cx, cy, r, Path.Direction.CW)
+        val ballClip = ballPath
         canvas.save()
         canvas.clipPath(ballClip)
 
@@ -223,7 +226,10 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         canvas.restore()
 
         // 3D sheen
+        canvas.save()
+        canvas.clipPath(ballClip)
         addSheen(canvas, cx, cy, r, 255, sheenAlpha = 0.30f, specAlpha = 0.90f)
+        canvas.restore()
     }
 
     /** Builds a regular n-gon path centred at (cx,cy) with given outer radius and start angle. */

@@ -14,7 +14,8 @@ internal fun GameView.drawResetFlash(canvas: Canvas, now: Long) {
     val t = ((now - resetFlashMs).toFloat() / FLASH_MS).coerceIn(0f, 1f)
     if (t >= 1f) { resetFlashMs = -1L; return }
     // Bright white burst fades out — ease-in so it hits fast then decays
-    val alpha = ((1f - t) * (1f - t) * 220).toInt().coerceIn(0, 220)
+    val maxA = if (reducedMotion) 60 else 220
+    val alpha = ((1f - t) * (1f - t) * 220).toInt().coerceIn(0, maxA)
     flashPaint.color = Color.argb(alpha, 255, 255, 255)
     canvas.drawRect(0f, 0f, surfaceW.toFloat(), surfaceH.toFloat(), flashPaint)
 }
@@ -26,7 +27,8 @@ internal fun GameView.drawChainFlash(canvas: Canvas, now: Long) {
     if (chainFlashMs < 0) return
     val t = ((now - chainFlashMs).toFloat() / CHAIN_FLASH_MS).coerceIn(0f, 1f)
     if (t >= 1f) { chainFlashMs = -1L; return }
-    val alpha = ((1f - t) * (1f - t) * 85).toInt().coerceIn(0, 85)
+    val maxA = if (reducedMotion) 40 else 85
+    val alpha = ((1f - t) * (1f - t) * 85).toInt().coerceIn(0, maxA)
     flashPaint.color = (chainFlashColor and 0x00FFFFFF) or (alpha shl 24)
     canvas.drawRect(0f, 0f, surfaceW.toFloat(), surfaceH.toFloat(), flashPaint)
 }
@@ -119,7 +121,7 @@ internal fun GameView.nearMissOffset(r: Int, c: Int, now: Long): Float {
     if (wobbleMs >= 0) {
         val t = (now - wobbleMs).toFloat() / WOBBLE_MS
         if (t >= 1f) wobbleMs = -1L
-        else if (Pair(r, c) in wobbleCells) off += sin(t * PI.toFloat() * 5f) * (1f - t) * cellSize * 0.08f
+        else if (wobbleCells.any { it.first == r && it.second == c }) off += sin(t * PI.toFloat() * 5f) * (1f - t) * cellSize * 0.08f
     }
     if (shakeMs >= 0) {
         val t = (now - shakeMs).toFloat() / SHAKE_MS
@@ -130,7 +132,7 @@ internal fun GameView.nearMissOffset(r: Int, c: Int, now: Long): Float {
 }
 
 internal fun GameView.drawCellsInner(canvas: Canvas, now: Long) {
-    val popSet  = popCells.map { it.row to it.col }.toSet()
+    val popping = popCells.isNotEmpty()
     // During DROPPING, entire changed columns are hidden via dropColMask so
     // survivors don't flicker at their new positions before the animation ends.
 
@@ -142,7 +144,7 @@ internal fun GameView.drawCellsInner(canvas: Canvas, now: Long) {
 
     for (r in 0 until board.rows) {
         for (c in 0 until board.cols) {
-            if ((r to c) in popSet || c in dropColMask) continue
+            if (c in dropColMask || (popping && popCells.any { it.row == r && it.col == c })) continue
             var entryYOff = 0f
             if (boardEntryMs >= 0) {
                 val elapsed = now - boardEntryMs - c * 55L
@@ -156,7 +158,7 @@ internal fun GameView.drawCellsInner(canvas: Canvas, now: Long) {
             }
             val cx      = boardLeft + c * cellSize + cellSize / 2f
             val cy      = boardTop  + r * cellSize + cellSize / 2f + entryYOff
-            val inChain = Pair(r, c) in dragChain
+            val inChain = dragChain.any { it.first == r && it.second == c }
             // Idle breathing: a gentle vertical bob (a translate, not a scale) so sprites blit unscaled.
             // Each cell has its own phase and a 1400-2040ms period; off during shuffle and for chain cells.
             val breatheOff = if (!reducedMotion && animPhase == AnimPhase.IDLE && !inChain && shuffleAnimMs < 0) {
@@ -184,7 +186,12 @@ internal fun GameView.drawCellsInner(canvas: Canvas, now: Long) {
             } else 1f
 
             // Ping scale-pop when cell joins chain
-            val pingMs = chainPings[Pair(r, c)]
+            var pingMs: Long? = null
+            if (inChain) {
+                for (e in chainPings.entries) {
+                    if (e.key.first == r && e.key.second == c) { pingMs = e.value; break }
+                }
+            }
             val pingScale = pingMs?.let { pm ->
                 val t = ((now - pm).toFloat() / PING_MS).coerceIn(0f, 1f)
                 if (t < 0.35f) 1f + (t / 0.35f) * 0.28f
@@ -223,7 +230,7 @@ internal fun GameView.drawCellsInner(canvas: Canvas, now: Long) {
                 strokePaint.alpha = 255
             }
 
-            if (hintCells.isNotEmpty() && Pair(r, c) in hintCells) {
+            if (hintCells.isNotEmpty() && hintCells.any { it.first == r && it.second == c }) {
                 // Hint ring pulses in both alpha AND scale for a bouncier feel
                 val hintT = ((now - hintPulseMs) % 900L) / 900f
                 val hintPulse = if (hintT < 0.5f) hintT * 2f else (1f - hintT) * 2f
@@ -300,14 +307,14 @@ internal fun GameView.drawGoldenOverlay(canvas: Canvas, cx: Float, cy: Float, r:
 // -----------------------------------------------------------------------
 internal fun GameView.drawPoppingCells(canvas: Canvas, now: Long) {
     val fx       = powerFx
-    val chainSet = pendingResult?.chainCells?.toSet() ?: emptySet()
+    val chainList = pendingResult?.chainCells ?: emptyList()
     val lead     = if (fx != null) PopTiming.leadMs(fx.kind).toFloat() else 0f
     val sinceGo  = (now - animStartMs).toFloat()
     for (cell in popCells) {
         val cx0 = boardLeft + cell.col * cellSize + cellSize / 2f
         val cy0 = boardTop  + cell.row * cellSize + cellSize / 2f
         val t   = ((now - animStartMs - cell.delayMs).toFloat() / POP_MS).coerceIn(-1f, 1f)
-        val isBonus = !isCascade && Pair(cell.row, cell.col) !in chainSet
+        val isBonus = !isCascade && chainList.none { it.first == cell.row && it.second == cell.col }
         if (now - animStartMs < cell.delayMs) {
             // Waiting for its turn
             var cx = cx0; var cy = cy0

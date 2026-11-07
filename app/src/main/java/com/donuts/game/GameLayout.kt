@@ -32,7 +32,7 @@ internal fun GameView.computeLayout() {
     boardLeft = safeL + (safeW - boardPx) / 2f
 
     // Spare height (tall phones) goes to the chrome: bigger counter, taller strip, a wider gap
-    val spare     = safeH - (btnH + baseGap + boardPx + baseCtrH + baseStrip)
+    val spare     = safeH - margin * 2f - (btnH + baseGap + boardPx + baseCtrH + baseStrip)
     counterH      = baseCtrH + LayoutMath.spareShare(spare, 0.25f, 32f * u)
     val stripH    = baseStrip + LayoutMath.spareShare(spare, 0.25f, 28f * u)
     val btnGap    = baseGap + LayoutMath.spareShare(spare, 0.15f, 16f * u)
@@ -104,32 +104,41 @@ internal fun GameView.placeSettings(pw: Float, safeL: Float, safeT: Float, safeW
     return ph
 }
 
-/** Sticker panel: 4 rows of 3 tiles sized by whichever of width or height is tighter. */
+/**
+ * Sticker panel: 4 rows of 3 tiles, or 2 rows of 6 on wide short screens (landscape tablets)
+ * when that gives bigger tiles. Tiles are sized by whichever of width or height is tighter.
+ */
 internal fun GameView.layoutStickersPanel(safeL: Float, safeT: Float, safeW: Float, safeH: Float) {
-    val maxW     = min(safeW - 24f * u, 560f * u)
-    val minW     = min(320f * u, maxW)   // still fits the donut box row, the stats line and Close
     val spPad    = 10f * u
     val spTitleH = 56f * u
     val spBoxH   = 64f * u      // the donut box: the goal that never runs out
     val spStatsH = 28f * u
     val spCloseH = 56f * u
     val minGut   = 14f * u
-    val sideFromW = LayoutMath.fitSide(maxW - spPad * 2f, 3, minGut)
-    val fixedH    = spTitleH + spBoxH + spStatsH + spCloseH + spPad * 5f
-    val sideFromH = LayoutMath.fitSide(safeH - 24f * u - fixedH, 4, minGut)
-    val side = min(sideFromW, sideFromH)
-    val gut  = LayoutMath.gutter(side, minGut)
-    val gridW = side * 3f + gut * 2f
+    val fixedH   = spTitleH + spBoxH + spStatsH + spCloseH + spPad * 5f
+    val availH   = safeH - 24f * u - fixedH
+    fun sideFor(cols: Int, maxW: Float) =
+        min(LayoutMath.fitSide(maxW - spPad * 2f, cols, minGut), LayoutMath.fitSide(availH, 12 / cols, minGut))
+    val maxW3 = min(safeW - 24f * u, 560f * u)
+    val maxW6 = min(safeW - 24f * u, 960f * u)
+    val wide  = sideFor(6, maxW6) > sideFor(3, maxW3)
+    val cols  = if (wide) 6 else 3
+    val rows  = 12 / cols
+    val maxW  = if (wide) maxW6 else maxW3
+    val minW  = min(320f * u, maxW)   // still fits the donut box row, the stats line and Close
+    val side  = sideFor(cols, maxW)
+    val gut   = LayoutMath.gutter(side, minGut)
+    val gridW = side * cols + gut * (cols - 1)
     // Hugs the grid when height limits the tiles; never narrower than minW
     val spW  = (gridW + spPad * 2f).coerceIn(minW, maxW)
-    val spH  = fixedH + side * 4f + gut * 3f
+    val spH  = fixedH + side * rows + gut * (rows - 1)
     val spL  = safeL + (safeW - spW) / 2f
     val spT  = safeT + (safeH - spH) / 2f
     stickerPanelRect = RectF(spL, spT, spL + spW, spT + spH)
     val gridX0 = spL + (spW - gridW) / 2f
     val row1Y  = spT + spTitleH
     for (i in 0 until 12) {
-        val col = i % 3; val row = i / 3
+        val col = i % cols; val row = i / cols
         val sx = gridX0 + col * (side + gut)
         val sy = row1Y + row * (side + gut)
         stickerRects[i].set(sx, sy, sx + side, sy + side)

@@ -97,6 +97,23 @@ class GameAnimationPanelsTest {
     }
 
     @Test
+    fun anOpenPanelHoldsTheStickerFlyUntilItCloses() {
+        val v = TestViews.quietView()
+        val now = TestViews.now()
+        v.checkStickers(now)                 // seeds
+        v.settingsOpen = true
+        v.prefs.bestChainLength = 4          // sticker 3
+        v.checkStickers(now + 16)
+        v.checkStickers(now + 32)
+        assertEquals(-1L, v.stickerFlyMs)
+        assertEquals(0, v.earnedMask and (1 shl 3))
+        v.settingsOpen = false
+        v.checkStickers(now + 48)
+        assertEquals(3, v.stickerFlyIdx)
+        assertEquals(now + 48, v.stickerFlyMs)
+    }
+
+    @Test
     fun newlyEarnedStickerIsAnnouncedOnceAndNotAgain() {
         val v = TestViews.quietView()
         val now = TestViews.now()
@@ -351,7 +368,7 @@ class GameAnimationPanelsTest {
         assertEquals(1, v.cascadeCount)
         assertEquals(matches.map { Pair(it.first, it.second) }.toSet(), v.popCells.map { Pair(it.row, it.col) }.toSet())
         val label = v.floatLabels.single()
-        assertEquals("×2", label.text)
+        assertEquals("Again!", label.text)
         val cx = matches.map { (_, c) -> v.boardLeft + c * v.cellSize + v.cellSize / 2f }.average().toFloat()
         val cy = matches.map { (r, _) -> v.boardTop + r * v.cellSize + v.cellSize / 2f }.average().toFloat()
         assertEquals(cx, label.cx, 0.01f)

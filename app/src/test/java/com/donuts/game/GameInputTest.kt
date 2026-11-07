@@ -26,6 +26,22 @@ class GameInputTest : GameInputTestBase() {
     }
 
     @Test
+    fun batchedHistoricalPointsOfOneMoveAllJoinTheChain() {
+        val v = planted()
+        at(v, DOWN, 0, 0)
+        val (x1, y1) = TestViews.cellCenter(v, 0, 1)
+        val (x2, y2) = TestViews.cellCenter(v, 0, 2)
+        val t = TestViews.now()
+        // One MOVE whose history holds the middle cell and whose current point is the last cell.
+        val e = MotionEvent.obtain(t, t, MOVE, x1, y1, 0)
+        e.addBatch(t, x1, y1, 1f, 1f, 0)
+        e.addBatch(t, x2, y2, 1f, 1f, 0)
+        assertEquals(2, e.historySize)
+        send(v, e)
+        assertEquals(listOf(0 to 0, 0 to 1, 0 to 2), v.dragChain)
+    }
+
+    @Test
     fun diagonalStepsJoinTheChain() {
         val v = planted(listOf("SCBVMA", "CSMBAV", "BMSVCA", "VACMBC", "MBAVSC", "ACVMBA"))
         drag(v, 0 to 0, 1 to 1, 2 to 2)
