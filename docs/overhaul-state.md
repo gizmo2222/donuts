@@ -8,7 +8,7 @@ marked done or skipped, commits on its branch (no push, no merge, no PR) and upd
 | 1 | Map | done |
 | 2 | Bug hunt | done |
 | 3 | Tests | done |
-| 4 | Security | todo |
+| 4 | Security | done |
 | 5 | Clean-up | todo |
 | 6 | UI | todo |
 | 7 | Simulation or game balance | todo |
@@ -35,6 +35,12 @@ check killed 156 of 165 mutants, the survivors are logged in `docs/overhaul-find
 New scripts: `coverage.ps1`, `mutate.ps1`, `env.ps1`, `check.ps1 -Tests`. Found and fixed a panel flicker in
 `advanceSettingsAnim`. Phase 5: `GameInput` is still not mutation-checked; `GameView.kt` is still 515 lines.
 
+**4 Security (done, branch `overhaul/phase-4`).** 8 area reviewers and 3-skeptic verification: 5 low findings
+confirmed and fixed (saved-board count overflow crash, wrapper checksum, root JSON and `keys\` ignored, two
+`mutate.ps1` backup hazards); 5 refuted or optional, logged in `docs/overhaul-findings.md`. No secrets in git history.
+Phase 5: Gradle 9.2.1 has two CVEs fixed in 9.3.0 (not exploitable here), clamp the `grid_size` pref, add
+`ValidatePattern` to `-Tests`/`-Task`. The user must decide on the tracked `.claude/settings.json.disabled` push hook.
+
 ## Which later phases apply
 
 - **6 UI: applies.** Native Android UI drawn on a `SurfaceView` canvas, no web front end. "Phone, tablet and
@@ -53,7 +59,7 @@ New scripts: `coverage.ps1`, `mutate.ps1`, `env.ps1`, `check.ps1 -Tests`. Found 
 - The check is `.\tools\check.ps1 -Test -Quiet` (build plus unit tests). Phase branches are made from the
   previous phase branch, since nothing is merged to `master` until the user does it.
 - Phase 4: the keystores (`*.jks`) and `play-service-account.json` sit in the repo root but are git-ignored
-  and untracked. `keys\` is neither tracked nor ignored. Do not move or change any of them.
+  and untracked. `keys\` is now git-ignored (phase 4) and untracked. Do not move or change any of them.
 - The doc map in `CLAUDE.md` is generated: `.\tools\code-map.ps1 -UpdateDoc CLAUDE.md`. Re-run it after any
   change to the sources (phase 9 must).
 - Workflow worktrees are cut from `master`, not from the phase branch: a worker that edits code must

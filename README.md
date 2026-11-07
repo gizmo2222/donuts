@@ -112,7 +112,8 @@ and signs in to Google Play with a service-account key. One-time setup:
 2. **IAM & Admin**, then **Service accounts**, then **Create service account**. It needs no Cloud roles. Open
    it, then **Keys**, then **Add key**, then **Create new key**, then **JSON**. Save the file as
    `F:\dev\donuts\play-service-account.json` (gitignored; never commit it). To keep it somewhere else, put
-   its path in `local.properties` as `PLAY_SERVICE_ACCOUNT_JSON=...`.
+   its path in `local.properties` as `PLAY_SERVICE_ACCOUNT_JSON=...`. A key kept under its downloaded name
+   (`<project-id>-<hex>.json`) belongs outside the repository; only JSON in the root and `keys\` is ignored.
 3. In Play Console, **Users and permissions**, then **Invite new users**. Enter the service account's email
    (`…@….iam.gserviceaccount.com`), add **Donuts for Steven** under App permissions, and grant **Release apps
    to testing tracks**. New permissions can take up to a day to start working.

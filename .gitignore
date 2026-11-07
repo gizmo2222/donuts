@@ -21,6 +21,9 @@ upload_certificate.pem
 
 # Google Play service-account key used by publishReleaseBundle
 play-service-account*.json
+# A key kept under its downloaded name, and the keys folder, must never be added by accident
+/*.json
+/keys/
 
 # Kotlin compiler session files
 .kotlin/

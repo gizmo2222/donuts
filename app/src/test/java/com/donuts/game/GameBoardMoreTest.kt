@@ -361,6 +361,8 @@ class GameBoardMoreTest {
         val negative = goodCleared()
         negative[2] = -1
         assertFalse(b.restore(b.cellCodes(), negative))
+        // Each count is fine but the total wraps past Int.MAX_VALUE
+        assertFalse(b.restore(b.cellCodes(), intArrayOf(2_000_000_000, 2_000_000_000, 0, 0, 0, 0)))
         assertEquals(before, snapshot(b))
     }
 

@@ -341,6 +341,8 @@ class GameBoard(
         val types = DonutType.values()
         if (cells.size != rows * cols || cleared.size != types.size) return false
         if (cells.any { (it and GOLDEN_BIT.inv()) !in types.indices } || cleared.any { it < 0 }) return false
+        // Counts from edited or corrupt prefs must not overflow the Int total the counter shows
+        if (cleared.sumOf { it.toLong() } > Int.MAX_VALUE) return false
         for (i in cells.indices) {
             val r = i / cols; val c = i % cols
             grid[r][c] = GameCell(types[cells[i] and GOLDEN_BIT.inv()], r, c,

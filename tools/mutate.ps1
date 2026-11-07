@@ -3,7 +3,8 @@
   Mutation check: makes one small change at a time to a source file (== to !=, < to <=, && to ||,
   true to false, + to -, until to .., dropped !), runs the unit tests, and reports which changes no test
   caught ("survived"). The file is always put back, even after Ctrl+C (a backup in build\logs is restored
-  on the next run). Report: build\logs\mutate-<File>.txt. Gradle runs with --daemon --offline for speed.
+  on the next run, or by -WhatIf, unless the file was edited since). Report: build\logs\mutate-<File>.txt.
+  Gradle runs with --daemon --offline for speed.
 .PARAMETER File
   Source file name under app\src\main\java\com\donuts\game, for example GameBoard.kt.
 .PARAMETER Tests
@@ -15,7 +16,7 @@
 .PARAMETER To
   Last line to mutate (default: end of file).
 .PARAMETER WhatIf
-  List the mutants that would run, without changing the file or running tests.
+  List the mutants that would run, without running tests. Also restores a file left mutated by an interrupted run.
 .EXAMPLE
   .\tools\mutate.ps1 -File ChainRules.kt -Tests 'com.donuts.game.ChainRulesTest'
 .EXAMPLE
@@ -39,8 +40,21 @@ $backup = Join-Path $logDir "mutate-backup-$File"
 $report = Join-Path $logDir "mutate-$File.txt"
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 
-# A backup left by an interrupted run is the real file: put it back first
+# A backup left by an interrupted run is the real file: put it back first, but only when the file on disk
+# is that backup plus the one leftover mutant. Anything else means the file was edited since: keep both.
 if (Test-Path $backup) {
+    $old = [System.IO.File]::ReadAllText($backup) -split "`n"
+    $now = [System.IO.File]::ReadAllText($src) -split "`n"
+    $diff = 0
+    if ($old.Count -eq $now.Count) { for ($k = 0; $k -lt $old.Count; $k++) { if ($old[$k] -ne $now[$k]) { $diff++ } } }
+    if ($old.Count -ne $now.Count -or $diff -gt 1) {
+        $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+        $kept = "$backup.$stamp"
+        Move-Item $backup $kept
+        Write-Output "MUTATE FAILED: $File changed since an interrupted run left a backup. Nothing was overwritten."
+        Write-Output "Compare $src with $kept and keep the right one, then delete $kept."
+        exit 1
+    }
     [System.IO.File]::WriteAllBytes($src, [System.IO.File]::ReadAllBytes($backup))
     Remove-Item $backup -Force
     Write-Output "Restored $File from an interrupted run."

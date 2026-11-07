@@ -80,6 +80,7 @@ class SavedGameTest {
         for (bad in listOf("", "garbage", "v2;6;0;1;1", "v1;6;0;1,2,3;0,0,0,0,0,0", "v1;x;0;1;1",
             "v1;6;0;" + (List(36) { "99" }).joinToString(",") + ";0,0,0,0,0,0",
             "v1;6;0;" + codes(6).joinToString(",") + ";0,0,0,0,-1,0",
+            "v1;6;0;" + codes(6).joinToString(",") + ";2000000000,2000000000,0,0,0,0",
             "v1;6;0;" + codes(6).joinToString(",") + ";0,0,0")) {
             w.prefs.savedBoard = bad
             assertFalse("should reject: $bad", w.restoreFromPrefs())

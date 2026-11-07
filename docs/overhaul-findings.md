@@ -60,3 +60,30 @@ mid-animation and auto-shuffle mid-drag still want a look on the emulator in pha
 real frame, `saveState` racing the render thread, pixel-level checks of the drawing (smoke tests only draw
 and check nothing throws), `buildSprites` bitmaps. A worker also noted that `GameBoard.shuffle` does not keep
 the multiset of types (it re-rolls them); that is by design, not a bug.
+
+## Phase 4: security
+
+Eight area reviewers (secrets, git history, platform, saved data, build and dependencies, scripts, release,
+input). Each finding was checked by three skeptics told to refute it. No secret was ever committed.
+
+**Confirmed and fixed (all low):**
+
+| Finding | Fix |
+|---|---|
+| Saved cleared counts that sum past `Int.MAX_VALUE` wrap negative; `applySaved` then calls `coerceIn(0, negative)` and the game screen crashes on every launch | `GameBoard.restore` rejects a total over `Int.MAX_VALUE`; tests in `GameBoardMoreTest` and `SavedGameTest` |
+| `gradle-wrapper.properties` had no `distributionSha256Sum`, so a tampered Gradle zip would run on the signing machine | Checksum added (same value from services.gradle.org and downloads.gradle.org) |
+| The Play service-account key is ignored only as `play-service-account*.json`; under its downloaded name it could be committed | `.gitignore` ignores `/*.json` and `/keys/`; README step 2 says so |
+| `mutate.ps1` restored a stale backup over newer edits after an interrupted run | Restores only when at most one line differs; otherwise keeps both, stamps the backup and exits 1 |
+| A killed mutation run left the source mutated and nothing noticed | `check.ps1` fails at once while a backup exists |
+
+**Refuted or optional (not changed):**
+
+- Keystore backup names (`*.jks.old`, `*.p12`, `*.pem`) are not ignored. The keystores are PKCS12, so keytool makes no `.old` backup; optional hardening.
+- `.claude/settings.json.disabled` is tracked and holds an add-all-commit-push hook. It is dormant. It is publishing automation, so it was left alone: **the user decides** whether to delete it.
+- The `grid_size` pref is not clamped on read. Only root or adb can write a bad value; clamp it in phase 5.
+- Gradle 9.2.1 is affected by CVE-2026-22816 and CVE-2026-22865 (fixed in 9.3.0). Not exploitable here, since only Maven Central and the Plugin Portal follow `google()`; upgrade or add a content filter in phase 5.
+- `check.ps1` and `mutate.ps1` build a `cmd /c` string from `-Tests` and `-Task`. No outside input reaches them; a `ValidatePattern` would harden it.
+
+**Not verified:** a duplicate of the wrapper checksum finding (verification was capped at three per area).
+Checked by hand and fine: only the launcher activity is exported, the only permission is `VIBRATE`, release
+builds minify, signing credentials come from `local.properties`, `allowBackup=true` is wanted (keeps progress).

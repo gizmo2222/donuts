@@ -31,6 +31,15 @@ $logDir = Join-Path $root 'build\logs'
 New-Item -ItemType Directory -Force $logDir | Out-Null
 $log = Join-Path $logDir 'check.log'
 
+# An interrupted mutate.ps1 run leaves a source file mutated; never build or test that by mistake
+$stale = @(Get-ChildItem $logDir -Filter 'mutate-backup-*' -File)
+if ($stale.Count -gt 0) {
+    $names = ($stale | ForEach-Object { $_.Name }) -join ', '
+    Write-Output "CHECK FAILED: an interrupted mutation run may have left a source file mutated ($names in build\logs)."
+    Write-Output "Run .\tools\mutate.ps1 -File <name> -WhatIf to restore it, or compare by hand and delete the backup."
+    exit 1
+}
+
 Push-Location $root
 try {
     # cmd merges stderr into stdout so PowerShell 5.1 does not wrap those lines in error records
