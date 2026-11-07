@@ -13,7 +13,7 @@ marked done or skipped, commits on its branch (no push, no merge, no PR) and upd
 | 6 | UI | done |
 | 7 | Simulation or game balance | done |
 | 8 | Research | done |
-| 9 | Wrap-up | todo |
+| 9 | Wrap-up | done |
 
 ## Phase log
 
@@ -56,6 +56,10 @@ Phase 8: open questions worth research are a `kidLearner` model (do real kids re
 **8 Research (done, branch `overhaul/phase-8`).** New `docs/research.md`: 7 Sonnet researchers, a citation checker per angle (100 URLs opened, 51 items removed), a design and an engineering judge, a writer and a critic (18 agents); the critic's 9 fixes were applied (duplicate ids merged, 72 references, scores re-sorted).
 Top ranked: voice cheers that read the words aloud, praise that names the act and Steven, a grown-up moment, loop-the-ring, deterministic donut friends in the box. 30 features ranked, rejected ideas and a pre-production Play checklist are in the doc. No code changed.
 Phase 9: the two phase-7 questions are answered with low confidence; the next step is a `kidLearner` model in `BalanceSim.kt` and a test-only `GOLDEN_CHANCE`/type-count parameter. List the research top ten in the summary's next steps.
+
+**9 Wrap-up (done, branch `overhaul/phase-9`).** Doc map regenerated (no change since phase 7). Auditors checked `CLAUDE.md`, both READMEs and the script help against the code; 8 stale items fixed (missing command rows, test note, size limit, 2.0.3 examples, a bash block in the README).
+New `docs/overhaul-summary.md`: per-phase changes, scripts added, what was left (the `.claude/settings.json.disabled` and `NEXT_BUILD.md` decisions are yours), and the top ten next steps, with merge commands and the push-hook warning.
+Overhaul complete; the merge decision is the user's (`git merge --ff-only overhaul/phase-9` on `master`; the post-commit hook pushes the next commit there).
 
 ## Which later phases apply
 

@@ -31,30 +31,36 @@ closed testing; see the README for the release checklist.
 
 ## Build, run and test
 
-All commands are PowerShell 5.1, run from the repository root. `check.ps1` finds the JDK that ships with
-Android Studio when `$env:JAVA_HOME` is not set.
+All commands are PowerShell 5.1, run from the repository root. The build scripts dot-source `tools\env.ps1`, which sets
+`$env:JAVA_HOME` to the JDK that ships with Android Studio when it is not set, and `$env:ANDROID_HOME` from the
+main checkout's `local.properties` when working in a git worktree.
 
 | Do | Command |
 |---|---|
 | Build the debug APK (`app\build\outputs\apk\debug\app-debug.apk`) | `.\tools\check.ps1 -Quiet` |
 | Build and run the unit tests (the full suite) | `.\tools\check.ps1 -Test -Quiet` |
+| Run only some test classes | `.\tools\check.ps1 -Quiet -Tests 'com.donuts.game.GameInputTest'` |
 | Line and branch coverage per file (`-Lines` lists uncovered lines) | `.\tools\coverage.ps1 -Quiet` |
 | Mutation check one file against its tests | `.\tools\mutate.ps1 -File GameBoard.kt -Tests 'com.donuts.game.GameBoardTest'` |
 | Start an emulator (`Pixel_8a` default, or `-Avd 10_Tablet`) | `.\tools\emu.ps1 Start` |
 | Install the debug build and launch it | `.\tools\emu.ps1 Install` |
 | Screenshot into `build\shots` | `.\tools\emu.ps1 Shot -Name board` |
+| Tap, drag a chain, or plant a saved board (`-Board 'v1;...'`) on the emulator | `.\tools\emu.ps1 Drag -Path '100,900 200,900 300,900'` |
 | Render every screen state at five sizes, no emulator (`build\shots\gallery`) | `.\tools\gallery.ps1 -Quiet` |
+| Run the balance simulation, 250 scripted games (`build\balance`) | `.\tools\balance.ps1 -Quiet` |
 | Stop the emulator and the adb server | `.\tools\emu.ps1 Stop` |
 | Raise the version for a Play upload | `.\tools\bump-version.ps1 -Name 2.0.5` |
 | Build the signed release bundle | `.\release.ps1` |
 | Upload the bundle to Play | `.\gradlew.bat publishReleaseBundle` |
 | Regenerate the doc map below | `.\tools\code-map.ps1 -UpdateDoc CLAUDE.md` |
 
-Unit tests live in `app\src\test\java\com\donuts\game`. There are no instrumented tests and no CI.
+Unit tests live in `app\src\test\java\com\donuts\game` and all run on the JVM: the rules tests are plain JUnit,
+the view, activity and saved-game tests run under Robolectric 4.16. `BalanceSim` and `ScreenGallery` run only through
+`balance.ps1` and `gallery.ps1`. There are no instrumented tests and no CI.
 
 ## Code map
 
-All sources are in `app\src\main\java\com\donuts\game`. No file is over about 600 lines; keep it that way and split a file when it passes 500.
+All sources are in `app\src\main\java\com\donuts\game`. No main source is over about 450 lines and no test over about 420; split a file when it passes 500.
 
 `GameView` is one class spread over several files. `GameView.kt` holds its state and the frame order; the other files hold `internal fun GameView.name()` extension functions for one area each.
 
@@ -79,7 +85,7 @@ All sources are in `app\src\main\java\com\donuts\game`. No file is over about 60
 | `ChainRules.kt` | `ChainRules.accepts`: which cell may join a drag chain, golden wild rules (pure, unit tested) |
 | `ChainPointer.kt` | `ChainPointer`: which finger owns the current chain (pure, unit tested) |
 | `ChainBadge.kt` | Where the chain-count badge sits: a chain cell next to the last one (pure, unit tested) |
-| `LayoutMath.kt` | Pure layout arithmetic: `spareShare`, sticker tile `gutter` and `fitSide` (unit tested) |
+| `LayoutMath.kt` | Pure layout arithmetic: `spareShare`, sticker tile `gutter` and `fitSide`, `cellIndex`, `boardSide`, `panelLocalY` (unit tested) |
 | `SavedBoard.kt` | `SavedBoard` and its text `encode`/`decode` form for `Prefs`, no Android types (unit tested) |
 | `StickerRules.kt` | `StickerStats` and `StickerRules`: which stickers are earned, donut-box slot maths (pure, unit tested) |
 | `GameBoard.kt`, `GameCell.kt`, `ChainResult.kt`, `PowerUp.kt`, `DonutType.kt` | Game rules, no drawing |
@@ -173,7 +179,7 @@ so read just that range.
 
 ## Sessions and workers
 
-- One task per session. The state is in the README, the commits and the memory files, so the next task starts in a new session.
+- One task per session. The state is in the README, `docs\overhaul-summary.md`, the commits and the memory files, so the next task starts in a new session.
 - A worker gets one deliverable. Its brief names the files and the functions by their `code-map.ps1` line numbers. Workers that build something already decided run on Sonnet; design and diagnosis stay on the larger model. A worker stops and reports at about 80 tool calls.
 - `.\tools\check.ps1 -Quiet` is the check: one verdict line, compiler errors only when it fails. Open `build\logs\check.log` only on a failure.
 - Use the emulator only when a change affects what is on screen. Take one screenshot per thing to verify, and shut the emulator and the adb server down afterwards.

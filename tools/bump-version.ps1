@@ -9,7 +9,7 @@ refuses an upload whose versionCode it has already seen. Running it again with t
 changes nothing.
 
 .PARAMETER Name
-The new versionName, for example 2.0.3.
+The new versionName, for example 2.0.5.
 
 .PARAMETER Code
 The new versionCode. Defaults to the current versionCode plus one.
@@ -18,7 +18,7 @@ The new versionCode. Defaults to the current versionCode plus one.
 Prints the change without writing the file.
 
 .EXAMPLE
-.\tools\bump-version.ps1 -Name 2.0.3
+.\tools\bump-version.ps1 -Name 2.0.5
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
