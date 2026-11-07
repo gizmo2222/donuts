@@ -175,18 +175,20 @@ internal fun GameView.advanceSettingsAnim(now: Long) {
     val settingsTarget = if (settingsOpen) 1f else 0f
     val settingsMs = if (settingsTarget > settingsAnim) SETTINGS_OPEN_MS else SETTINGS_CLOSE_MS
     val settingsStep = dt / settingsMs
-    settingsAnim = if (settingsTarget > settingsAnim)
-        (settingsAnim + settingsStep).coerceAtMost(1f)
-    else
-        (settingsAnim - settingsStep).coerceAtLeast(0f)
+    settingsAnim = when {
+        settingsTarget > settingsAnim -> (settingsAnim + settingsStep).coerceAtMost(1f)
+        settingsTarget < settingsAnim -> (settingsAnim - settingsStep).coerceAtLeast(0f)
+        else -> settingsAnim
+    }
 
     val stickersTarget = if (stickersOpen) 1f else 0f
     val stickersMs = if (stickersTarget > stickersAnim) SETTINGS_OPEN_MS else SETTINGS_CLOSE_MS
     val stickersStep = dt / stickersMs
-    stickersAnim = if (stickersTarget > stickersAnim)
-        (stickersAnim + stickersStep).coerceAtMost(1f)
-    else
-        (stickersAnim - stickersStep).coerceAtLeast(0f)
+    stickersAnim = when {
+        stickersTarget > stickersAnim -> (stickersAnim + stickersStep).coerceAtMost(1f)
+        stickersTarget < stickersAnim -> (stickersAnim - stickersStep).coerceAtLeast(0f)
+        else -> stickersAnim
+    }
 }
 
 // ease-out-quint: f(t) = 1 - (1-t)^5

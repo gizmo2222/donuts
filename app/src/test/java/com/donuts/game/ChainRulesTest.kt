@@ -22,6 +22,12 @@ class ChainRulesTest {
         assertFalse(ChainRules.accepts(listOf(S, S), listOf(false, false), C, false))
     }
 
+    @Test fun shortTypeListIsTreatedAsUnlockedInsteadOfThrowing() {
+        // the golden flags can run ahead of the types; the first non-golden cell then has no type yet
+        assertTrue(ChainRules.accepts(emptyList(), listOf(false), C, false))
+        assertTrue(ChainRules.accepts(listOf(S), listOf(true, false), C, false))
+    }
+
     @Test fun agreesWithPeekChainClear() {
         for (seed in 0..300) {
             val rnd = Random(seed)

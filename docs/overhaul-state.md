@@ -7,7 +7,7 @@ marked done or skipped, commits on its branch (no push, no merge, no PR) and upd
 |---|---|---|
 | 1 | Map | done |
 | 2 | Bug hunt | done |
-| 3 | Tests | todo |
+| 3 | Tests | done |
 | 4 | Security | todo |
 | 5 | Clean-up | todo |
 | 6 | UI | todo |
@@ -28,6 +28,12 @@ Decision: the 4 `GameView`/activity-state fixes have no JVM test (adding Robolec
 emulator checks are in the findings file for phase 6. Phase 3: the new tests were not mutation-checked yet, and
 `Prefs.stickersAnnounced` is a new prefs key (-1 = unset, seeded from the earned mask on first frame).
 Phase 5: `GameView.kt` is now 515 lines (new fields), past the 500-line split rule.
+
+**3 Tests (done, branch `overhaul/phase-3`).** Robolectric 4.16 added as a test-only dependency; 15 workers wrote
+tests per module (suite now 21 classes). Coverage went from lines 43% / branches 38% to lines 98% / branches 88%; mutation
+check killed 156 of 165 mutants, the survivors are logged in `docs/overhaul-findings.md` (one real gap, now tested).
+New scripts: `coverage.ps1`, `mutate.ps1`, `env.ps1`, `check.ps1 -Tests`. Found and fixed a panel flicker in
+`advanceSettingsAnim`. Phase 5: `GameInput` is still not mutation-checked; `GameView.kt` is still 515 lines.
 
 ## Which later phases apply
 
@@ -50,3 +56,7 @@ Phase 5: `GameView.kt` is now 515 lines (new fields), past the 500-line split ru
   and untracked. `keys\` is neither tracked nor ignored. Do not move or change any of them.
 - The doc map in `CLAUDE.md` is generated: `.\tools\code-map.ps1 -UpdateDoc CLAUDE.md`. Re-run it after any
   change to the sources (phase 9 must).
+- Workflow worktrees are cut from `master`, not from the phase branch: a worker that edits code must
+  `git reset --hard overhaul/phase-N` first, and its commits are cherry-picked or checked out file by file.
+- The full suite takes several minutes (Robolectric drawing tests). Run `.\tools\check.ps1 -Test -Quiet` in
+  the background and use `-Tests '<class>'` while iterating.

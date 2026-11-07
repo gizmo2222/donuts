@@ -1,0 +1,16 @@
+// Gradle init script used by tools\coverage.ps1: turns on JaCoCo coverage for the debug unit tests
+// without touching app\build.gradle. The Test settings let JaCoCo see classes that Robolectric loads.
+allprojects {
+    plugins.withId('com.android.application') {
+        project.android.buildTypes.debug.enableUnitTestCoverage = true
+    }
+    plugins.withId('jacoco') {
+        project.tasks.withType(Test).configureEach { t ->
+            def ext = t.extensions.findByName('jacoco')
+            if (ext != null) {
+                ext.includeNoLocationClasses = true
+                ext.excludes = ['jdk.internal.*']
+            }
+        }
+    }
+}

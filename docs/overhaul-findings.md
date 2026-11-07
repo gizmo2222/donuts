@@ -28,3 +28,35 @@ instrumented tests). Check them on the emulator in phase 6.
 - **Auto-shuffle mid-drag** (`advanceAnimation` IDLE): waits while a chain is held.
 - **Double tap on PLAY** (`MainActivity`): a `launching` flag, cleared in `onResume`, starts one GameActivity only.
 - **Multi-touch wiring** in `onTouchEvent`: the `ChainPointer` helper is unit tested, the `MotionEvent` mapping is not.
+
+## Phase 3: tests
+
+Robolectric 4.16 (test-only dependency) now runs `GameView`, the activities and the drawing code on the JVM.
+Coverage (lines 43% → 98%, branches 38% → 88%) was measured with `.\tools\coverage.ps1 -Quiet -Lines` and mutation-checked with `.\tools\mutate.ps1`.
+
+**Bug found and fixed.** `advanceSettingsAnim`: when a panel was fully open (`settingsAnim == 1`,
+`settingsTarget == 1`) the `target > anim` test failed, so the close step was applied and the panel dipped
+every other frame (a one-frame flicker of about 3%). Same for the stickers panel. Both now hold still at the
+target; `GameAnimationPanelsTest` and `GameInputPanelsTest` cover it.
+
+**Phase-2 fixes now covered on the JVM:** double tap on PLAY, the multi-touch `MotionEvent` mapping,
+`startOver` mid-animation and back-press order (`ActivityTest`, `GameInputTest`). The grid-size change
+mid-animation and auto-shuffle mid-drag still want a look on the emulator in phase 6.
+
+**Mutation results** (killed / total). Survivors were each read; only GameAnimation line 51 was a real gap, and it now has a test.
+
+| Module | Killed | Survivors |
+|---|---|---|
+| GameAnimation | 26 / 29 (1 did not compile) | lines 36 and 42 change only sound or haptics; line 51 `&&`→`\|\|` is a real gap (a cascade with no golden cell would set `goldenPopped`; no test checks `goldenPopped` stays false after a cascade) |
+| SavedGame, Prefs | 17 / 19 | lines 92 and 94 `>`→`>=` (equivalent: equal values give the same result) |
+| GameLayout | 28 / 29 | line 74 (equivalent) |
+| Draw helpers | 17 / 17 | none |
+| GameBoard | 30 / 30 | none |
+| Pure helpers | 30 / 32 | StickerRules line 42 and LayoutMath line 18 (equivalent); a ChainRules line-18 survivor got a killing test afterwards |
+| Platform (activities, sound, haptics) | 8 / 9 | MainActivity line 11 (equivalent) |
+| GameInput | not run | each run of `GameInputTest` takes minutes; mutating it is a job for a quieter phase |
+
+**Still untested:** real audio output (`SoundEngine` is only run, not listened to), `RenderThread` posting a
+real frame, `saveState` racing the render thread, pixel-level checks of the drawing (smoke tests only draw
+and check nothing throws), `buildSprites` bitmaps. A worker also noted that `GameBoard.shuffle` does not keep
+the multiset of types (it re-rolls them); that is by design, not a bug.
