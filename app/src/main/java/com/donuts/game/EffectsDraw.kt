@@ -20,8 +20,13 @@ internal fun GameView.drawFloatLabels(canvas: Canvas, now: Long) {
             val rise  = cellSize * 1.8f * t
             val scale = if (reducedMotion) 1f else if (t < 0.12f) (t / 0.12f) * 1.3f else 1.3f - (t - 0.12f) * 0.3f
             val sz    = 28f * u * scale
+            textOutlinePaint.textSize      = sz
+            textOutlinePaint.letterSpacing = 0.08f
+            textOutlinePaint.strokeWidth   = 4f * u
+            val halfW = textOutlinePaint.measureText(fl.text) / 2f + 2f * u
+            val cx = LayoutMath.clampCenter(fl.cx, halfW, boardLeft, boardLeft + board.cols * cellSize)
             canvas.save()
-            canvas.translate(fl.cx, fl.cy - rise)
+            canvas.translate(cx, fl.cy - rise)
             // Shadow
             textPaint.color     = Color.argb((alpha * 0.4f).toInt(), 0, 0, 0)
             textPaint.textSize  = sz

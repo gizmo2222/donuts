@@ -87,4 +87,12 @@ class LayoutMathTest {
         assertTrue(above > below)
         assertEquals(100f, LayoutMath.fitSide(324f, 3, 12f), 0.05f)
     }
+
+    @Test fun clampCenterLeavesAnInsideLabelAlone() = assertEquals(150f, LayoutMath.clampCenter(150f, 80f, 0f, 300f), 0f)
+
+    @Test fun clampCenterPushesAwayFromTheLeftEdge() = assertEquals(80f, LayoutMath.clampCenter(35f, 80f, 0f, 300f), 0f)
+
+    @Test fun clampCenterPushesAwayFromTheRightEdge() = assertEquals(220f, LayoutMath.clampCenter(280f, 80f, 0f, 300f), 0f)
+
+    @Test fun clampCenterUsesTheSpanCentreWhenTheTextIsWider() = assertEquals(150f, LayoutMath.clampCenter(20f, 160f, 0f, 300f), 0f)
 }

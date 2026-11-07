@@ -29,4 +29,8 @@ object LayoutMath {
         val side = if (withMin * 0.12f <= minGut) withMin else avail / (n + gaps * 0.12f)
         return max(0f, side)
     }
+
+    /** [cx] moved so [cx-halfWidth, cx+halfWidth] lies inside [left, right]; the span's centre when the text is wider. */
+    fun clampCenter(cx: Float, halfWidth: Float, left: Float, right: Float): Float =
+        if (halfWidth * 2f >= right - left) (left + right) / 2f else cx.coerceIn(left + halfWidth, right - halfWidth)
 }
