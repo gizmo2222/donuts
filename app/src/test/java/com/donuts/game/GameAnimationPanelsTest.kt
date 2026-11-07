@@ -377,4 +377,10 @@ class GameAnimationPanelsTest {
         v.advanceAnimation(now + v.POP_MS * 2)
         assertEquals(false, v.prefs.goldenPopped)
     }
+
+    @Test
+    fun cascadeWordsClimbWithTheCascadePassAndStopAtTheLast() {
+        assertEquals(listOf("Again!", "Wow!", "Hooray!", "Yippee!", "Amazing!", "Amazing!"), (1..6).map { cascadeWord(it) })
+        assertEquals("Again!", cascadeWord(0))
+    }
 }

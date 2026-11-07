@@ -153,3 +153,38 @@ states, copy and polish. A skeptic checked each report: 32 confirmed, 24 refuted
 - Both activities are locked to portrait. With targetSdk 36, Android 16 ignores that lock on large screens, so the landscape tablet layout is real. The tablet AVD (API 35) letterboxes the app instead.
 - A short splash and a black first frame show on a cold start.
 - The phase-2 checks all passed on the emulator: grid change mid-animation, New game mid-animation, auto-shuffle mid-drag, double tap on PLAY, multi-touch.
+
+## Phase 7: game balance
+
+`.\tools\balance.ps1 -Quiet` plays 250 scenarios by script: 5 player models (kidShort, kidRandom, greedyLong,
+hint, goldenHunter) x grid 6 and 8 x 25 seeds x 150 moves, and checks the chain rules on every move.
+Each finding was put to two skeptics who tried to refute it.
+
+**Fixed.**
+
+- hint-order: `findHint` returned its three cells in flood-fill order, which was not always a path a finger
+  can drag (1312 sim moves). The hint ring did not care and the tutorial sorted them, but any new caller
+  would have been caught out. `findHint` now returns a drag order (`dragOrder`), with a test.
+
+**Refuted (0 of 9 confirmed), logged for the record.**
+
+- The hint never leads to power-ups or chain stickers: the hint is help when stuck, not a strategy.
+- Session milestones stop at 500: "BOX FULL!" repeats every 120 lifetime donuts.
+- Golden cells are too rare (0.3-0.5 on the board): they are meant to be a treat.
+- The 6x6 board is thinner (12% one-option moves vs 1% on 8x8, shuffles 1.9 vs 0.2 per 100 moves): harmless,
+  the shuffle is a celebrated event. `DEFAULT_GRID` stays 6.
+- Row blast and colour burst are dead content for kid play (0.1 and 0 per 100 moves for kidRandom): the kid
+  models are short-sighted on purpose; a real child learns long chains. A `kidLearner` model would settle it
+  before any threshold change.
+
+**Numbers worth keeping.** Kid models clear 4.5-5.7 donuts a move, greedy 14 on 8x8. Cascades do not run away
+(0.94 passes per move at most, deepest 9). Cascade depth for kid play: pass 1 in 24% of moves, pass 2 in 7%,
+pass 3 in 2.1%, pass 4 in 0.7%, pass 5+ in 0.3%.
+
+**New content: cascade words.** Cascade passes said "Again!" then "Wow!" for every deeper pass, so a rare deep
+cascade looked like an ordinary one. Three Sonnet generators each proposed a 5-word ladder (keep-and-extend,
+cartoon sound effects, sight words) and two judges (an early-reading lens and a game-design lens) rejected
+14 of the 15 words between them: Pop, Zing, Whoa, Zoom and Kapow (unreadable, or too close to the power-up
+labels); Yes, Yay and Super (flat, or a step down); and Super!! (two "!"). Both judges kept the same five, so
+`cascadeWord` now gives Again!, Wow!, Hooray!, Yippee!, Amazing! for passes 1 to 5+. Not yet seen on a device:
+check that "Amazing!" fits over a 6x6 board edge cell.

@@ -6,6 +6,10 @@ import kotlin.math.*
 // Per-frame state updates: pops, drops, counter, hint, celebrations, stickers earned.
 // Part of GameView: these are extension functions on it, split out of GameView.kt.
 
+/** The float word for cascade pass [pass] (1-based): rarer passes get bigger words. Picked by a judged word pass in phase 7. */
+internal fun cascadeWord(pass: Int): String = CASCADE_WORDS[(pass - 1).coerceIn(0, CASCADE_WORDS.lastIndex)]
+private val CASCADE_WORDS = listOf("Again!", "Wow!", "Hooray!", "Yippee!", "Amazing!")
+
 // -----------------------------------------------------------------------
 // Hint
 // -----------------------------------------------------------------------
@@ -122,7 +126,7 @@ internal fun GameView.advanceAnimation(now: Long) {
                 })
                 animPhase = AnimPhase.POPPING; animStartMs = now
                 // Floating cascade-combo label
-                addFloatLabelAt(cascadeMatches, if (cascadeCount == 1) "Again!" else "Wow!", Color.rgb(255, 220, 40), now)
+                addFloatLabelAt(cascadeMatches, cascadeWord(cascadeCount), Color.rgb(255, 220, 40), now)
                 if (prefs.soundEnabled)  soundEngine.playPopClear()
                 if (prefs.hapticEnabled) hapticEngine.pop()
             } else {

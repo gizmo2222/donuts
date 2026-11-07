@@ -11,7 +11,7 @@ marked done or skipped, commits on its branch (no push, no merge, no PR) and upd
 | 4 | Security | done |
 | 5 | Clean-up | done |
 | 6 | UI | done |
-| 7 | Simulation or game balance | todo |
+| 7 | Simulation or game balance | done |
 | 8 | Research | todo |
 | 9 | Wrap-up | todo |
 
@@ -48,6 +48,10 @@ Phase 6: check by screenshot the settings and stickers taps (dispatch is now `ha
 **6 UI (done, branch `overhaul/phase-6`).** New `tools\gallery.ps1` renders 18 states at five sizes on the JVM, and the emulator checks passed. 32 of 56 audit findings were confirmed, and all but 4 low ones are fixed (`docs/overhaul-findings.md`).
 Fixes include: historical touch points in a drag, panels pausing the game behind them, an opaque "Shuffle time!" banner, reduced-motion caps, and opaque rims (draw-4 decided). The sticker panel is 6x2 on landscape tablets, with hints that wrap.
 Phase 7: the `GameBoard` rules did not change. The gallery is a handy way to look at a balance change without the emulator.
+
+**7 Game balance (done, branch `overhaul/phase-7`).** New `toolsalance.ps1` plays 250 scripted scenarios (5 player models x 2 grids x 25 seeds x 150 moves) and checks the chain rules every move; 9 balance findings, all refuted by skeptics, so no thresholds or `GOLDEN_CHANCE` changed (`docs/overhaul-findings.md`).
+Fixed: `findHint` now returns its cells in drag order (was flood-fill order, 1312 sim moves). New content: cascade words Again!/Wow!/Hooray!/Yippee!/Amazing!, picked by 3 generators and 2 judges who rejected 14 words. 18 agents used.
+Phase 8: open questions worth research are a `kidLearner` model (do real kids reach row blasts?) and whether 6x6 should get a higher golden chance. Check on a device that "Amazing!" fits over an edge cell.
 
 ## Which later phases apply
 

@@ -1,0 +1,9 @@
+// Gradle init script used by tools\balance.ps1: passes the output folder to the BalanceSim test as the
+// system property donuts.balance, and makes the test task re-run every time. app\build.gradle is unchanged.
+allprojects {
+    tasks.withType(Test).configureEach { t ->
+        def dir = System.getProperty('donuts.balance.dir', '')
+        t.systemProperty 'donuts.balance', dir
+        t.outputs.upToDateWhen { false }
+    }
+}

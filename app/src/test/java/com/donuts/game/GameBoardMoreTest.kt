@@ -397,4 +397,16 @@ class GameBoardMoreTest {
         val b = boardOf("SS", "SS")
         assertEquals(listOf(Pair(0, 0), Pair(0, 1), Pair(1, 0)), b.findHint())
     }
+
+    @Test
+    fun hintCellsAreAlwaysInDragOrder() {
+        // The start cell (0,1) finds (1,0) and (1,2), which are two apart, so the hint must begin with one of them.
+        val b = boardOf("CSC", "SMS", "VBA")
+        val hint = b.findHint()
+        assertEquals(listOf(Pair(1, 0), Pair(0, 1), Pair(1, 2)), hint)
+        for (i in 1 until hint.size) {
+            val (pr, pc) = hint[i - 1]; val (r, c) = hint[i]
+            assertEquals("step $i of $hint", 1, maxOf(Math.abs(pr - r), Math.abs(pc - c)))
+        }
+    }
 }

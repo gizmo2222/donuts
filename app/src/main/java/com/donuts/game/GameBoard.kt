@@ -162,11 +162,20 @@ class GameBoard(
                     if (grid[r][c].type != type || Pair(r, c) in visited) continue
                     val group = floodFill(r, c, type)
                     visited.addAll(group)
-                    if (group.size >= 3) return group.take(3)
+                    if (group.size >= 3) return dragOrder(group[0], group[1], group[2])
                 }
             }
         }
         return emptyList()
+    }
+
+    /**
+     * The first three flood-fill cells in an order a finger can drag. b is always next to a (found from
+     * the start cell); c was found from a or from b, so either a-b-c or b-a-c is a path.
+     */
+    private fun dragOrder(a: Pair<Int, Int>, b: Pair<Int, Int>, c: Pair<Int, Int>): List<Pair<Int, Int>> {
+        val bc = maxOf(Math.abs(b.first - c.first), Math.abs(b.second - c.second)) == 1
+        return if (bc) listOf(a, b, c) else listOf(b, a, c)
     }
 
     private fun floodFill(startR: Int, startC: Int, type: DonutType): List<Pair<Int, Int>> {
