@@ -7,7 +7,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class SavedBoardTest {
+/** [GameBoard.restore], [GameBoard.cellCodes] and [GameBoard.hasValidMoves] on 6x6 and 8x8 boards (the saved-board data path). */
+class GameBoardRestoreTest {
 
     private fun seeded(rows: Int, cols: Int, seed: Int): GameBoard {
         val b = GameBoard(rows, cols, Random(seed))

@@ -1,14 +1,8 @@
 package com.donuts.game
 
-import android.content.Context
 import android.graphics.*
 import android.os.SystemClock
 import android.view.MotionEvent
-import android.view.SurfaceHolder
-import android.view.SurfaceView
-import androidx.core.content.res.ResourcesCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import kotlin.math.*
 
 // Touch handling: panel hits, dragging a chain, releasing it, New game.
@@ -47,36 +41,28 @@ internal fun GameView.panelHitRect(hit: Int): RectF? {
     }
 }
 
-internal fun GameView.handleSettingsTouch(x: Float, y: Float) {
+internal fun GameView.handleSettingsTap(hit: Int) {
     val now = SystemClock.elapsedRealtime()
-    when {
-        soundRects[0].contains(x, y) -> prefs.soundEnabled = true
-        soundRects[1].contains(x, y) -> prefs.soundEnabled = false
-        buzzRects[0].contains(x, y)  -> { prefs.hapticEnabled = true; hapticEngine.tick() }
-        buzzRects[1].contains(x, y)  -> prefs.hapticEnabled = false
-        hintRects[0].contains(x, y)  -> prefs.hintDelayMs = hintOptions[0]
-        hintRects[1].contains(x, y)  -> prefs.hintDelayMs = hintOptions[1]
-        gridRects[0].contains(x, y) || gridRects[1].contains(x, y) -> {
-            val size = if (gridRects[0].contains(x, y)) gridOptions[0] else gridOptions[1]
+    when (hit) {
+        0    -> prefs.soundEnabled = true
+        1    -> prefs.soundEnabled = false
+        10   -> { prefs.hapticEnabled = true; hapticEngine.tick() }
+        11   -> prefs.hapticEnabled = false
+        2, 3 -> prefs.hintDelayMs = hintOptions[hit - 2]
+        4, 5 -> {
+            val size = gridOptions[hit - 4]
             if (prefs.gridSize != size) { prefs.gridSize = size; rebuildBoard() }
         }
-        settingsResetRect.contains(x, y) -> {
+        6 -> {
             stickersConfirm.cancel()
-            if (newGameConfirm.tap(now)) { startOver(); settingsOpen = false }
+            if (newGameConfirm.tap(now)) { startOver(); closeSettings() }
         }
-        settingsStickersRect.contains(x, y) -> {
+        9 -> {
             newGameConfirm.cancel()
             if (stickersConfirm.tap(now)) resetStickers()
         }
-        settingsCloseRect.contains(x, y) || !panelRect.contains(x, y) -> {
-            newGameConfirm.cancel(); stickersConfirm.cancel()
-            settingsOpen = false
-        }
+        7, 8 -> closeSettings()
     }
-}
-
-internal fun GameView.handleStickersTouch(x: Float, y: Float) {
-    if (stickersCloseRect.contains(x, y) || !stickerPanelRect.contains(x, y)) stickersOpen = false
 }
 
 /** Back to 0 of 12 stickers and an empty donut box. The board is banked and cleared first so nothing from it counts again. */
@@ -85,9 +71,11 @@ internal fun GameView.resetStickers() {
     prefs.lifetimeDonuts = 0; prefs.highScore6x6 = 0; prefs.highScore8x8 = 0
     prefs.bestChainLength = 0; prefs.sessionCount = 0; prefs.goldenPopped = false
     sessionSaved = 0; earnedMask = 0; prefs.stickersAnnounced = 0; boxesSeen = -1; allStickersParty = false
-    newGameConfirm.cancel(); stickersConfirm.cancel()
-    settingsOpen = false
+    closeSettings()
 }
+
+/** Shut the settings panel and disarm both two-tap confirms. */
+internal fun GameView.closeSettings() { settingsOpen = false; newGameConfirm.cancel(); stickersConfirm.cancel() }
 
 /** Fresh board and counter. Session stats are saved first so stickers keep counting. */
 internal fun GameView.startOver() {
@@ -184,7 +172,7 @@ internal fun GameView.handleUp() {
             val now = SystemClock.elapsedRealtime()
             powerFx = if (result.powerUp == PowerUp.NONE) null else {
                 val (orr, occ) = PopTiming.origin(result)
-                PowerUpFx(result.powerUp, orr, occ, result.chainType.bodyColor, now,
+                PowerUpFx(result.powerUp, orr, occ, result.chainType.bodyColor,
                     PopTiming.totalMs(delays, POP_MS))
             }
             animStartMs = now; animPhase = AnimPhase.POPPING
@@ -210,12 +198,7 @@ internal fun GameView.handleUp() {
                 chainLen == 4 -> "NICE!"
                 else          -> null
             }
-            label?.let {
-                val cx = allPop.map { (_, c) -> boardLeft + c * cellSize + cellSize / 2f }.average().toFloat()
-                val cy = allPop.map { (r, _) -> boardTop  + r * cellSize + cellSize / 2f }.average().toFloat()
-                val col = result.chainType.labelColor
-                synchronized(floatLabels) { floatLabels.add(FloatLabel(it, cx, cy, col, now)) }
-            }
+            label?.let { addFloatLabelAt(allPop, it, result.chainType.labelColor, now) }
         }
     } else if (chain.isNotEmpty()) {
         // Too short to pop: the donuts wobble. Two in a row also get a "boop" and a "3!"
@@ -223,14 +206,85 @@ internal fun GameView.handleUp() {
         val now = SystemClock.elapsedRealtime()
         wobbleCells = chain; wobbleMs = now
         if (chain.size == 2) {
-            val cx = chain.map { (_, c) -> boardLeft + c * cellSize + cellSize / 2f }.average().toFloat()
-            val cy = chain.map { (r, _) -> boardTop  + r * cellSize + cellSize / 2f }.average().toFloat()
-            synchronized(floatLabels) { floatLabels.add(FloatLabel("3!", cx, cy, Color.WHITE, now)) }
+            addFloatLabelAt(chain, "3!", Color.WHITE, now)
             if (prefs.soundEnabled)  soundEngine.playBoop()
             if (prefs.hapticEnabled) hapticEngine.tick()
         }
     }
     dragChain.clear(); chainPings.clear(); rejectedCell = null
+}
+
+/** Every touch on the game screen: finger ownership, the open panel, the HUD buttons, a held finger, then the board. */
+internal fun GameView.handleTouch(event: MotionEvent): Boolean {
+    val act = event.actionMasked
+    if (act != MotionEvent.ACTION_DOWN && act != MotionEvent.ACTION_MOVE &&
+        act != MotionEvent.ACTION_UP && act != MotionEvent.ACTION_CANCEL &&
+        act != MotionEvent.ACTION_POINTER_DOWN && act != MotionEvent.ACTION_POINTER_UP) return true
+
+    // One finger owns the touch: later fingers are ignored, and lifting the owner releases.
+    var action = act
+    if (act == MotionEvent.ACTION_DOWN) chainPointer.onDown(event.getPointerId(0))
+    if (act == MotionEvent.ACTION_POINTER_DOWN) return true   // extra fingers are ignored; the first owns the chain
+    if (act == MotionEvent.ACTION_POINTER_UP) {
+        if (!chainPointer.onPointerUp(event.getPointerId(event.actionIndex))) return true
+        action = MotionEvent.ACTION_UP
+    } else if (act == MotionEvent.ACTION_UP || act == MotionEvent.ACTION_CANCEL) {
+        if (chainPointer.activeId == ChainPointer.NONE) return true
+    }
+    val pi = event.findPointerIndex(chainPointer.activeId).let { if (it < 0) event.actionIndex else it }
+    val px = event.getX(pi); val py = event.getY(pi)
+    if (act == MotionEvent.ACTION_UP || act == MotionEvent.ACTION_CANCEL) chainPointer.reset()
+
+    synchronized(holder) {
+        // When settings or stickers is open or animating, consume touch
+        if (settingsOpen || settingsAnim > 0f || stickersOpen || stickersAnim > 0f) {
+            // Buttons press in on finger-down and act on finger-up over the same button,
+            // so a finger sliding off a button cancels it, like any other button.
+            val inSettings = settingsOpen || settingsAnim > 0f
+            val slideY = if (inSettings) settingsSlideY() else stickersSlideY()
+            val x = px; val y = LayoutMath.panelLocalY(py, slideY)
+            val hit = if (inSettings) settingsHit(x, y) else stickersHit(x, y)
+            when (action) {
+                MotionEvent.ACTION_DOWN -> {
+                    panelDownHit = hit
+                    panelHitRect(hit)?.let { optPressRect = it; optPressMs = SystemClock.elapsedRealtime() }
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (hit != -1 && hit == panelDownHit) {
+                        if (inSettings) handleSettingsTap(hit) else { stickersOpen = false }
+                    }
+                    panelDownHit = -2
+                }
+                MotionEvent.ACTION_CANCEL -> panelDownHit = -2
+            }
+            return true
+        }
+
+        if (action == MotionEvent.ACTION_DOWN) {
+            val now = SystemClock.elapsedRealtime()
+            if (stickersBtnRect.contains(px, py)) { stickersPressMs = now; stickersOpen = true; return true }
+            if (settingsBtnRect.contains(px, py)) { settingsPressMs = now; settingsOpen = true; return true }
+        }
+
+        // Board still popping or dropping: hold the finger instead of dropping it, so a
+        // drag started early begins the moment the pieces land (see startHeldDrag).
+        if (animPhase != AnimPhase.IDLE) {
+            when (action) {
+                MotionEvent.ACTION_DOWN -> { fingerHeld = true; heldX = px; heldY = py }
+                MotionEvent.ACTION_MOVE -> if (fingerHeld) { heldX = px; heldY = py }
+                else -> fingerHeld = false
+            }
+            return true
+        }
+
+        when (action) {
+            MotionEvent.ACTION_DOWN   -> handleDown(px, py)
+            MotionEvent.ACTION_MOVE   -> { startHeldDrag(); handleMove(px, py) }
+            MotionEvent.ACTION_UP     -> { fingerHeld = false; handleUp() }
+            MotionEvent.ACTION_CANCEL -> { fingerHeld = false; dragChain.clear() }
+        }
+    }
+    return true
 }
 
 internal fun GameView.cellCol(x: Float) = LayoutMath.cellIndex(x, boardLeft, cellSize)
@@ -245,7 +299,7 @@ internal fun GameView.adjacent8(r1: Int, c1: Int, r2: Int, c2: Int) =
 // System Back: close an open panel first; false means nothing was open
 internal fun GameView.onBackPressed(): Boolean {
     synchronized(holder) {
-        if (settingsOpen) { settingsOpen = false; newGameConfirm.cancel(); stickersConfirm.cancel(); return true }
+        if (settingsOpen) { closeSettings(); return true }
         if (stickersOpen) { stickersOpen = false; return true }
     }
     return false

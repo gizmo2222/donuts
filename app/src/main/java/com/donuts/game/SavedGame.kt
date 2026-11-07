@@ -23,11 +23,7 @@ internal fun GameView.settleBoard() {
     }
     pendingResult = null
     board.settle()
-    animPhase = AnimPhase.IDLE
-    popCells.clear(); dropCells.clear(); dropColMask.clear(); powerFx = null
-    cascadeCount = 0; isCascade = false
-    dragChain.clear(); fingerHeld = false
-    hintCells = emptyList()
+    clearMotion()
     if (!board.hasValidMoves() && noMovesWarningMs < 0) noMovesWarningMs = SystemClock.elapsedRealtime()
 }
 
@@ -60,7 +56,7 @@ internal fun GameView.applySaved(s: SavedBoard): Boolean {
     if (!saved.restore(s.cells, s.cleared)) return false
     synchronized(holder) {
         board = saved
-        val total = saved.donutsCleared.values.sum()
+        val total = saved.totalCleared
         sessionSaved = s.sessionSaved.coerceIn(0, total)
         // Show the counter where it was: no count-up from zero, no second milestone party
         displayedCount = total; prevDisplayCount = total
@@ -87,18 +83,17 @@ internal fun GameView.restoreFromPrefs(): Boolean {
 
 // Session banking: fold this board's donuts into the lifetime total and high scores, or start a new board
 internal fun GameView.saveSession() {
-    val sessionTotal = board.donutsCleared.values.sum()
+    val sessionTotal = board.totalCleared
     val delta = sessionTotal - sessionSaved
     if (delta > 0) { prefs.lifetimeDonuts = prefs.lifetimeDonuts + delta; sessionSaved = sessionTotal }
-    val hs = if (board.cols == 6) prefs.highScore6x6 else prefs.highScore8x8
-    if (sessionTotal > hs) {
-        if (board.cols == 6) prefs.highScore6x6 = sessionTotal
-        else prefs.highScore8x8 = sessionTotal
-    }
+    if (sessionTotal > prefs.highScore(board.cols)) prefs.setHighScore(board.cols, sessionTotal)
 }
 
 // Donuts popped ever: what is banked plus what this board has added since the last save
-internal fun GameView.lifetimeDonuts(): Int = prefs.lifetimeDonuts + (board.donutsCleared.values.sum() - sessionSaved)
+internal fun GameView.lifetimeDonuts(): Int = prefs.lifetimeDonuts + (board.totalCleared - sessionSaved)
+
+// Lifetime donuts as the player sees them: banked plus what the counter shows (the box strip and BOX FULL agree on it)
+internal fun GameView.displayedLifetime(): Int = (prefs.lifetimeDonuts + displayedCount - sessionSaved).coerceAtLeast(0)
 
 internal fun GameView.rebuildBoard() {
     synchronized(holder) {
@@ -115,16 +110,24 @@ internal fun GameView.rebuildBoard() {
 
 /** Clears every animation, counter and drag leftover of the old board; shared by New game and a grid-size change. */
 internal fun GameView.resetPlayState() {
-    animPhase = AnimPhase.IDLE
-    popCells.clear(); dropCells.clear(); dropColMask.clear(); landedCols.clear(); landMs = -1L
-    powerFx = null; pendingResult = null
-    cascadeCount = 0; isCascade = false
+    clearMotion()
+    landedCols.clear(); landMs = -1L
+    pendingResult = null
     displayedCount = 0; prevDisplayCount = -1; digitFlips.clear(); lastMilestone = 0
     celebrateMs = -1L; bannerQueue.clear(); particles.clear()
     synchronized(floatLabels) { floatLabels.clear() }
-    dragChain.clear(); chainPings.clear(); fingerHeld = false
+    chainPings.clear()
     counterPulseMs = -1L; chainFlashMs = -1L
     shuffleAnimMs = -1L; noMovesWarningMs = -1L
-    hintCells = emptyList(); tutorialCells = emptyList()
+    tutorialCells = emptyList()
     lastActionMs = SystemClock.elapsedRealtime()
+}
+
+/** Stops every pop, drop, power-up, cascade, drag and hint in flight; shared by settleBoard and resetPlayState. */
+internal fun GameView.clearMotion() {
+    animPhase = AnimPhase.IDLE
+    popCells.clear(); dropCells.clear(); dropColMask.clear(); powerFx = null
+    cascadeCount = 0; isCascade = false
+    dragChain.clear(); fingerHeld = false
+    hintCells = emptyList()
 }

@@ -65,6 +65,8 @@ class SavedBoardCodecTest {
         assertNull(SavedBoard.decode("v1;2;0;${cellsText(3)};"))
         assertNull(SavedBoard.decode("v1;2;0;${cellsText(5)};"))
         assertNull(SavedBoard.decode("v1;1;0;;"))
+        assertNull(SavedBoard.decode("v1;65536;0;;"))
+        assertNull(SavedBoard.decode("v1;17;0;${cellsText(289)};"))
     }
 
     @Test fun decodeAcceptsSmallestBoardAndEmptyCleared() {

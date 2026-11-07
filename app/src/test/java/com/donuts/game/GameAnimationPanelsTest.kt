@@ -1,14 +1,10 @@
 package com.donuts.game
 
-import android.view.MotionEvent
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-
 
 /** Panel slides, stickers earned and the box strip (GameAnimation.kt), split from GameAnimationTest. */
 @RunWith(RobolectricTestRunner::class)
@@ -299,7 +295,7 @@ class GameAnimationPanelsTest {
         val v = TestViews.quietView()
         val now = TestViews.now()
         val t = DonutType.values()[0]
-        v.powerFx = PowerUpFx(PowerUp.BOMB, 1, 1, 0, now, 600L)
+        v.powerFx = PowerUpFx(PowerUp.BOMB, 1, 1, 0, 600L)
         v.popCells.clear()
         v.popCells.add(AnimCell(1, 1, t))                      // origin: no delay, never recorded
         v.popCells.add(AnimCell(1, 2, t, delayMs = 100L))

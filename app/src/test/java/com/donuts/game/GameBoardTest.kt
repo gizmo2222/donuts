@@ -1,12 +1,14 @@
 package com.donuts.game
 
+import com.donuts.game.BoardFixtures.boardOf
+import com.donuts.game.BoardFixtures.letters
+import com.donuts.game.BoardFixtures.rowOf
 import kotlin.random.Random
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Ignore
 import org.junit.Test
 
 /**
@@ -25,27 +27,7 @@ class GameBoardTest {
     private val M = DonutType.MATCHA
     private val A = DonutType.CARAMEL
 
-    private fun typeOf(ch: Char): DonutType = when (ch.uppercaseChar()) {
-        'S' -> S; 'C' -> C; 'B' -> B; 'V' -> V; 'M' -> M; 'A' -> A
-        else -> error("unknown donut letter $ch")
-    }
-
-    private fun boardOf(vararg rows: String): GameBoard {
-        val board = GameBoard(rows.size, rows[0].length, Random(7))
-        rows.forEachIndexed { r, line ->
-            line.forEachIndexed { c, ch ->
-                board.grid[r][c] = GameCell(typeOf(ch), r, c, isGolden = ch.isLowerCase())
-            }
-        }
-        return board
-    }
-
-    private fun GameBoard.types(): List<String> =
-        grid.map { row -> row.joinToString("") { it.type.name.substring(0, 1) } }
-
     private fun cells(vararg rc: Pair<Int, Int>): List<Pair<Int, Int>> = rc.toList()
-
-    private fun rowOf(row: Int, from: Int, to: Int) = (from..to).map { Pair(row, it) }
 
     // -----------------------------------------------------------------------
     // Random injection
@@ -55,12 +37,12 @@ class GameBoardTest {
     fun sameSeedGivesTheSameBoard() {
         val a = GameBoard(8, 8, Random(42))
         val b = GameBoard(8, 8, Random(42))
-        assertEquals(a.types(), b.types())
+        assertEquals(letters(a), letters(b))
     }
 
     @Test
     fun differentSeedsGiveDifferentBoards() {
-        val boards = (1..5).map { GameBoard(8, 8, Random(it)).types() }.toSet()
+        val boards = (1..5).map { letters(GameBoard(8, 8, Random(it))) }.toSet()
         assertTrue(boards.size > 1)
     }
 
@@ -270,10 +252,9 @@ class GameBoardTest {
         val column0 = (0 until 5).map { board.grid[it][0] }
         assertEquals(listOf(M, V, A, S), column0.drop(1).map { it.type })
         assertEquals(listOf(false, true, false, false), column0.drop(1).map { it.isGolden })
-        // every cell knows its new row and has stopped animating
+        // every cell knows its new row
         for (r in 0 until 5) for (c in 0 until 3) {
             assertEquals(r, board.grid[r][c].row)
-            assertEquals(0f, board.grid[r][c].drawOffY, 0f)
         }
         // an untouched column (col 2) only shifted down by one
         assertEquals(listOf(B, M, B, A), (1 until 5).map { board.grid[it][2].type })
@@ -327,9 +308,9 @@ class GameBoardTest {
     @Test
     fun resolveOnceDoesNothingWithoutAMatch() {
         val board = boardOf("CVMA", "VMAC", "MACV", "ACVM")
-        val before = board.types()
+        val before = letters(board)
         assertEquals(0, board.resolveOnce())
-        assertEquals(before, board.types())
+        assertEquals(before, letters(board))
         assertTrue(board.donutsCleared.values.all { it == 0 })
     }
 

@@ -142,12 +142,12 @@ class GameInputPanelsTest : GameInputTestBase() {
         openSettings(v)
         tap(v, v.settingsResetRect)
         assertTrue(v.settingsOpen)
-        assertEquals(5, v.board.donutsCleared.values.sum())
+        assertEquals(5, TestViews.total(v))
         assertEquals(0, v.prefs.lifetimeDonuts)
         assertTrue(v.newGameConfirm.isArmed(TestViews.now()))
         tap(v, v.settingsResetRect)
         assertFalse(v.settingsOpen)
-        assertEquals(0, v.board.donutsCleared.values.sum())
+        assertEquals(0, TestViews.total(v))
         assertEquals(5, v.prefs.lifetimeDonuts)
         assertEquals(0, v.displayedCount)
         assertFalse(v.newGameConfirm.isArmed(TestViews.now()))
@@ -162,7 +162,7 @@ class GameInputPanelsTest : GameInputTestBase() {
         TestViews.advance(2000)
         tap(v, v.settingsResetRect)               // only re-arms
         assertTrue(v.settingsOpen)
-        assertEquals(4, v.board.donutsCleared.values.sum())
+        assertEquals(4, TestViews.total(v))
     }
 
     @Test
@@ -174,7 +174,7 @@ class GameInputPanelsTest : GameInputTestBase() {
         tap(v, v.settingsStickersRect)            // cancels the new-game arm
         tap(v, v.settingsResetRect)               // so this only arms again
         assertTrue(v.settingsOpen)
-        assertEquals(4, v.board.donutsCleared.values.sum())
+        assertEquals(4, TestViews.total(v))
     }
 
     @Test

@@ -17,7 +17,7 @@ object PopTiming {
     }
 
     /** The middle donut of the chain: where the power-up starts. */
-    fun origin(r: ChainResult): Pair<Int, Int> = r.chainCells[r.chainCells.size / 2]
+    fun origin(r: ChainResult): Pair<Int, Int> = midCell(r.chainCells)
 
     /** Pop delay in ms for every chain and bonus cell. */
     fun delays(r: ChainResult): Map<Pair<Int, Int>, Long> {
@@ -25,7 +25,7 @@ object PopTiming {
         val (or, oc) = origin(r)
         val out = HashMap<Pair<Int, Int>, Long>()
         for (cell in r.chainCells) out[cell] = 0L
-        if (r.powerUp == PowerUp.BOMB) out[origin(r)] = lead
+        if (r.powerUp == PowerUp.BOMB) out[Pair(or, oc)] = lead
         for ((row, col) in r.bonusCells) {
             val dist = if (r.powerUp == PowerUp.ROW_BLAST) Math.abs(col - oc)
                        else maxOf(Math.abs(row - or), Math.abs(col - oc))

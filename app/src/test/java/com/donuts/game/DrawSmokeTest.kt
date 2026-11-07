@@ -49,7 +49,7 @@ class DrawSmokeTest {
 
     private fun dragSnake(s: Scene, n: Int) {
         val v = s.v
-        snake(n).forEach { (r, c) -> v.board.grid[r][c].type = DonutType.STRAWBERRY }
+        snake(n).forEach { (r, c) -> v.board.grid[r][c] = v.board.grid[r][c].copy(type = DonutType.STRAWBERRY) }
         val path = snake(n).map { (r, c) -> TestViews.cellCenter(v, r, c) }
         TestViews.touch(v, MotionEvent.ACTION_DOWN, path[0].first, path[0].second)
         for (p in path.drop(1)) TestViews.touch(v, MotionEvent.ACTION_MOVE, p.first, p.second)
@@ -94,7 +94,7 @@ class DrawSmokeTest {
         assertPainted(s, "popping")
         s.frames(60, 40L)
         assertEquals(AnimPhase.IDLE, s.v.animPhase)
-        assertTrue(s.v.board.donutsCleared.values.sum() >= 3)
+        assertTrue(TestViews.total(s.v) >= 3)
     }
 
     private fun powerUpCase(len: Int, expected: PowerUp) {
@@ -105,7 +105,7 @@ class DrawSmokeTest {
         assertPainted(s, "$expected")
         s.frames(80, 40L)
         assertEquals(AnimPhase.IDLE, s.v.animPhase)
-        assertTrue(s.v.board.donutsCleared.values.sum() >= len)
+        assertTrue(TestViews.total(s.v) >= len)
     }
 
     @Test fun bombEffect() = powerUpCase(5, PowerUp.BOMB)

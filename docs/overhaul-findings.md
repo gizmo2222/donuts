@@ -82,8 +82,42 @@ input). Each finding was checked by three skeptics told to refute it. No secret 
 - `.claude/settings.json.disabled` is tracked and holds an add-all-commit-push hook. It is dormant. It is publishing automation, so it was left alone: **the user decides** whether to delete it.
 - The `grid_size` pref is not clamped on read. Only root or adb can write a bad value; clamp it in phase 5.
 - Gradle 9.2.1 is affected by CVE-2026-22816 and CVE-2026-22865 (fixed in 9.3.0). Not exploitable here, since only Maven Central and the Plugin Portal follow `google()`; upgrade or add a content filter in phase 5.
-- `check.ps1` and `mutate.ps1` build a `cmd /c` string from `-Tests` and `-Task`. No outside input reaches them; a `ValidatePattern` would harden it.
+- `check.ps1` and `mutate.ps1` build a `cmd /c` string from `-Tests` and `-Task`. No outside input reaches them; fixed in phase 5 with a `ValidatePattern` on both parameters.
 
 **Not verified:** a duplicate of the wrapper checksum finding (verification was capped at three per area).
 Checked by hand and fine: only the launcher activity is exported, the only permission is `VIBRATE`, release
 builds minify, signing credentials come from `local.properties`, `allowBackup=true` is wanted (keeps progress).
+
+## Phase 5: clean-up
+
+Six area finders (GameView state, drawing, rules, tests, build and scripts, cross-cutting), and each finding
+was checked by a skeptic told to refute it. The safe items were applied in five batches, each built and tested.
+The risky ones below were **not applied**. Each needs a pixel check, a dependency or release change, or a judgement call.
+
+**Risky, logged only:**
+
+| Id | Finding | Why it was not applied |
+|---|---|---|
+| draw-4 | `Color.argb(100/200/240, ...)` alpha is overwritten by `alpha = 255` (HudDraw 121-122, PanelsDraw 50-51, 280, 305) | The dead alpha may record a translucent border someone meant to draw. Phase 6 decides between translucent and opaque |
+| draw-10 | `MainView` has its own copies of the DonutArt sheen and pentagon helpers | The copies differ in spec alpha, outline width and shadow, so merging them would change pixels |
+| draw-11 | `MainView` play button duplicates `drawPrettyButton` and `buttonPressScale` (same formula as `easeOutQuint`) | Many constants differ, and tests call both names |
+| draw-15 | The stickers and settings panels repeat the shell and title drawing | Sheen band, title outline, offsets and sizes all differ, and no test checks pixels |
+| draw-22 | Outline-then-fill paths, tray backgrounds and outlined text are repeated | The cases are not equivalent: the NEW! baseline and the gear's extra circle |
+| draw-23 | Ink colour `argb(a, 28, 12, 0)` is written about 45 times in 8 files | An `ink(alpha)` helper is fine, but it should be its own commit, made by a regex script |
+| draw-24 | Home-screen copies of game art, two check badges, per-cell allocations, implicit `textAlign` | Pixel or hot-path changes; adding an explicit `CENTER` would only harden the code |
+| rules-18 | "Chain type = first non-golden cell" is written three times | `ChainRules.accepts` handles an all-golden chain differently. Only the GameBoard/GameView copies were merged (`GameBoard.chainTypeOf`) |
+| rules-24 | `appcompat` and `material` serve only as a base class and a theme parent | Changes the window theme and the release dependencies; needs an emulator check on API 26 and 34+ |
+| build-1 | Gradle wrapper 9.2.1 has CVE-2026-22816 and CVE-2026-22865 (fixed in 9.3.x) | Build toolchain on the signing machine; the new `distributionSha256Sum` must come from services.gradle.org |
+| build-7 | Material is only the theme parent; `values-v27` repeats 9 of the base theme's 10 lines | Changes the window theme of both activities; needs an emulator look |
+| build-8 | AndroidX (core-ktx 1.12, appcompat 1.6.1), Material 1.11 and AGP are behind | Can change insets, back handling and R8 output; needs a release build and a device check |
+| build-9 | Robolectric 4.16 → 4.17 | Changes the runtime of the whole suite, and `mutate.ps1 --offline` would fail until the new jars are cached |
+| build-10 | Ten identical adaptive-icon XMLs in five `mipmap-*dpi` folders (minSdk 26 needs only `mipmap-anydpi`) | Changes launcher-icon packaging; needs a launcher check |
+| build-11 | SDK and JDK discovery is repeated in `emu.ps1` and `release.ps1` instead of using `env.ps1` | `release.ps1` is release tooling, and `emu.ps1` needs an emulator to verify |
+| build-12 | `proguard-rules.pro` holds template rules; the JavascriptInterface keep duplicates AGP's default | R8 input for the signed bundle |
+| tests-8 | `GameBoardTest.powerUpTierFollowsChainLength` overlaps `GameBoardMoreTest`'s tier tests | It uses a different fixture (a 1x9 row) and covers an edge the other tests do not, so it was kept |
+
+**Refuted:** about 30 reports. Most duplicated a safe item from another finder (unused imports, `grid_size`
+clamp, AudioTrack release, count-and-gravity). The rest were not dead code (`core-ktx` is used, the
+`gradle.properties` flags are needed) or would change behaviour.
+
+**Still the user's call:** whether to delete the tracked `.claude/settings.json.disabled` add-commit-push hook.

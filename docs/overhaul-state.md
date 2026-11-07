@@ -9,7 +9,7 @@ marked done or skipped, commits on its branch (no push, no merge, no PR) and upd
 | 2 | Bug hunt | done |
 | 3 | Tests | done |
 | 4 | Security | done |
-| 5 | Clean-up | todo |
+| 5 | Clean-up | done |
 | 6 | UI | todo |
 | 7 | Simulation or game balance | todo |
 | 8 | Research | todo |
@@ -41,6 +41,10 @@ confirmed and fixed (saved-board count overflow crash, wrapper checksum, root JS
 Phase 5: Gradle 9.2.1 has two CVEs fixed in 9.3.0 (not exploitable here), clamp the `grid_size` pref, add
 `ValidatePattern` to `-Tests`/`-Task`. The user must decide on the tracked `.claude/settings.json.disabled` push hook.
 
+**5 Clean-up (done, branch `overhaul/phase-5`).** 6 finders and a skeptic per finding: 43 safe items applied in 5 built-and-tested batches (unused imports and resources, dead fields, `onTouchEvent` moved to `GameInput.handleTouch`, `GameBoard.chainTypeOf`/`totalCleared`, `grid_size` clamp, `ValidatePattern` in `check.ps1`/`mutate.ps1`, shared test fixtures, `EnginesTest`); 45 files, net -89 lines, `GameView.kt` now 431 lines.
+17 risky items are logged, not applied, in `docs/overhaul-findings.md`: the Gradle 9.3 CVE upgrade, AndroidX/Material/AGP/Robolectric bumps, dropping appcompat/material, the icon XMLs, proguard, and pixel-changing art merges.
+Phase 6: check by screenshot the settings and stickers taps (dispatch is now `handleSettingsTap`), the panel drawing (shared scratch `RectF`) and the home ball (`ringBase`), and decide the draw-4 border alpha.
+
 ## Which later phases apply
 
 - **6 UI: applies.** Native Android UI drawn on a `SurfaceView` canvas, no web front end. "Phone, tablet and
@@ -66,3 +70,6 @@ Phase 5: Gradle 9.2.1 has two CVEs fixed in 9.3.0 (not exploitable here), clamp 
   `git reset --hard overhaul/phase-N` first, and its commits are cherry-picked or checked out file by file.
 - The full suite takes several minutes (Robolectric drawing tests). Run `.\tools\check.ps1 -Test -Quiet` in
   the background and use `-Tests '<class>'` while iterating.
+- Phase 5 choices: anything that changes pixels, dependencies, the theme or release config was logged as risky
+  instead of applied. `ChainRules.accepts` keeps its own all-golden rule (rules-18). The tracked
+  `.claude/settings.json.disabled` push hook is still the user's decision.

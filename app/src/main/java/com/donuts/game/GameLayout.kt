@@ -1,14 +1,7 @@
 package com.donuts.game
 
-import android.content.Context
 import android.graphics.*
-import android.os.SystemClock
-import android.view.MotionEvent
-import android.view.SurfaceHolder
-import android.view.SurfaceView
-import androidx.core.content.res.ResourcesCompat
 import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import kotlin.math.*
 
 // Where everything sits: board, HUD and the two panels.

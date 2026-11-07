@@ -92,8 +92,8 @@ class SoundEngine {
     }
 
     private fun playPCM(samples: ShortArray) {
-        try {
-            val track = AudioTrack.Builder()
+        val track = try {
+            AudioTrack.Builder()
                 .setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_GAME)
@@ -110,13 +110,16 @@ class SoundEngine {
                 .setBufferSizeInBytes(samples.size * 2)
                 .setTransferMode(AudioTrack.MODE_STATIC)
                 .build()
+        } catch (_: Exception) { return }
+        try {
             track.write(samples, 0, samples.size)
             track.play()
             Thread.sleep((samples.size * 1000L / sampleRate) + 40L)
             track.stop()
-            track.release()
         } catch (_: Exception) {
             // Never crash the game over a sound
+        } finally {
+            try { track.release() } catch (_: Exception) {}
         }
     }
 }

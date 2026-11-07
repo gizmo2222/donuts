@@ -54,7 +54,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
 
     internal val onOffLabels = arrayOf("On", "Off")
     internal val hintOptions = longArrayOf(5_000L, 0L)
-    internal val gridOptions = intArrayOf(6, 8)
+    internal val gridOptions = Prefs.GRID_SIZES
     // 6x6 donuts are big, 8x8 are small; the grid size tells a parent that "Small" means more of them
     internal val gridLabels  = arrayOf("Big  6×6", "Small  8×8")
 
@@ -77,13 +77,6 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // -----------------------------------------------------------------------
     internal val dragChain = mutableListOf<Pair<Int, Int>>()
     internal val chainPointer = ChainPointer()
-
-    // Returns the type of the chain: first non-golden cell's type, or first cell's type
-    // if every cell in the chain is golden (all-golden chain is valid).
-    internal val dragChainType: DonutType?
-        get() = dragChain.firstOrNull { (r, c) -> !board.grid[r][c].isGolden }
-            ?.let { (r, c) -> board.grid[r][c].type }
-            ?: dragChain.firstOrNull()?.let { (r, c) -> board.grid[r][c].type }
 
     // -----------------------------------------------------------------------
     // Game animation
@@ -285,10 +278,10 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // Scratch objects — allocated once, reused every frame via rewind()/set().
     // NEVER allocate Path/RectF inside the render loop; use these instead.
     // -----------------------------------------------------------------------
-    // scratchPath  : transient paths (chain line, sheen clip, dino tail/spines,
+    // scratchPath  : transient paths (chain line, sheen clip, star and gear shapes, pentagons,
     //                golden spark, anything used-then-discarded within one draw call)
     // scratchPath2 : clip paths that must survive while addSheen() runs inside them
-    //                (donut glaze clip, star body clip, dino body clip)
+    //                (donut glaze and ball clips, the board chain line)
     // scratchRectF : any transient RectF used for drawOval/drawRoundRect arguments
     internal val scratchPath  = Path()
     internal val scratchPath2 = Path()
@@ -421,14 +414,8 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     }
 
     // -----------------------------------------------------------------------
-    // drawPiece dispatcher
-    // -----------------------------------------------------------------------
-    // -----------------------------------------------------------------------
-    // Pieces: six donuts, six silhouettes. Colour is never the only difference.
-    // -----------------------------------------------------------------------
-    // -----------------------------------------------------------------------
     // Sprite cache: every piece is painted once per layout into a small bitmap and
-    // blitted per frame. The vector painters below are far too heavy to run 64 times
+    // blitted per frame. The vector painters in DonutArt.kt are far too heavy to run 64 times
     // a frame on a software canvas (they cost ~5 fps on the emulator).
     // -----------------------------------------------------------------------
     internal var spriteR    = 0f                          // radius the sprites were painted at
@@ -440,76 +427,5 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // -----------------------------------------------------------------------
     // Touch
     // -----------------------------------------------------------------------
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-        val act = event.actionMasked
-        if (act != MotionEvent.ACTION_DOWN && act != MotionEvent.ACTION_MOVE &&
-            act != MotionEvent.ACTION_UP && act != MotionEvent.ACTION_CANCEL &&
-            act != MotionEvent.ACTION_POINTER_DOWN && act != MotionEvent.ACTION_POINTER_UP) return true
-
-        // One finger owns the touch: later fingers are ignored, and lifting the owner releases.
-        var action = act
-        if (act == MotionEvent.ACTION_DOWN) chainPointer.onDown(event.getPointerId(0))
-        if (act == MotionEvent.ACTION_POINTER_DOWN) { chainPointer.onPointerDown(event.getPointerId(event.actionIndex)); return true }
-        if (act == MotionEvent.ACTION_POINTER_UP) {
-            if (!chainPointer.onPointerUp(event.getPointerId(event.actionIndex))) return true
-            action = MotionEvent.ACTION_UP
-        } else if (act == MotionEvent.ACTION_UP || act == MotionEvent.ACTION_CANCEL) {
-            if (chainPointer.activeId == ChainPointer.NONE) return true
-        }
-        val pi = event.findPointerIndex(chainPointer.activeId).let { if (it < 0) event.actionIndex else it }
-        val px = event.getX(pi); val py = event.getY(pi)
-        if (act == MotionEvent.ACTION_UP || act == MotionEvent.ACTION_CANCEL) chainPointer.reset()
-
-        synchronized(holder) {
-            // When settings or stickers is open or animating, consume touch
-            if (settingsOpen || settingsAnim > 0f || stickersOpen || stickersAnim > 0f) {
-                // Buttons press in on finger-down and act on finger-up over the same button,
-                // so a finger sliding off a button cancels it, like any other button.
-                val inSettings = settingsOpen || settingsAnim > 0f
-                val slideY = if (inSettings) panelRect.height() * (1f - easeOutQuint(settingsAnim))
-                             else stickerPanelRect.height() * (1f - easeOutQuint(stickersAnim))
-                val x = px; val y = LayoutMath.panelLocalY(py, slideY)
-                val hit = if (inSettings) settingsHit(x, y) else stickersHit(x, y)
-                when (action) {
-                    MotionEvent.ACTION_DOWN -> {
-                        panelDownHit = hit
-                        panelHitRect(hit)?.let { optPressRect = it; optPressMs = SystemClock.elapsedRealtime() }
-                    }
-                    MotionEvent.ACTION_UP -> {
-                        if (hit != -1 && hit == panelDownHit) {
-                            if (inSettings) handleSettingsTouch(x, y) else handleStickersTouch(x, y)
-                        }
-                        panelDownHit = -2
-                    }
-                    MotionEvent.ACTION_CANCEL -> panelDownHit = -2
-                }
-                return true
-            }
-
-            if (action == MotionEvent.ACTION_DOWN) {
-                val now = SystemClock.elapsedRealtime()
-                if (stickersBtnRect.contains(px, py)) { stickersPressMs = now; stickersOpen = true; return true }
-                if (settingsBtnRect.contains(px, py)) { settingsPressMs = now; settingsOpen = true; return true }
-            }
-
-            // Board still popping or dropping: hold the finger instead of dropping it, so a
-            // drag started early begins the moment the pieces land (see startHeldDrag).
-            if (animPhase != AnimPhase.IDLE) {
-                when (action) {
-                    MotionEvent.ACTION_DOWN -> { fingerHeld = true; heldX = px; heldY = py }
-                    MotionEvent.ACTION_MOVE -> if (fingerHeld) { heldX = px; heldY = py }
-                    else -> fingerHeld = false
-                }
-                return true
-            }
-
-            when (action) {
-                MotionEvent.ACTION_DOWN   -> handleDown(px, py)
-                MotionEvent.ACTION_MOVE   -> { startHeldDrag(); handleMove(px, py) }
-                MotionEvent.ACTION_UP     -> { fingerHeld = false; handleUp() }
-                MotionEvent.ACTION_CANCEL -> { fingerHeld = false; dragChain.clear() }
-            }
-        }
-        return true
-    }
+    override fun onTouchEvent(event: MotionEvent): Boolean = handleTouch(event)
 }

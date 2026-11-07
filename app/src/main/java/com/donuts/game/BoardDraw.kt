@@ -1,14 +1,6 @@
 package com.donuts.game
 
-import android.content.Context
 import android.graphics.*
-import android.os.SystemClock
-import android.view.MotionEvent
-import android.view.SurfaceHolder
-import android.view.SurfaceView
-import androidx.core.content.res.ResourcesCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import kotlin.math.*
 
 // Drawing the board: background, cells, chain string, hint ring, flashes.
@@ -82,7 +74,7 @@ internal fun GameView.drawChainLine(canvas: Canvas) {
         if (i == 0) scratchPath2.moveTo(cx, cy) else scratchPath2.lineTo(cx, cy)
     }
     val path = scratchPath2
-    val chainColor = dragChainType?.glazeColor ?: Color.WHITE
+    val chainColor = board.chainTypeOf(dragChain)?.glazeColor ?: Color.WHITE
     val cr = Color.red(chainColor); val cg = Color.green(chainColor); val cb = Color.blue(chainColor)
     // Grows with the chain: 0 at 1 cell, 1 at 8+
     val boost = ((dragChain.size - 1f) / 7f).coerceIn(0f, 1f)
@@ -152,32 +144,26 @@ internal fun GameView.drawCellsInner(canvas: Canvas, now: Long) {
         for (c in 0 until board.cols) {
             if ((r to c) in popSet || c in dropColMask) continue
             var entryYOff = 0f
-            var skipCell  = false
             if (boardEntryMs >= 0) {
                 val elapsed = now - boardEntryMs - c * 55L
                 if (elapsed < 0) {
-                    skipCell = true
+                    continue
                 } else {
                     val t     = (elapsed.toFloat() / BOARD_ENTRY_MS).coerceIn(0f, 1f)
                     val eased = 1f - (1f - t) * (1f - t) * (1f - t)
                     entryYOff = -cellSize * 3f * (1f - eased)
                 }
             }
-            if (skipCell) continue
             val cx      = boardLeft + c * cellSize + cellSize / 2f
             val cy      = boardTop  + r * cellSize + cellSize / 2f + entryYOff
             val inChain = Pair(r, c) in dragChain
-
-            // Idle breathing: each cell breathes at a slightly different phase
-            // Period 1400–2200ms, amplitude ±5%. Feels alive.
-            // Suppressed during shuffle so the pop animation reads cleanly.
-            // Idle breathing is a gentle bob (a translate, not a scale) so sprites blit unscaled
+            // Idle breathing: a gentle vertical bob (a translate, not a scale) so sprites blit unscaled.
+            // Each cell has its own phase and a 1400-2040ms period; off during shuffle and for chain cells.
             val breatheOff = if (!reducedMotion && animPhase == AnimPhase.IDLE && !inChain && shuffleAnimMs < 0) {
                 val phase  = (r * board.cols + c) * 0.61f   // golden-ratio-ish spread
                 val period = 1400f + (r * board.cols + c) % 5 * 160f
                 sin((now / period + phase) * 2f * PI.toFloat()) * cellSize * 0.025f
             } else 0f
-            val breatheScale = 1f
 
             // Shuffle pop: each cell shrinks to 0 then bounces back up with a stagger
             val shuffleScale = if (shuffleAnimMs >= 0) {
@@ -205,7 +191,7 @@ internal fun GameView.drawCellsInner(canvas: Canvas, now: Long) {
                 else 1.28f - ((t - 0.35f) / 0.65f) * 0.28f
             } ?: 1f
 
-            val finalScale = (if (inChain) breatheScale * pingScale else breatheScale) * shuffleScale
+            val finalScale = (if (inChain) pingScale else 1f) * shuffleScale
             val pieceR = cellSize * 0.43f * finalScale
 
             var sqX = 1f; var sqY = 1f
@@ -246,7 +232,7 @@ internal fun GameView.drawCellsInner(canvas: Canvas, now: Long) {
                 // including the yellow vanilla donuts and the tan board
                 canvas.save()
                 canvas.scale(hintRingScale, hintRingScale, cx, cy)
-                drawHintRing(canvas, cx, cy, cellSize * 0.49f * breatheScale, hintAlpha)
+                drawHintRing(canvas, cx, cy, cellSize * 0.49f, hintAlpha)
                 canvas.restore()
             }
         }
@@ -351,7 +337,7 @@ internal fun GameView.drawPoppingCells(canvas: Canvas, now: Long) {
             canvas.rotate(rot, cx, cy)
             canvas.scale(sx, sy, cx, cy)
             if (cell.isGolden) drawBall(canvas, cx, cy, cellSize * 0.43f, false, 255)
-            else drawPiece(canvas, cx, cy, cellSize * 0.43f, cell.type, false, 255)
+            else drawPiece(canvas, cx, cy, cellSize * 0.43f, cell.type, false)
             canvas.restore()
             continue
         }

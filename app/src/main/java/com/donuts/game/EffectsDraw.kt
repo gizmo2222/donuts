@@ -1,14 +1,6 @@
 package com.donuts.game
 
-import android.content.Context
 import android.graphics.*
-import android.os.SystemClock
-import android.view.MotionEvent
-import android.view.SurfaceHolder
-import android.view.SurfaceView
-import androidx.core.content.res.ResourcesCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import kotlin.math.*
 
 // Overlays: float labels, pings, confetti and banners, sticker fly, tutorial, no-moves.
@@ -40,7 +32,6 @@ internal fun GameView.drawFloatLabels(canvas: Canvas, now: Long) {
             textOutlinePaint.textSize      = sz
             textOutlinePaint.textAlign     = Paint.Align.CENTER
             textOutlinePaint.strokeWidth   = 4f * u
-            textOutlinePaint.typeface      = boldTypeface
             textOutlinePaint.letterSpacing = 0.08f
             canvas.drawText(fl.text, 0f, sz * 0.36f, textOutlinePaint)
             // Fill
@@ -73,7 +64,7 @@ internal fun GameView.drawCenterPing(canvas: Canvas, now: Long) {
               else if (above - sz * 0.5f < boardTop - cellSize * 0.3f) baseCy + cellSize * 0.85f + sz * 0.3f else above
     textPaint.textSize = sz; textPaint.textAlign = Paint.Align.CENTER
     textOutlinePaint.textSize = sz; textOutlinePaint.textAlign = Paint.Align.CENTER
-    textOutlinePaint.typeface = boldTypeface; textOutlinePaint.strokeWidth = sz * 0.14f
+    textOutlinePaint.strokeWidth = sz * 0.14f
     textOutlinePaint.color = Color.argb(255, 28, 12, 0)
     canvas.drawText("${dragChain.size}", cx, cy + sz * 0.36f, textOutlinePaint)
     textPaint.color = if (big) Color.rgb(255, 215, 50) else Color.WHITE
@@ -191,7 +182,7 @@ internal fun GameView.drawStickerFly(canvas: Canvas, now: Long) {
         val sz = 22f * u
         textPaint.textSize = sz
         textOutlinePaint.textSize = sz; textOutlinePaint.textAlign = Paint.Align.CENTER
-        textOutlinePaint.typeface = boldTypeface; textOutlinePaint.strokeWidth = 4f * u
+        textOutlinePaint.strokeWidth = 4f * u
         textOutlinePaint.color = Color.argb(255, 28, 12, 0)
         canvas.drawText("NEW!", cx, cy - r - 14f * u, textOutlinePaint)
         textPaint.color = Color.rgb(255, 215, 50)

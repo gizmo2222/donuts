@@ -20,8 +20,8 @@
 param(
     [switch]$Quiet,
     [switch]$Test,
-    [string[]]$Tests = @(),
-    [string]$Task = 'assembleDebug'
+    [ValidatePattern('^[\w.*$-]+$')][string[]]$Tests = @(),
+    [ValidatePattern('^[\w:. -]+$')][string]$Task = 'assembleDebug'
 )
 if ($Tests.Count -gt 0) { $Test = $true }
 if ($Test -and -not $PSBoundParameters.ContainsKey('Task')) { $Task = 'testDebugUnitTest' }

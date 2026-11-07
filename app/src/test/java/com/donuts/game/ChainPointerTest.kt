@@ -9,7 +9,6 @@ class ChainPointerTest {
     @Test fun secondFingerIsIgnored() {
         val p = ChainPointer()
         p.onDown(3)
-        p.onPointerDown(7)
         assertEquals(3, p.activeId)
         assertFalse(p.onPointerUp(7))
         assertEquals(3, p.activeId)
@@ -18,7 +17,6 @@ class ChainPointerTest {
     @Test fun liftingTheActiveFingerReleasesEvenWhenItIsNotIndexZero() {
         val p = ChainPointer()
         p.onDown(0)
-        p.onPointerDown(1)
         assertTrue(p.onPointerUp(0))
         assertEquals(ChainPointer.NONE, p.activeId)
         assertFalse(p.onPointerUp(1))

@@ -14,3 +14,6 @@ data class ChainResult(
     val powerUp: PowerUp,
     val chainType: DonutType
 )
+
+/** The middle cell of a chain: where a bomb or row blast is centred and its pop ripple starts. */
+internal fun midCell(cells: List<Pair<Int, Int>>): Pair<Int, Int> = cells[cells.size / 2]

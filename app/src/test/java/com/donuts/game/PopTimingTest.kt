@@ -1,23 +1,12 @@
 package com.donuts.game
 
-import kotlin.random.Random
+import com.donuts.game.BoardFixtures.boardOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Unit tests for [PopTiming] (no Android needed). S = strawberry, C = chocolate. */
 class PopTimingTest {
-
-    private fun boardOf(vararg rows: String): GameBoard {
-        val board = GameBoard(rows.size, rows[0].length, Random(7))
-        rows.forEachIndexed { r, line ->
-            line.forEachIndexed { c, ch ->
-                val t = if (ch == 'S') DonutType.STRAWBERRY else DonutType.CHOCOLATE
-                board.grid[r][c] = GameCell(t, r, c)
-            }
-        }
-        return board
-    }
 
     private fun resultOf(board: GameBoard, chain: List<Pair<Int, Int>>): ChainResult =
         board.peekChainClear(chain)!!

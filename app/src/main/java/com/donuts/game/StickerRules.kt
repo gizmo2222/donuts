@@ -17,6 +17,9 @@ object StickerRules {
     const val BOX_SLOTS = 12
     const val BOX_SLOT_DONUTS = 10
 
+    /** Donuts in one full box. */
+    const val BOX_DONUTS = BOX_SLOTS * BOX_SLOT_DONUTS
+
     fun isEarned(i: Int, s: StickerStats): Boolean {
         val best = max(s.highScore6x6, s.highScore8x8)
         return when (i) {
@@ -47,10 +50,10 @@ object StickerRules {
     fun toAnnounce(earned: Int, announced: Int): Int = earned and announced.inv()
 
     /** Full donut boxes banked. */
-    fun boxesFilled(lifetime: Int): Int = lifetime / (BOX_SLOTS * BOX_SLOT_DONUTS)
+    fun boxesFilled(lifetime: Int): Int = lifetime / BOX_DONUTS
 
     /** Filled slots in the box currently being filled. */
-    fun slotsFilled(lifetime: Int): Int = (lifetime % (BOX_SLOTS * BOX_SLOT_DONUTS)) / BOX_SLOT_DONUTS
+    fun slotsFilled(lifetime: Int): Int = (lifetime % BOX_DONUTS) / BOX_SLOT_DONUTS
 
     /** True when going from [before] to [after] donuts crosses at least one slot boundary. */
     fun slotJustFilled(before: Int, after: Int): Boolean =
@@ -58,5 +61,5 @@ object StickerRules {
 
     /** True when going from [before] to [after] donuts crosses at least one whole-box boundary. */
     fun boxJustFilled(before: Int, after: Int): Boolean =
-        after / (BOX_SLOTS * BOX_SLOT_DONUTS) > before / (BOX_SLOTS * BOX_SLOT_DONUTS)
+        after / BOX_DONUTS > before / BOX_DONUTS
 }

@@ -15,7 +15,7 @@ internal data class AnimCell(
 /** A power-up in flight: which cells have already popped and when the whole show ends. */
 internal class PowerUpFx(
     val kind: PowerUp, val originRow: Int, val originCol: Int,
-    val color: Int, val startMs: Long, val totalMs: Long
+    val color: Int, val totalMs: Long
 ) { val popped = mutableSetOf<Pair<Int, Int>>() }
 
 internal data class DigitFlip(val from: Char, val to: Char, val startMs: Long)

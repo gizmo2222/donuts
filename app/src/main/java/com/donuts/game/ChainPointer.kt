@@ -8,10 +8,6 @@ class ChainPointer {
     /** The first finger goes down: it becomes the active one. */
     fun onDown(id: Int) { activeId = id }
 
-    /** An extra finger goes down: ignored. */
-    @Suppress("UNUSED_PARAMETER")
-    fun onPointerDown(id: Int) {}
-
     /** A finger lifts. True when it is the active finger, i.e. the chain is released. */
     fun onPointerUp(id: Int): Boolean {
         if (activeId == NONE || id != activeId) return false

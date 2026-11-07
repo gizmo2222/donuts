@@ -1,14 +1,6 @@
 package com.donuts.game
 
-import android.content.Context
 import android.graphics.*
-import android.os.SystemClock
-import android.view.MotionEvent
-import android.view.SurfaceHolder
-import android.view.SurfaceView
-import androidx.core.content.res.ResourcesCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import kotlin.math.*
 
 // The stickers panel (with the donut box) and the settings panel.
@@ -20,19 +12,16 @@ import kotlin.math.*
 /** What the sticker rules need, read from prefs and the current board. */
 internal fun GameView.stickerStats() = StickerStats(
     lifetime     = lifetimeDonuts(),
-    highScore6x6 = if (board.cols == 6) maxOf(prefs.highScore6x6, board.donutsCleared.values.sum()) else prefs.highScore6x6,
-    highScore8x8 = if (board.cols != 6) maxOf(prefs.highScore8x8, board.donutsCleared.values.sum()) else prefs.highScore8x8,
+    highScore6x6 = if (board.cols == 6) maxOf(prefs.highScore6x6, board.totalCleared) else prefs.highScore6x6,
+    highScore8x8 = if (board.cols != 6) maxOf(prefs.highScore8x8, board.totalCleared) else prefs.highScore8x8,
     bestChain    = prefs.bestChainLength,
     goldenPopped = prefs.goldenPopped,
     sessions     = prefs.sessionCount
 )
 
-/** Returns true if sticker i has been earned. */
-internal fun GameView.isStickerEarned(i: Int): Boolean = StickerRules.isEarned(i, stickerStats())
-
 internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
     val eased  = easeOutQuint(stickersAnim)
-    val slideY = stickerPanelRect.height() * (1f - eased)
+    val slideY = stickersSlideY()
 
     dimPaint.alpha = (eased * 160).toInt()
     canvas.drawRect(0f, 0f, surfaceW.toFloat(), surfaceH.toFloat(), dimPaint)
@@ -44,14 +33,14 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
     val pr = 22f * u; val bd = 6f * u; val ring = 3f * u
     fillPaint.color = Color.argb(230, 28, 12, 0)
     canvas.drawRoundRect(
-        RectF(stickerPanelRect.left - bd, stickerPanelRect.top - bd,
-              stickerPanelRect.right + bd, stickerPanelRect.bottom + bd),
+        scratchRectF.apply { set(stickerPanelRect.left - bd, stickerPanelRect.top - bd,
+              stickerPanelRect.right + bd, stickerPanelRect.bottom + bd) },
         pr + bd, pr + bd, fillPaint)
     strokePaint.color = Color.argb(200, 255, 255, 255)
     strokePaint.strokeWidth = ring; strokePaint.alpha = 255
     canvas.drawRoundRect(
-        RectF(stickerPanelRect.left - ring, stickerPanelRect.top - ring,
-              stickerPanelRect.right + ring, stickerPanelRect.bottom + ring),
+        scratchRectF.apply { set(stickerPanelRect.left - ring, stickerPanelRect.top - ring,
+              stickerPanelRect.right + ring, stickerPanelRect.bottom + ring) },
         pr + ring, pr + ring, strokePaint)
     fillPaint.color = theme.panelBg; fillPaint.alpha = 255
     canvas.drawRoundRect(stickerPanelRect, pr, pr, fillPaint)
@@ -72,16 +61,16 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
     canvas.drawText("My Stickers", titleX, titleY, textPaint)
     textOutlinePaint.color = Color.argb(80, 0, 0, 0); textOutlinePaint.strokeWidth = 3f * u
     textOutlinePaint.textSize = 28f * u; textOutlinePaint.textAlign = Paint.Align.CENTER
-    textOutlinePaint.typeface = boldTypeface
     canvas.drawText("My Stickers", titleX, titleY, textOutlinePaint)
 
-    val earnedCount = (0 until 12).count { isStickerEarned(it) }
+    val earnedMask  = StickerRules.earnedMask(stickerStats())
+    val earnedCount = Integer.bitCount(earnedMask)
 
     // ---- Sticker tiles ----
     val spinMs = 3200L   // shimmer ring rotation period
     for (i in 0 until 12) {
         val rect    = stickerRects[i]
-        val earned  = isStickerEarned(i)
+        val earned  = earnedMask and (1 shl i) != 0
         val color   = STICKER_COLORS[i]
         val r       = 10f * u
         val cx      = rect.centerX()
@@ -97,19 +86,19 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
             strokePaint.strokeWidth = 4f * u; strokePaint.alpha = glowA
             val g = 4f * u
             canvas.drawRoundRect(
-                RectF(rect.left - g, rect.top - g, rect.right + g, rect.bottom + g),
+                scratchRectF.apply { set(rect.left - g, rect.top - g, rect.right + g, rect.bottom + g) },
                 r + g, r + g, strokePaint)
             // Gold border
             fillPaint.color = Color.argb(220, 28, 12, 0)
-            canvas.drawRoundRect(RectF(rect.left-g, rect.top-g, rect.right+g, rect.bottom+g), r+g, r+g, fillPaint)
+            canvas.drawRoundRect(scratchRectF.apply { set(rect.left-g, rect.top-g, rect.right+g, rect.bottom+g) }, r+g, r+g, fillPaint)
             val g2 = 2.5f * u
             strokePaint.color = Color.rgb(255, 215, 50); strokePaint.strokeWidth = 2.5f * u; strokePaint.alpha = 255
-            canvas.drawRoundRect(RectF(rect.left-g2, rect.top-g2, rect.right+g2, rect.bottom+g2), r+g2, r+g2, strokePaint)
+            canvas.drawRoundRect(scratchRectF.apply { set(rect.left-g2, rect.top-g2, rect.right+g2, rect.bottom+g2) }, r+g2, r+g2, strokePaint)
         } else {
             // Plain dark border
             fillPaint.color = Color.argb(140, 28, 12, 0)
             val g2 = 2.5f * u
-            canvas.drawRoundRect(RectF(rect.left-g2, rect.top-g2, rect.right+g2, rect.bottom+g2), r+g2, r+g2, fillPaint)
+            canvas.drawRoundRect(scratchRectF.apply { set(rect.left-g2, rect.top-g2, rect.right+g2, rect.bottom+g2) }, r+g2, r+g2, fillPaint)
         }
 
         // Tile body — warm parchment for unearned (not cold grey) so it reads as collectible, not broken
@@ -287,7 +276,7 @@ internal fun GameView.drawClosedBox(canvas: Canvas, x: Float, y: Float, s: Float
 // -----------------------------------------------------------------------
 internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
     val eased  = easeOutQuint(settingsAnim)
-    val slideY = panelRect.height() * (1f - eased)
+    val slideY = settingsSlideY()
 
     dimPaint.alpha = (eased * 160).toInt()
     canvas.drawRect(0f, 0f, surfaceW.toFloat(), surfaceH.toFloat(), dimPaint)
@@ -301,9 +290,9 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
 
     // Panel: dark cartoon outline, white ring, cream fill
     fillPaint.color = Color.argb(230, 28, 12, 0)
-    canvas.drawRoundRect(RectF(panelRect.left - bd, panelRect.top - bd, panelRect.right + bd, panelRect.bottom + bd), pr + bd, pr + bd, fillPaint)
+    canvas.drawRoundRect(scratchRectF.apply { set(panelRect.left - bd, panelRect.top - bd, panelRect.right + bd, panelRect.bottom + bd) }, pr + bd, pr + bd, fillPaint)
     strokePaint.color = Color.argb(200, 255, 255, 255); strokePaint.strokeWidth = ring; strokePaint.alpha = 255
-    canvas.drawRoundRect(RectF(panelRect.left - ring, panelRect.top - ring, panelRect.right + ring, panelRect.bottom + ring), pr + ring, pr + ring, strokePaint)
+    canvas.drawRoundRect(scratchRectF.apply { set(panelRect.left - ring, panelRect.top - ring, panelRect.right + ring, panelRect.bottom + ring) }, pr + ring, pr + ring, strokePaint)
     fillPaint.color = theme.panelBg; fillPaint.alpha = 255
     canvas.drawRoundRect(panelRect, pr, pr, fillPaint)
 
@@ -317,7 +306,7 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
     textPaint.color = theme.textPrimary
     canvas.drawText("Settings", titleX, titleY, textPaint)
     textOutlinePaint.color = Color.argb(90, 0, 0, 0); textOutlinePaint.strokeWidth = 2.5f * k
-    textOutlinePaint.textSize = titleSz; textOutlinePaint.textAlign = Paint.Align.CENTER; textOutlinePaint.typeface = boldTypeface
+    textOutlinePaint.textSize = titleSz; textOutlinePaint.textAlign = Paint.Align.CENTER
     canvas.drawText("Settings", titleX, titleY, textOutlinePaint)
 
     drawSectionLabel(canvas, "Sound", pl + pad, soundRects[0].top - 8f * k)
@@ -334,7 +323,7 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
     drawSettingsBtn(canvas, now, hintRects[1], onOffLabels[1], !hintsOn)
 
     drawSectionLabel(canvas, "Donut size", pl + pad, gridRects[0].top - 8f * k)
-    for (i in 0 until 2) drawSettingsBtn(canvas, now, gridRects[i], gridLabels[i], gridOptions[i] == prefs.gridSize)
+    for (i in gridOptions.indices) drawSettingsBtn(canvas, now, gridRects[i], gridLabels[i], gridOptions[i] == prefs.gridSize)
 
     // Two-tap confirm buttons so a stray tap cannot wipe the board or the stickers
     drawConfirmButton(canvas, now, settingsResetRect, newGameConfirm, "New game", Color.rgb(200, 70, 50))
@@ -399,10 +388,10 @@ internal fun GameView.drawSectionLabel(canvas: Canvas, text: String, x: Float, b
 
     // Accent bar: dark border then theme color
     fillPaint.color = Color.argb(200, 28, 12, 0)
-    canvas.drawRoundRect(RectF(x - barPad, barTop - barPad, x + barW + barPad, barBot + barPad),
+    canvas.drawRoundRect(scratchRectF.apply { set(x - barPad, barTop - barPad, x + barW + barPad, barBot + barPad) },
         barW / 2f + barPad, barW / 2f + barPad, fillPaint)
     fillPaint.color = theme.accent; fillPaint.alpha = 255
-    canvas.drawRoundRect(RectF(x, barTop, x + barW, barBot),
+    canvas.drawRoundRect(scratchRectF.apply { set(x, barTop, x + barW, barBot) },
         barW / 2f, barW / 2f, fillPaint)
     fillPaint.alpha = 255
 
@@ -423,15 +412,15 @@ internal fun GameView.drawSettingsBtn(canvas: Canvas, now: Long, rect: RectF, la
     // Dark cartoon border
     fillPaint.color = Color.argb(210, 28, 12, 0)
     canvas.drawRoundRect(
-        RectF(rect.left - borderPad, rect.top - borderPad, rect.right + borderPad, rect.bottom + borderPad),
+        scratchRectF.apply { set(rect.left - borderPad, rect.top - borderPad, rect.right + borderPad, rect.bottom + borderPad) },
         14f * k, 14f * k, fillPaint
     )
     // Gold ring on selected
     if (selected) {
         strokePaint.color = Color.rgb(255, 215, 50); strokePaint.strokeWidth = 2.5f * k; strokePaint.alpha = 255
         canvas.drawRoundRect(
-            RectF(rect.left - borderPad + 1f * k, rect.top - borderPad + 1f * k,
-                  rect.right + borderPad - 1f * k, rect.bottom + borderPad - 1f * k),
+            scratchRectF.apply { set(rect.left - borderPad + 1f * k, rect.top - borderPad + 1f * k,
+                  rect.right + borderPad - 1f * k, rect.bottom + borderPad - 1f * k) },
             13f * k, 13f * k, strokePaint
         )
     }

@@ -1,14 +1,6 @@
 package com.donuts.game
 
-import android.content.Context
 import android.graphics.*
-import android.os.SystemClock
-import android.view.MotionEvent
-import android.view.SurfaceHolder
-import android.view.SurfaceView
-import androidx.core.content.res.ResourcesCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import kotlin.math.*
 
 // Per-frame state updates: pops, drops, counter, hint, celebrations, stickers earned.
@@ -130,12 +122,7 @@ internal fun GameView.advanceAnimation(now: Long) {
                 })
                 animPhase = AnimPhase.POPPING; animStartMs = now
                 // Floating cascade-combo label
-                val cx = cascadeMatches.map { (_, c) -> boardLeft + c * cellSize + cellSize / 2f }.average().toFloat()
-                val cy = cascadeMatches.map { (r, _) -> boardTop  + r * cellSize + cellSize / 2f }.average().toFloat()
-                val comboLabel = "\u00d7${cascadeCount + 1}"
-                synchronized(floatLabels) {
-                    floatLabels.add(FloatLabel(comboLabel, cx, cy, Color.rgb(255, 220, 40), now))
-                }
+                addFloatLabelAt(cascadeMatches, "\u00d7${cascadeCount + 1}", Color.rgb(255, 220, 40), now)
                 if (prefs.soundEnabled)  soundEngine.playPopClear()
                 if (prefs.hapticEnabled) hapticEngine.pop()
             } else {
@@ -165,6 +152,13 @@ internal fun GameView.advanceAnimation(now: Long) {
     }
 }
 
+/** A floating word at the centre of [cells]. */
+internal fun GameView.addFloatLabelAt(cells: Collection<Pair<Int, Int>>, text: String, color: Int, now: Long) {
+    val cx = cells.map { (_, c) -> boardLeft + c * cellSize + cellSize / 2f }.average().toFloat()
+    val cy = cells.map { (r, _) -> boardTop  + r * cellSize + cellSize / 2f }.average().toFloat()
+    synchronized(floatLabels) { floatLabels.add(FloatLabel(text, cx, cy, color, now)) }
+}
+
 // -----------------------------------------------------------------------
 // Settings panel slide animation
 // -----------------------------------------------------------------------
@@ -172,22 +166,19 @@ internal fun GameView.advanceSettingsAnim(now: Long) {
     // Step by real elapsed time (capped), so the slide takes the same time at any frame rate
     val dt = if (panelAnimMs < 0) 16f else (now - panelAnimMs).coerceIn(0L, 50L).toFloat()
     panelAnimMs = now
-    val settingsTarget = if (settingsOpen) 1f else 0f
-    val settingsMs = if (settingsTarget > settingsAnim) SETTINGS_OPEN_MS else SETTINGS_CLOSE_MS
-    val settingsStep = dt / settingsMs
-    settingsAnim = when {
-        settingsTarget > settingsAnim -> (settingsAnim + settingsStep).coerceAtMost(1f)
-        settingsTarget < settingsAnim -> (settingsAnim - settingsStep).coerceAtLeast(0f)
-        else -> settingsAnim
-    }
+    settingsAnim = slideToward(settingsAnim, settingsOpen, dt)
+    stickersAnim = slideToward(stickersAnim, stickersOpen, dt)
+}
 
-    val stickersTarget = if (stickersOpen) 1f else 0f
-    val stickersMs = if (stickersTarget > stickersAnim) SETTINGS_OPEN_MS else SETTINGS_CLOSE_MS
-    val stickersStep = dt / stickersMs
-    stickersAnim = when {
-        stickersTarget > stickersAnim -> (stickersAnim + stickersStep).coerceAtMost(1f)
-        stickersTarget < stickersAnim -> (stickersAnim - stickersStep).coerceAtLeast(0f)
-        else -> stickersAnim
+/** One frame of a panel slide: toward 1 when open, toward 0 when shut, never past either end. */
+private fun GameView.slideToward(anim: Float, open: Boolean, dt: Float): Float {
+    val target = if (open) 1f else 0f
+    val ms = if (target > anim) SETTINGS_OPEN_MS else SETTINGS_CLOSE_MS
+    val step = dt / ms
+    return when {
+        target > anim -> (anim + step).coerceAtMost(1f)
+        target < anim -> (anim - step).coerceAtLeast(0f)
+        else -> anim
     }
 }
 
@@ -197,24 +188,27 @@ internal fun GameView.easeOutQuint(t: Float): Float {
     return 1f - x * x * x * x * x
 }
 
+/** How far each panel sits below its open place; touch and drawing must use the same value. */
+internal fun GameView.settingsSlideY(): Float = panelRect.height() * (1f - easeOutQuint(settingsAnim))
+internal fun GameView.stickersSlideY(): Float = stickerPanelRect.height() * (1f - easeOutQuint(stickersAnim))
+
 // -----------------------------------------------------------------------
 // Counter count-up
 // -----------------------------------------------------------------------
 internal fun GameView.advanceCounter(now: Long) {
-    val target = board.donutsCleared.values.sum()
+    val target = board.totalCleared
     if (displayedCount < target) {
         val step = max(1, (target - displayedCount) / 4)
         val oldCount = displayedCount
         displayedCount = (displayedCount + step).coerceAtMost(target)
         // Record digit flips for any digit that changed
         if (prevDisplayCount >= 0) {
-            var pos = 0; var m = maxOf(displayedCount, oldCount, 1)
+            var pos = 0; var p = 1; var m = maxOf(displayedCount, oldCount, 1)
             while (m > 0) {
-                val p   = generateSequence(1) { it * 10 }.drop(pos).first()
                 val nd  = (displayedCount / p) % 10
                 val od  = (oldCount       / p) % 10
                 if (nd != od) digitFlips[pos] = DigitFlip('0' + od, '0' + nd, now)
-                m /= 10; pos++
+                m /= 10; p *= 10; pos++
             }
         }
         prevDisplayCount = displayedCount
@@ -280,7 +274,7 @@ internal fun GameView.easeOutBack(t: Float): Float {
 internal fun GameView.checkStickers(now: Long) {
     bannerQueue.poll(now)?.let { startCelebration(now, it) }
     // The displayed lifetime, as advanceBoxStrip sees it, so the banner matches the box strip
-    val shown = (prefs.lifetimeDonuts + displayedCount - sessionSaved).coerceAtLeast(0)
+    val shown = displayedLifetime()
     val boxes = StickerRules.boxesFilled(shown)
     if (boxesSeen < 0) boxesSeen = boxes
     else if (boxes > boxesSeen && stickerFlyMs < 0) {
@@ -317,7 +311,7 @@ internal fun GameView.starPulse(now: Long): Float {
 
 // Lifetime donuts as the player sees them (banked + what the counter shows), and the pops when a slot or box fills
 internal fun GameView.advanceBoxStrip(now: Long) {
-    val seen = (prefs.lifetimeDonuts + displayedCount - sessionSaved).coerceAtLeast(0)
+    val seen = displayedLifetime()
     val before = boxStrip.shownLifetime
     boxStrip.shownLifetime = seen
     if (before < 0 || seen <= before) return        // first frame, or a reset: no pop

@@ -1,5 +1,8 @@
 package com.donuts.game
 
+import com.donuts.game.BoardFixtures.boardOf
+import com.donuts.game.BoardFixtures.letters
+import com.donuts.game.BoardFixtures.rowOf
 import kotlin.random.Random
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -25,31 +28,8 @@ class GameBoardMoreTest {
         override fun nextDouble(): Double = d
     }
 
-    private fun typeOf(ch: Char): DonutType = when (ch.uppercaseChar()) {
-        'S' -> DonutType.STRAWBERRY; 'C' -> DonutType.CHOCOLATE; 'B' -> DonutType.BLUEBERRY
-        'V' -> DonutType.VANILLA; 'M' -> DonutType.MATCHA; 'A' -> DonutType.CARAMEL
-        else -> error("unknown donut letter $ch")
-    }
-
-    private fun boardOf(random: Random, vararg rows: String): GameBoard {
-        val board = GameBoard(rows.size, rows[0].length, random)
-        rows.forEachIndexed { r, line ->
-            line.forEachIndexed { c, ch ->
-                board.grid[r][c] = GameCell(typeOf(ch), r, c, isGolden = ch.isLowerCase())
-            }
-        }
-        return board
-    }
-
-    private fun boardOf(vararg rows: String): GameBoard = boardOf(Random(7), *rows)
-
     private fun wholeBoard(b: GameBoard) =
         (0 until b.rows).flatMap { r -> (0 until b.cols).map { c -> Pair(r, c) } }
-
-    private fun row(r: Int, from: Int, to: Int) = (from..to).map { Pair(r, it) }
-
-    private fun letters(b: GameBoard) =
-        b.grid.map { r -> r.joinToString("") { it.type.name.take(1) } }
 
     /** Three rows, ten columns; the middle row is all strawberry, with two more strawberries around it. */
     private fun tierBoard() = boardOf("CBCBCSCBCB", "SSSSSSSSSS", "CBCBCBCSCB")
@@ -68,12 +48,11 @@ class GameBoardMoreTest {
     // ---------------------------------------------------------------- gravity and spawning
 
     @Test
-    fun clearChainDropsSurvivorsAndResetsRowsAndOffsets() {
+    fun clearChainDropsSurvivorsAndResetsRows() {
         val b = boardOf("CSB", "VSC", "BsV", "CSB")
-        b.grid[0][0].drawOffY = 12f
         // Clear column 1 rows 1..3 (S, golden s, S): chain type S with a golden wild.
         val result = b.peekChainClear(listOf(Pair(1, 1), Pair(2, 1), Pair(3, 1)))!!
-        assertTrue(b.clearChain(result))
+        b.clearChain(result)
         // Column 1: three new cells on top, the old top S survives at the bottom.
         assertEquals(S, b.grid[3][1].type)
         assertFalse(b.grid[3][1].isGolden)
@@ -83,7 +62,6 @@ class GameBoardMoreTest {
         for (r in 0 until b.rows) for (c in 0 until b.cols) {
             assertEquals(r, b.grid[r][c].row)
             assertEquals(c, b.grid[r][c].col)
-            assertEquals(0f, b.grid[r][c].drawOffY, 0f)
         }
     }
 
@@ -99,15 +77,15 @@ class GameBoardMoreTest {
 
     @Test
     fun spawnedCellsAreGoldenBelowTheChanceAndPlainAtOrAboveIt() {
-        val allGolden = boardOf(Fixed(0.0), "SSS", "SSS", "SSS")
+        val allGolden = boardOf("SSS", "SSS", "SSS", random = Fixed(0.0))
         allGolden.clearChain(ChainResult(wholeBoard(allGolden), emptyList(), PowerUp.NONE, S))
         assertTrue(allGolden.grid.flatten().all { it.isGolden })
 
-        val justUnder = boardOf(Fixed(GameBoard.GOLDEN_CHANCE - 0.0001), "SSS", "SSS", "SSS")
+        val justUnder = boardOf("SSS", "SSS", "SSS", random = Fixed(GameBoard.GOLDEN_CHANCE - 0.0001))
         justUnder.clearChain(ChainResult(wholeBoard(justUnder), emptyList(), PowerUp.NONE, S))
         assertTrue(justUnder.grid.flatten().all { it.isGolden })
 
-        val atChance = boardOf(Fixed(GameBoard.GOLDEN_CHANCE), "SSS", "SSS", "SSS")
+        val atChance = boardOf("SSS", "SSS", "SSS", random = Fixed(GameBoard.GOLDEN_CHANCE))
         atChance.clearChain(ChainResult(wholeBoard(atChance), emptyList(), PowerUp.NONE, S))
         assertTrue(atChance.grid.flatten().none { it.isGolden })
     }
@@ -129,7 +107,7 @@ class GameBoardMoreTest {
     @Test
     fun resolveOnceRefillsOnlyTheClearedCells() {
         // Fixed(0.5) spawns plain strawberries, all in the top row after the bottom row clears.
-        val b = boardOf(Fixed(0.5), "CBC", "BCB", "SSS")
+        val b = boardOf("CBC", "BCB", "SSS", random = Fixed(0.5))
         assertEquals(3, b.resolveOnce())
         assertEquals(listOf("SSS", "CBC", "BCB"), letters(b))
         assertTrue(b.grid.flatten().none { it.isGolden })
@@ -170,7 +148,7 @@ class GameBoardMoreTest {
 
     // ---------------------------------------------------------------- power-up tiers
 
-    private fun tierFor(n: Int): ChainResult = tierBoard().peekChainClear(row(1, 0, n - 1))!!
+    private fun tierFor(n: Int): ChainResult = tierBoard().peekChainClear(rowOf(1, 0, n - 1))!!
 
     @Test
     fun chainOfThreeAndFourHaveNoPowerUp() {
@@ -202,14 +180,14 @@ class GameBoardMoreTest {
     fun chainOfSevenIsARowBlastOfTheRestOfTheRow() {
         val r = tierFor(7)
         assertEquals(PowerUp.ROW_BLAST, r.powerUp)
-        assertEquals(row(1, 7, 9), r.bonusCells)
+        assertEquals(rowOf(1, 7, 9), r.bonusCells)
     }
 
     @Test
     fun chainOfEightIsStillARowBlast() {
         val r = tierFor(8)
         assertEquals(PowerUp.ROW_BLAST, r.powerUp)
-        assertEquals(row(1, 8, 9), r.bonusCells)
+        assertEquals(rowOf(1, 8, 9), r.bonusCells)
     }
 
     @Test
@@ -241,7 +219,7 @@ class GameBoardMoreTest {
     @Test
     fun clearedCountsAreSplitPerTypeForChainAndBonusCells() {
         val b = tierBoard()
-        b.clearChain(b.peekChainClear(row(1, 0, 4))!!)
+        b.clearChain(b.peekChainClear(rowOf(1, 0, 4))!!)
         // Chain: five S. Bomb: row 0 cols 1..3 = B, C, B and row 2 cols 1..3 = B, C, B.
         val expected = IntArray(DonutType.values().size)
         expected[S.ordinal] = 5
@@ -254,7 +232,7 @@ class GameBoardMoreTest {
     @Test
     fun goldenWildCellsCountUnderTheirOwnType() {
         val b = boardOf("SvS", "BCB", "CBC")
-        b.clearChain(b.peekChainClear(row(0, 0, 2))!!)
+        b.clearChain(b.peekChainClear(rowOf(0, 0, 2))!!)
         val counts = b.clearedCounts()
         assertEquals(2, counts[S.ordinal])
         assertEquals(1, counts[V.ordinal])
@@ -264,7 +242,7 @@ class GameBoardMoreTest {
     @Test
     fun clearedCountsAddUpAcrossSeveralClears() {
         val b = tierBoard()
-        b.clearChain(b.peekChainClear(row(1, 0, 2))!!)
+        b.clearChain(b.peekChainClear(rowOf(1, 0, 2))!!)
         assertEquals(3, b.clearedCounts().sum())
         // Clear the whole board as a chain: all 30 cells count once more.
         b.clearChain(ChainResult(wholeBoard(b), emptyList(), PowerUp.NONE, S))
@@ -294,7 +272,7 @@ class GameBoardMoreTest {
     @Test
     fun settleGivesUpAfterFiftyPassesOnABoardThatAlwaysMatches() {
         // Every spawn is a plain strawberry, so every pass clears the whole 4x4 board again.
-        val b = boardOf(Fixed(0.5), "SSSS", "SSSS", "SSSS", "SSSS")
+        val b = boardOf("SSSS", "SSSS", "SSSS", "SSSS", random = Fixed(0.5))
         b.settle()
         assertEquals(50 * 16, b.clearedCounts().sum())
         assertTrue(b.findMatches().isNotEmpty())
@@ -305,7 +283,7 @@ class GameBoardMoreTest {
     @Test
     fun shuffleKeepsCountsAndSizeAndRewritesEveryCellPosition() {
         val b = GameBoard(8, 8, Random(5))
-        b.clearChain(ChainResult(row(0, 0, 4), emptyList(), PowerUp.NONE, b.grid[0][0].type))
+        b.clearChain(ChainResult(rowOf(0, 0, 4), emptyList(), PowerUp.NONE, b.grid[0][0].type))
         val counts = b.clearedCounts().toList()
         b.shuffle()
         assertEquals(counts, b.clearedCounts().toList())
@@ -313,7 +291,6 @@ class GameBoardMoreTest {
         for (r in 0 until 8) for (c in 0 until 8) {
             assertEquals(r, b.grid[r][c].row)
             assertEquals(c, b.grid[r][c].col)
-            assertEquals(0f, b.grid[r][c].drawOffY, 0f)
         }
         assertTrue(b.findMatches().isEmpty())
     }
@@ -403,7 +380,7 @@ class GameBoardMoreTest {
     @Test
     fun bombAtTheBottomEdgeIsClippedToTheBoard() {
         val b = boardOf("CBCBC", "BCBCB", "SSSSS")
-        val result = b.peekChainClear(row(2, 0, 4))!!
+        val result = b.peekChainClear(rowOf(2, 0, 4))!!
         assertEquals(PowerUp.BOMB, result.powerUp)
         // middle cell (2,2): the 3x3 block is rows 1..2 only, minus the chain cells
         assertEquals(listOf(Pair(1, 1), Pair(1, 2), Pair(1, 3)), result.bonusCells)

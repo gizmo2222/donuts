@@ -21,7 +21,7 @@ class GameInputTest : GameInputTestBase() {
         assertNotNull(v.pendingResult)
         assertTrue(v.dragChain.isEmpty())
         runUntilIdle(v)
-        assertTrue(v.board.donutsCleared.values.sum() >= 3)
+        assertTrue(TestViews.total(v) >= 3)
         assertEquals(3, v.prefs.bestChainLength)
     }
 
@@ -41,7 +41,7 @@ class GameInputTest : GameInputTestBase() {
         assertTrue(v.popCells.isEmpty())
         assertEquals(listOf(0 to 0, 0 to 1), v.wobbleCells)
         assertTrue(synchronized(v.floatLabels) { v.floatLabels.any { it.text == "3!" } })
-        assertEquals(0, v.board.donutsCleared.values.sum())
+        assertEquals(0, TestViews.total(v))
         assertEquals(DonutType.STRAWBERRY, v.board.grid[0][0].type)
     }
 
@@ -256,6 +256,6 @@ class GameInputTest : GameInputTestBase() {
         assertTrue(v.chainPings.isEmpty())
         assertNull(v.pendingResult)
         assertNull(v.prefs.savedBoard)
-        assertEquals(0, v.board.donutsCleared.values.sum())
+        assertEquals(0, TestViews.total(v))
     }
 }

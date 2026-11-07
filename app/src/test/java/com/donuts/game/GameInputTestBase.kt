@@ -20,16 +20,11 @@ abstract class GameInputTestBase {
         "AVBMCV"
     )
 
-    protected fun typeOf(ch: Char) = when (ch) {
-        'S' -> DonutType.STRAWBERRY; 'C' -> DonutType.CHOCOLATE; 'B' -> DonutType.BLUEBERRY
-        'V' -> DonutType.VANILLA; 'M' -> DonutType.MATCHA; else -> DonutType.CARAMEL
-    }
-
     /** A laid-out 6x6 view with a planted, idle board. */
     protected fun planted(rows: List<String> = layout): GameView {
         val v = TestViews.gameView()
         rows.forEachIndexed { r, line ->
-            line.forEachIndexed { c, ch -> v.board.grid[r][c] = GameCell(typeOf(ch), r, c) }
+            line.forEachIndexed { c, ch -> v.board.grid[r][c] = GameCell(BoardFixtures.typeOf(ch), r, c) }
         }
         return v
     }

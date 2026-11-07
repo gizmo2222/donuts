@@ -107,7 +107,7 @@ class SavedGameTest {
         v.saveToPrefs()
         assertEquals(AnimPhase.IDLE, v.animPhase)
         assertNull(v.pendingResult)
-        val total = v.board.donutsCleared.values.sum()
+        val total = TestViews.total(v)
         assertTrue("chain counted, got $total", total >= 3)
         val w = TestViews.gameView(seed = 99)
         assertTrue(w.restoreFromPrefs())
@@ -184,7 +184,7 @@ class SavedGameTest {
         assertEquals(8, v.board.cols); assertEquals(8, v.board.rows)
         assertEquals(0, v.sessionSaved)
         assertEquals(0, v.displayedCount)
-        assertEquals(0, v.board.donutsCleared.values.sum())
+        assertEquals(0, TestViews.total(v))
         assertNull(v.prefs.savedBoard)
         assertEquals(11, v.prefs.lifetimeDonuts)
         assertEquals(AnimPhase.IDLE, v.animPhase)
@@ -232,6 +232,17 @@ class SavedGameTest {
         assertEquals(-1, p.stickersAnnounced)
         assertNull(p.savedBoard)
     }
+
+    @Test fun gridSizeOutsideTheOfferedSizesReadsAsSix() {
+        val sp = TestViews.app().getSharedPreferences("donuts", android.content.Context.MODE_PRIVATE)
+        for (bad in intArrayOf(7, -1, 0, 1000)) {
+            sp.edit().putInt("grid_size", bad).commit()
+            assertEquals(6, Prefs(TestViews.app()).gridSize)
+        }
+        sp.edit().putInt("grid_size", 8).commit()
+        assertEquals(8, Prefs(TestViews.app()).gridSize)
+    }
+
 
     @Test fun everyPrefsPropertyRoundTrips() {
         val p = Prefs(TestViews.app())

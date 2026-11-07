@@ -24,7 +24,7 @@
 #>
 param(
     [Parameter(Mandatory = $true)][string]$File,
-    [string[]]$Tests = @(),
+    [ValidatePattern('^[\w.*$-]+$')][string[]]$Tests = @(),
     [int]$Max = 30,
     [int]$From = 1,
     [int]$To = [int]::MaxValue,
