@@ -1,14 +1,6 @@
 package com.donuts.game
 
-import android.content.Context
 import android.graphics.*
-import android.os.SystemClock
-import android.view.MotionEvent
-import android.view.SurfaceHolder
-import android.view.SurfaceView
-import androidx.core.content.res.ResourcesCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import kotlin.math.*
 
 // HUD chrome: backdrop, icon buttons, pretty buttons, the counter, text helpers.
@@ -82,7 +74,7 @@ internal fun GameView.drawGearIcon(canvas: Canvas, cx: Float, cy: Float, r: Floa
 internal fun GameView.pressScaleFor(rect: RectF, now: Long): Float =
     if (rect === optPressRect) buttonPressScale(now, optPressMs) else 1f
 
-/** Returns a scale factor that dips to 0.93 at tap then recovers to 1.0 over PRESS_MS. */
+/** Returns a scale factor that dips to 0.86 at tap then recovers to 1.0 over PRESS_MS. */
 internal fun GameView.buttonPressScale(now: Long, pressMs: Long): Float {
     if (pressMs < 0) return 1f
     val t = ((now - pressMs).toFloat() / PRESS_MS).coerceIn(0f, 1f)
@@ -102,8 +94,8 @@ internal fun GameView.drawPrettyButton(canvas: Canvas, rect: RectF, baseColor: I
         rx, rx, shadowPaint
     )
     // Cartoon border
-    val bd = 2f * u
-    fillPaint.color = Color.argb(200, 30, 15, 0)
+    val bd = 3f * u
+    fillPaint.color = Color.rgb(28, 12, 0)
     canvas.drawRoundRect(
         scratchRectF.apply { set(rect.left - bd, rect.top - bd, rect.right + bd, rect.bottom + bd) },
         rx + bd, rx + bd, fillPaint
@@ -118,8 +110,8 @@ internal fun GameView.drawPrettyButton(canvas: Canvas, rect: RectF, baseColor: I
     canvas.drawRoundRect(rect, rx, rx, fillPaint)
     canvas.restore()
     // Inner border
-    strokePaint.color       = Color.argb(100, 255, 255, 255)
-    strokePaint.strokeWidth = 1.5f * u; strokePaint.alpha = 255
+    strokePaint.strokeWidth = 1.5f * u
+    strokePaint.color = Color.argb(100, 255, 255, 255)
     canvas.drawRoundRect(rect, rx, rx, strokePaint)
     // Label: white with a dark cartoon outline, readable on any button colour
     if (label.isNotEmpty())
@@ -161,11 +153,10 @@ internal fun GameView.drawCounter(canvas: Canvas, now: Long) {
     val startX  = left + iconR * 2.4f + iconGap + cellW / 2f
     val baseY   = midY + digitSz * 0.36f
 
-    drawPiece(canvas, left + iconR * 1.2f, midY, iconR, DonutType.STRAWBERRY, false, 255)
+    drawPiece(canvas, left + iconR * 1.2f, midY, iconR, DonutType.STRAWBERRY, false)
 
     textOutlinePaint.textSize    = digitSz
     textOutlinePaint.textAlign   = Paint.Align.CENTER
-    textOutlinePaint.typeface    = boldTypeface
     textOutlinePaint.strokeWidth = 2.5f * u
 
     for ((idx, ch) in numStr.withIndex()) {
@@ -208,7 +199,7 @@ internal fun GameView.drawLabel(canvas: Canvas, text: String, x: Float, baseline
     while (textPaint.textSize > 8f * u && textPaint.measureText(text) > maxW) textPaint.textSize *= 0.92f
     val sz = textPaint.textSize
     if (outlined) {
-        textOutlinePaint.textAlign = Paint.Align.CENTER; textOutlinePaint.typeface = boldTypeface
+        textOutlinePaint.textAlign = Paint.Align.CENTER
         textOutlinePaint.textSize = sz; textOutlinePaint.strokeWidth = max(2f * u, sz * 0.16f)
         textOutlinePaint.color = Color.argb(235, 28, 12, 0)
         canvas.drawText(text, x, baseline, textOutlinePaint)
@@ -220,7 +211,7 @@ internal fun GameView.drawLabel(canvas: Canvas, text: String, x: Float, baseline
 internal fun GameView.drawOutlinedText(canvas: Canvas, text: String, x: Float, y: Float, sz: Float, fill: Int) {
     textPaint.textSize = sz; textPaint.textAlign = Paint.Align.CENTER
     textOutlinePaint.textSize = sz; textOutlinePaint.textAlign = Paint.Align.CENTER
-    textOutlinePaint.typeface = boldTypeface; textOutlinePaint.strokeWidth = sz * 0.16f
+    textOutlinePaint.strokeWidth = sz * 0.16f
     textOutlinePaint.color = Color.argb(255, 28, 12, 0)
     canvas.drawText(text, x, y + sz * 0.36f, textOutlinePaint)
     textPaint.color = fill

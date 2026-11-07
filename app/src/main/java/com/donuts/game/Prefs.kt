@@ -12,7 +12,7 @@ class Prefs(context: Context) {
 
     // 6 = big donuts (6x6), the easier board for small fingers; 8 = small donuts (8x8)
     var gridSize: Int
-        get()  = p.getInt("grid_size", 6)
+        get()  = p.getInt("grid_size", DEFAULT_GRID).let { if (it in GRID_SIZES) it else DEFAULT_GRID }
         set(v) { p.edit().putInt("grid_size", v).apply() }
 
     var tutorialSeen: Boolean
@@ -40,6 +40,10 @@ class Prefs(context: Context) {
         get()  = p.getInt("hs_8x8", 0)
         set(v) { p.edit().putInt("hs_8x8", v).apply() }
 
+    /** The best session total for a [size]x[size] board: 6 uses hs_6x6, any other size hs_8x8. */
+    fun highScore(size: Int): Int = if (size == 6) highScore6x6 else highScore8x8
+    fun setHighScore(size: Int, v: Int) { if (size == 6) highScore6x6 = v else highScore8x8 = v }
+
     var bestChainLength: Int
         get()  = p.getInt("best_chain", 0)
         set(v) { p.edit().putInt("best_chain", v).apply() }
@@ -54,8 +58,19 @@ class Prefs(context: Context) {
         get()  = p.getInt("sessions", 0)
         set(v) { p.edit().putInt("sessions", v).apply() }
 
+    // Bitmask of stickers already shown to the player; -1 = never set (see GameView.checkStickers)
+    var stickersAnnounced: Int
+        get()  = p.getInt("stickers_announced", -1)
+        set(v) { p.edit().putInt("stickers_announced", v).apply() }
+
     // The board and counter as left by the last pause (see SavedBoard); null = none
     var savedBoard: String?
         get()  = p.getString("saved_board", null)
         set(v) { p.edit().apply { if (v == null) remove("saved_board") else putString("saved_board", v) }.apply() }
+
+    companion object {
+        /** The board sizes Settings offers; anything else stored falls back to [DEFAULT_GRID]. */
+        val GRID_SIZES = intArrayOf(6, 8)
+        const val DEFAULT_GRID = 6
+    }
 }

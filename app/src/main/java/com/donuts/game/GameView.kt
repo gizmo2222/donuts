@@ -54,7 +54,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
 
     internal val onOffLabels = arrayOf("On", "Off")
     internal val hintOptions = longArrayOf(5_000L, 0L)
-    internal val gridOptions = intArrayOf(6, 8)
+    internal val gridOptions = Prefs.GRID_SIZES
     // 6x6 donuts are big, 8x8 are small; the grid size tells a parent that "Small" means more of them
     internal val gridLabels  = arrayOf("Big  6×6", "Small  8×8")
 
@@ -76,13 +76,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // Touch / drag
     // -----------------------------------------------------------------------
     internal val dragChain = mutableListOf<Pair<Int, Int>>()
-
-    // Returns the type of the chain: first non-golden cell's type, or first cell's type
-    // if every cell in the chain is golden (all-golden chain is valid).
-    internal val dragChainType: DonutType?
-        get() = dragChain.firstOrNull { (r, c) -> !board.grid[r][c].isGolden }
-            ?.let { (r, c) -> board.grid[r][c].type }
-            ?: dragChain.firstOrNull()?.let { (r, c) -> board.grid[r][c].type }
+    internal val chainPointer = ChainPointer()
 
     // -----------------------------------------------------------------------
     // Game animation
@@ -136,14 +130,14 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
         "Donut Taster",   "Donut Lover",   "Donut King",
         "Chain Starter",  "Chain Champ",   "Chain Hero",
         "Little Batch",   "Big Batch",     "Donut Party",
-        "Gold Finder",    "Explorer",      "Super Fan"
+        "Ball Finder",    "Explorer",      "Super Fan"
     )
     // What to do to earn each one, in words an early reader can sound out
     internal val STICKER_DESCS  = arrayOf(
         "Pop 10",         "Pop 50",        "Pop 500",
         "Connect 4",      "Connect 6",     "Connect 8",
-        "20 in a game",   "60 in a game",  "200 in a game",
-        "Pop a gold one", "Try both sizes","Play 10 times"
+        "Pop 20 in a game",   "Pop 60 in a game",  "Pop 200 in a game",
+        "Pop a ball", "Play big and small","Play 10 times"
     )
     internal val STICKER_COLORS = intArrayOf(
         Color.rgb(255, 140,  60), Color.rgb(255, 200,  30), Color.rgb(220,  80,  50),
@@ -218,6 +212,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var celebrateMs     = -1L
     internal val CELEBRATE_MS    = 2600L
     internal var celebrateLabel  = ""
+    internal val bannerQueue     = BannerQueue(BANNER_FIRST_PART_MS)
     internal var physicsMs       = -1L      // last confetti physics step
     // Mutable class (not data class) so physics can update fields in-place each frame,
     // avoiding the 60-object copy + new-list allocation that a data-class copy() would incur.
@@ -241,7 +236,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var panelDownHit = -2           // panel hit id under the finger at ACTION_DOWN
 
     // Honour the system animator scale: 0 means the user asked for no animation
-    internal val reducedMotion: Boolean = try {
+    internal var reducedMotion: Boolean = try {
         android.provider.Settings.Global.getFloat(context.contentResolver,
             android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
     } catch (_: Exception) { false }
@@ -275,6 +270,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal val chainOutlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
     internal val chainLinePaint    = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
     internal val hintRingPaint     = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    internal val refusedPaint      = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND }
     internal val dimPaint          = Paint().apply { color = Color.argb(160, 0, 0, 0) }
     internal val shadowPaint       = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     internal val flashPaint        = Paint().apply { style = Paint.Style.FILL }
@@ -283,10 +279,10 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // Scratch objects — allocated once, reused every frame via rewind()/set().
     // NEVER allocate Path/RectF inside the render loop; use these instead.
     // -----------------------------------------------------------------------
-    // scratchPath  : transient paths (chain line, sheen clip, dino tail/spines,
+    // scratchPath  : transient paths (chain line, sheen clip, star and gear shapes, pentagons,
     //                golden spark, anything used-then-discarded within one draw call)
     // scratchPath2 : clip paths that must survive while addSheen() runs inside them
-    //                (donut glaze clip, star body clip, dino body clip)
+    //                (donut glaze and ball clips, the board chain line)
     // scratchRectF : any transient RectF used for drawOval/drawRoundRect arguments
     internal val scratchPath  = Path()
     internal val scratchPath2 = Path()
@@ -419,14 +415,8 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     }
 
     // -----------------------------------------------------------------------
-    // drawPiece dispatcher
-    // -----------------------------------------------------------------------
-    // -----------------------------------------------------------------------
-    // Pieces: six donuts, six silhouettes. Colour is never the only difference.
-    // -----------------------------------------------------------------------
-    // -----------------------------------------------------------------------
     // Sprite cache: every piece is painted once per layout into a small bitmap and
-    // blitted per frame. The vector painters below are far too heavy to run 64 times
+    // blitted per frame. The vector painters in DonutArt.kt are far too heavy to run 64 times
     // a frame on a software canvas (they cost ~5 fps on the emulator).
     // -----------------------------------------------------------------------
     internal var spriteR    = 0f                          // radius the sprites were painted at
@@ -438,62 +428,5 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // -----------------------------------------------------------------------
     // Touch
     // -----------------------------------------------------------------------
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (event.action != MotionEvent.ACTION_DOWN &&
-            event.action != MotionEvent.ACTION_MOVE &&
-            event.action != MotionEvent.ACTION_UP &&
-            event.action != MotionEvent.ACTION_CANCEL) return true
-
-        synchronized(holder) {
-            // When settings or stickers is open or animating, consume touch
-            if (settingsOpen || settingsAnim > 0f || stickersOpen || stickersAnim > 0f) {
-                // Buttons press in on finger-down and act on finger-up over the same button,
-                // so a finger sliding off a button cancels it, like any other button.
-                val inSettings = settingsOpen || settingsAnim > 0f
-                val slideY = if (inSettings) panelRect.height() * (1f - easeOutQuint(settingsAnim))
-                             else stickerPanelRect.height() * (1f - easeOutQuint(stickersAnim))
-                val x = event.x; val y = event.y + slideY
-                val hit = if (inSettings) settingsHit(x, y) else stickersHit(x, y)
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> {
-                        panelDownHit = hit
-                        panelHitRect(hit)?.let { optPressRect = it; optPressMs = SystemClock.elapsedRealtime() }
-                    }
-                    MotionEvent.ACTION_UP -> {
-                        if (hit != -1 && hit == panelDownHit) {
-                            if (inSettings) handleSettingsTouch(x, y) else handleStickersTouch(x, y)
-                        }
-                        panelDownHit = -2
-                    }
-                    MotionEvent.ACTION_CANCEL -> panelDownHit = -2
-                }
-                return true
-            }
-
-            if (event.action == MotionEvent.ACTION_DOWN) {
-                val now = SystemClock.elapsedRealtime()
-                if (stickersBtnRect.contains(event.x, event.y)) { stickersPressMs = now; stickersOpen = true; return true }
-                if (settingsBtnRect.contains(event.x, event.y)) { settingsPressMs = now; settingsOpen = true; return true }
-            }
-
-            // Board still popping or dropping: hold the finger instead of dropping it, so a
-            // drag started early begins the moment the pieces land (see startHeldDrag).
-            if (animPhase != AnimPhase.IDLE) {
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> { fingerHeld = true; heldX = event.x; heldY = event.y }
-                    MotionEvent.ACTION_MOVE -> if (fingerHeld) { heldX = event.x; heldY = event.y }
-                    else -> fingerHeld = false
-                }
-                return true
-            }
-
-            when (event.action) {
-                MotionEvent.ACTION_DOWN   -> handleDown(event.x, event.y)
-                MotionEvent.ACTION_MOVE   -> { startHeldDrag(); handleMove(event) }
-                MotionEvent.ACTION_UP     -> { fingerHeld = false; handleUp() }
-                MotionEvent.ACTION_CANCEL -> { fingerHeld = false; dragChain.clear() }
-            }
-        }
-        return true
-    }
+    override fun onTouchEvent(event: MotionEvent): Boolean = handleTouch(event)
 }

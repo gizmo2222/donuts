@@ -1,18 +1,14 @@
 package com.donuts.game
 
-import android.content.Context
 import android.graphics.*
-import android.os.SystemClock
-import android.view.MotionEvent
-import android.view.SurfaceHolder
-import android.view.SurfaceView
-import androidx.core.content.res.ResourcesCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import kotlin.math.*
 
 // Per-frame state updates: pops, drops, counter, hint, celebrations, stickers earned.
 // Part of GameView: these are extension functions on it, split out of GameView.kt.
+
+/** The float word for cascade pass [pass] (1-based): rarer passes get bigger words. Picked by a judged word pass in phase 7. */
+internal fun cascadeWord(pass: Int): String = CASCADE_WORDS[(pass - 1).coerceIn(0, CASCADE_WORDS.lastIndex)]
+private val CASCADE_WORDS = listOf("Again!", "Wow!", "Hooray!", "Yippee!", "Amazing!")
 
 // -----------------------------------------------------------------------
 // Hint
@@ -130,12 +126,7 @@ internal fun GameView.advanceAnimation(now: Long) {
                 })
                 animPhase = AnimPhase.POPPING; animStartMs = now
                 // Floating cascade-combo label
-                val cx = cascadeMatches.map { (_, c) -> boardLeft + c * cellSize + cellSize / 2f }.average().toFloat()
-                val cy = cascadeMatches.map { (r, _) -> boardTop  + r * cellSize + cellSize / 2f }.average().toFloat()
-                val comboLabel = "\u00d7${cascadeCount + 1}"
-                synchronized(floatLabels) {
-                    floatLabels.add(FloatLabel(comboLabel, cx, cy, Color.rgb(255, 220, 40), now))
-                }
+                addFloatLabelAt(cascadeMatches, cascadeWord(cascadeCount), Color.rgb(255, 220, 40), now)
                 if (prefs.soundEnabled)  soundEngine.playPopClear()
                 if (prefs.hapticEnabled) hapticEngine.pop()
             } else {
@@ -152,7 +143,9 @@ internal fun GameView.advanceAnimation(now: Long) {
             if (shuffleAnimMs >= 0 && now - shuffleAnimMs > SHUFFLE_ANIM_MS + SHUFFLE_MAX_DELAY)
                 shuffleAnimMs = -1L
             // Auto-shuffle after warning delay
-            if (noMovesWarningMs >= 0 && now - noMovesWarningMs >= NO_MOVES_DELAY_MS) {
+            // A panel hides the board: hold the countdown so the warning gets its full time once it closes
+            if (noMovesWarningMs >= 0 && panelBusy()) noMovesWarningMs = now
+            if (noMovesWarningMs >= 0 && !panelBusy() && now - noMovesWarningMs >= NO_MOVES_DELAY_MS && dragChain.isEmpty()) {
                 board.shuffle()
                 shuffleAnimMs    = now
                 noMovesWarningMs = -1L
@@ -165,6 +158,13 @@ internal fun GameView.advanceAnimation(now: Long) {
     }
 }
 
+/** A floating word at the centre of [cells]. */
+internal fun GameView.addFloatLabelAt(cells: Collection<Pair<Int, Int>>, text: String, color: Int, now: Long) {
+    val cx = cells.map { (_, c) -> boardLeft + c * cellSize + cellSize / 2f }.average().toFloat()
+    val cy = cells.map { (r, _) -> boardTop  + r * cellSize + cellSize / 2f }.average().toFloat()
+    synchronized(floatLabels) { floatLabels.add(FloatLabel(text, cx, cy, color, now)) }
+}
+
 // -----------------------------------------------------------------------
 // Settings panel slide animation
 // -----------------------------------------------------------------------
@@ -172,21 +172,20 @@ internal fun GameView.advanceSettingsAnim(now: Long) {
     // Step by real elapsed time (capped), so the slide takes the same time at any frame rate
     val dt = if (panelAnimMs < 0) 16f else (now - panelAnimMs).coerceIn(0L, 50L).toFloat()
     panelAnimMs = now
-    val settingsTarget = if (settingsOpen) 1f else 0f
-    val settingsMs = if (settingsTarget > settingsAnim) SETTINGS_OPEN_MS else SETTINGS_CLOSE_MS
-    val settingsStep = dt / settingsMs
-    settingsAnim = if (settingsTarget > settingsAnim)
-        (settingsAnim + settingsStep).coerceAtMost(1f)
-    else
-        (settingsAnim - settingsStep).coerceAtLeast(0f)
+    settingsAnim = slideToward(settingsAnim, settingsOpen, dt)
+    stickersAnim = slideToward(stickersAnim, stickersOpen, dt)
+}
 
-    val stickersTarget = if (stickersOpen) 1f else 0f
-    val stickersMs = if (stickersTarget > stickersAnim) SETTINGS_OPEN_MS else SETTINGS_CLOSE_MS
-    val stickersStep = dt / stickersMs
-    stickersAnim = if (stickersTarget > stickersAnim)
-        (stickersAnim + stickersStep).coerceAtMost(1f)
-    else
-        (stickersAnim - stickersStep).coerceAtLeast(0f)
+/** One frame of a panel slide: toward 1 when open, toward 0 when shut, never past either end. */
+private fun GameView.slideToward(anim: Float, open: Boolean, dt: Float): Float {
+    val target = if (open) 1f else 0f
+    val ms = if (target > anim) SETTINGS_OPEN_MS else SETTINGS_CLOSE_MS
+    val step = dt / ms
+    return when {
+        target > anim -> (anim + step).coerceAtMost(1f)
+        target < anim -> (anim - step).coerceAtLeast(0f)
+        else -> anim
+    }
 }
 
 // ease-out-quint: f(t) = 1 - (1-t)^5
@@ -195,24 +194,31 @@ internal fun GameView.easeOutQuint(t: Float): Float {
     return 1f - x * x * x * x * x
 }
 
+/** How far each panel sits below its open place; touch and drawing must use the same value. */
+internal fun GameView.settingsSlideY(): Float = panelRect.height() * (1f - easeOutQuint(settingsAnim))
+internal fun GameView.stickersSlideY(): Float = stickerPanelRect.height() * (1f - easeOutQuint(stickersAnim))
+
 // -----------------------------------------------------------------------
 // Counter count-up
 // -----------------------------------------------------------------------
+/** True while a panel is open or still sliding, so nothing one-time plays unseen under it. */
+internal fun GameView.panelBusy() = settingsOpen || stickersOpen || settingsAnim > 0f || stickersAnim > 0f
+
 internal fun GameView.advanceCounter(now: Long) {
-    val target = board.donutsCleared.values.sum()
+    if (panelBusy()) return
+    val target = board.totalCleared
     if (displayedCount < target) {
         val step = max(1, (target - displayedCount) / 4)
         val oldCount = displayedCount
         displayedCount = (displayedCount + step).coerceAtMost(target)
         // Record digit flips for any digit that changed
         if (prevDisplayCount >= 0) {
-            var pos = 0; var m = maxOf(displayedCount, oldCount, 1)
+            var pos = 0; var p = 1; var m = maxOf(displayedCount, oldCount, 1)
             while (m > 0) {
-                val p   = generateSequence(1) { it * 10 }.drop(pos).first()
                 val nd  = (displayedCount / p) % 10
                 val od  = (oldCount       / p) % 10
                 if (nd != od) digitFlips[pos] = DigitFlip('0' + od, '0' + nd, now)
-                m /= 10; pos++
+                m /= 10; p *= 10; pos++
             }
         }
         prevDisplayCount = displayedCount
@@ -233,6 +239,10 @@ internal fun GameView.advanceCounter(now: Long) {
 
 // Full-screen party: a banner plus confetti cannons from both bottom corners of the board
 internal fun GameView.celebrate(now: Long, label: String) {
+    bannerQueue.offer(now, label)?.let { startCelebration(now, it) }
+}
+
+internal fun GameView.startCelebration(now: Long, label: String) {
     celebrateMs    = now
     physicsMs      = now
     celebrateLabel = label
@@ -272,21 +282,29 @@ internal fun GameView.easeOutBack(t: Float): Float {
 
 // Every sticker earned mid-game gets its moment; so does every full donut box
 internal fun GameView.checkStickers(now: Long) {
-    val boxes = StickerRules.boxesFilled(lifetimeDonuts())
+    val mask = StickerRules.earnedMask(stickerStats())
+    if (earnedMask < 0) {
+        // First frame: an unset announced mask starts at what is earned now, so an update replays nothing
+        var announced = prefs.stickersAnnounced
+        if (announced < 0) { announced = mask; prefs.stickersAnnounced = mask }
+        earnedMask = announced
+    }
+    if (panelBusy()) return
+    bannerQueue.poll(now)?.let { startCelebration(now, it) }
+    // The displayed lifetime, as advanceBoxStrip sees it, so the banner matches the box strip
+    val boxes = StickerRules.boxesFilled(displayedLifetime())
     if (boxesSeen < 0) boxesSeen = boxes
-    else if (boxes > boxesSeen && celebrateMs < 0 && stickerFlyMs < 0) {
+    else if (boxes > boxesSeen && stickerFlyMs < 0) {
         boxesSeen = boxes
         celebrate(now, "BOX FULL!")
         starPulseMs = now
     }
-
-    val mask = StickerRules.earnedMask(stickerStats())
-    if (earnedMask < 0) { earnedMask = mask; return }
     if (stickerFlyMs >= 0) return
-    val fresh = mask and earnedMask.inv()
+    val fresh = StickerRules.toAnnounce(mask, earnedMask)
     if (fresh == 0) return
     val idx = Integer.numberOfTrailingZeros(fresh)
     earnedMask = earnedMask or (1 shl idx)
+    prefs.stickersAnnounced = earnedMask
     if (earnedMask == (1 shl 12) - 1) allStickersParty = true
     stickerFlyIdx = idx; stickerFlyMs = now
     if (prefs.soundEnabled)  soundEngine.playMilestone()
@@ -302,7 +320,7 @@ internal fun GameView.starPulse(now: Long): Float {
 
 // Lifetime donuts as the player sees them (banked + what the counter shows), and the pops when a slot or box fills
 internal fun GameView.advanceBoxStrip(now: Long) {
-    val seen = (prefs.lifetimeDonuts + displayedCount - sessionSaved).coerceAtLeast(0)
+    val seen = displayedLifetime()
     val before = boxStrip.shownLifetime
     boxStrip.shownLifetime = seen
     if (before < 0 || seen <= before) return        // first frame, or a reset: no pop

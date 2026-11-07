@@ -1,14 +1,6 @@
 package com.donuts.game
 
-import android.content.Context
 import android.graphics.*
-import android.os.SystemClock
-import android.view.MotionEvent
-import android.view.SurfaceHolder
-import android.view.SurfaceView
-import androidx.core.content.res.ResourcesCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import kotlin.math.*
 
 // The six donuts and the ball: vector art and the sprite cache.
@@ -265,17 +257,7 @@ internal fun GameView.drawSquareDonut(canvas: Canvas, cx: Float, cy: Float, r: F
 
 // The wildcard is a sports ball: matches any donut, and echoes the title screen.
 internal fun GameView.drawBallVector(canvas: Canvas, cx: Float, cy: Float, r: Float, selected: Boolean, alpha: Int) {
-    val ow = r * 0.18f
-    if (selected) {
-        fillPaint.color = Color.argb(alpha, 255, 255, 255)
-        canvas.drawCircle(cx, cy, r + ow + cellSize * 0.07f, fillPaint)
-    }
-    fillPaint.color = Color.argb(alpha, 28, 12, 0)
-    canvas.drawCircle(cx, cy, r + ow, fillPaint)
-    fillPaint.color = Color.argb(alpha / 3, 0, 0, 0)
-    canvas.drawCircle(cx + r * 0.06f, cy + r * 0.12f, r, fillPaint)
-    fillPaint.color = Color.argb(alpha, 255, 255, 255)
-    canvas.drawCircle(cx, cy, r, fillPaint)
+    ringBase(canvas, cx, cy, r, Color.WHITE, selected, alpha)
     scratchPath2.rewind(); scratchPath2.addCircle(cx, cy, r, Path.Direction.CW)
     canvas.save(); canvas.clipPath(scratchPath2)
     fillPaint.color = Color.argb(alpha, 22, 22, 22)

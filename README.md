@@ -55,10 +55,20 @@ Requires a device or emulator running **Android 8.0 (API 26)** or higher.
 
 ### Debug build
 
-```bash
-./gradlew assembleDebug
-# Output: app/build/outputs/apk/debug/app-debug.apk
+```powershell
+.\tools\check.ps1 -Quiet
 ```
+
+The APK lands in `app\build\outputs\apk\debug\app-debug.apk`.
+
+### Tests
+
+```powershell
+.\tools\check.ps1 -Test -Quiet
+```
+
+Runs the full unit-test suite on the JVM. Coverage, mutation checks, the emulator, the screen gallery and the
+balance simulation each have a script; see [tools/README.md](tools/README.md).
 
 ### Release build (Google Play)
 
@@ -91,9 +101,9 @@ means it is correct; `keystore password was incorrect` means it is not.
 
 ### Release checklist
 
-1. Bump the version with `.\tools\bump-version.ps1 -Name 2.0.3` (raises `versionCode` by one), and rewrite the
+1. Bump the version with `.\tools\bump-version.ps1 -Name 2.0.5` (raises `versionCode` by one), and rewrite the
    tester notes in `app\src\main\play\release-notes\en-US\default.txt` (500 characters at most).
-2. Install the debug build on a real phone (`.\gradlew.bat installDebug`) and play through the first-launch
+2. Install the debug build on a real phone (`.\gradlew.bat installDebug`; on an emulator, `.\tools\emu.ps1 Install`) and play through the first-launch
    demo and a milestone. Debug builds log `fps` once a second under the `Donuts` logcat tag.
 3. Run `.\release.ps1` and confirm it ends with **BUILD SUCCESSFUL**.
 4. Run `.\gradlew.bat publishReleaseBundle` to upload the bundle to the closed testing track (`alpha`) and roll
@@ -112,7 +122,8 @@ and signs in to Google Play with a service-account key. One-time setup:
 2. **IAM & Admin**, then **Service accounts**, then **Create service account**. It needs no Cloud roles. Open
    it, then **Keys**, then **Add key**, then **Create new key**, then **JSON**. Save the file as
    `F:\dev\donuts\play-service-account.json` (gitignored; never commit it). To keep it somewhere else, put
-   its path in `local.properties` as `PLAY_SERVICE_ACCOUNT_JSON=...`.
+   its path in `local.properties` as `PLAY_SERVICE_ACCOUNT_JSON=...`. A key kept under its downloaded name
+   (`<project-id>-<hex>.json`) belongs outside the repository; only JSON in the root and `keys\` is ignored.
 3. In Play Console, **Users and permissions**, then **Invite new users**. Enter the service account's email
    (`…@….iam.gserviceaccount.com`), add **Donuts for Steven** under App permissions, and grant **Release apps
    to testing tracks**. New permissions can take up to a day to start working.
@@ -150,36 +161,18 @@ The list of what goes into the build after 2.0.3, with the decisions already mad
 ```
 donuts/
 ├── app/src/main/
-│   ├── java/com/donuts/game/
-│   │   ├── DonutType.kt     — Piece types, colors, and icon style
-│   │   ├── GameTheme.kt     — The single warm-cream palette
-│   │   ├── GameCell.kt      — Single grid cell (type, position, golden flag)
-│   │   ├── GameBoard.kt     — Match-3 logic (chain detection, fill, cascade, power-ups)
-│   │   ├── ChainResult.kt   — Pre-computed chain clear outcome (cells + bonus + power-up)
-│   │   ├── PowerUp.kt       — Power-up tier enum (NONE, BOMB, ROW_BLAST, COLOR_BURST)
-│   │   ├── GameView.kt      — The game screen: state, frame order, touch entry, render thread
-│   │   ├── GameTypes.kt     — Small value types used by GameView
-│   │   ├── GameLayout.kt    — GameView: where the board, HUD and panels sit
-│   │   ├── GameAnimation.kt — GameView: per-frame updates (pops, drops, counter, celebrations)
-│   │   ├── GameInput.kt     — GameView: touch handling
-│   │   ├── BoardDraw.kt     — GameView: drawing the board and its cells
-│   │   ├── DonutArt.kt      — GameView: the six donuts, the ball, the sprite cache
-│   │   ├── HudDraw.kt       — GameView: HUD buttons, the counter, text helpers
-│   │   ├── EffectsDraw.kt   — GameView: confetti, banners, float labels, tutorial
-│   │   ├── PanelsDraw.kt    — GameView: stickers panel, donut box, settings panel
-│   │   ├── StickerArt.kt    — GameView: the twelve sticker pictures
-│   │   ├── MainView.kt      — Home screen (logo, play button)
-│   │   ├── MainActivity.kt  — Hosts MainView
-│   │   ├── GameActivity.kt  — Hosts GameView
-│   │   ├── Prefs.kt         — SharedPreferences wrapper
-│   │   └── UiScale.kt       — Density-independent sizing unit
+│   ├── java/com/donuts/game/ — all Kotlin sources; the code map in CLAUDE.md says what each file holds
 │   ├── res/
 │   │   ├── font/            — Fredoka One (rounded kid-friendly typeface)
 │   │   ├── values/          — strings, colors, themes
 │   │   └── drawable/        — Adaptive launcher icon (vector)
 │   └── AndroidManifest.xml
 ├── .claude/settings.json.disabled — the old auto-push hook, kept for reference
-├── tools/             — check.ps1 (quiet build check), code-map.ps1 (find code by line)
+├── docs/              — overhaul state, findings, research and summary
+├── tools/             — PowerShell helpers (check, coverage, mutate, emu, gallery, balance, code-map,
+│                        bump-version); see tools/README.md
+├── release.ps1        — builds the signed release bundle
+├── NEXT_BUILD.md      — what goes into the next Play build
 ├── build.gradle
 └── README.md
 ```

@@ -44,6 +44,8 @@ android {
     testOptions {
         // DonutType reads android.graphics.Color; on the JVM those calls return 0 instead of throwing
         unitTests.returnDefaultValues = true
+        // Robolectric tests (GameView, Prefs, SavedGame) need the merged resources and manifest
+        unitTests.includeAndroidResources = true
     }
 }
 
@@ -61,4 +63,5 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.16'
 }

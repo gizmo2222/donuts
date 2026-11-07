@@ -1,6 +1,6 @@
-Play takes you back to the board you left.
-Settings: switch buzzing off, see the version, reset stickers.
-Big chains now go BOOM, WHOOSH and KABOOM.
-The donut box fills up under the counter.
-Layout fits tall screens better.
-New icon with the soccer ball.
+Fast swipes no longer skip donuts.
+Big cascades cheer more: Hooray! Yippee! Amazing!
+Menus pause the game behind them.
+Shuffle time! has a clear banner.
+Stickers fit better on big screens.
+Lots of small fixes.

@@ -46,4 +46,31 @@ class ChainBadgeTest {
         // last (1,1); chain also has (0,1) above and (1,0) left
         assertEquals(0 to 1, ChainBadge.spot(listOf(1 to 0, 0 to 0, 0 to 1, 1 to 1)))
     }
+
+    private val dirs = listOf(-1 to 0, -1 to -1, -1 to 1, 0 to -1, 0 to 1, 1 to -1, 1 to 1, 1 to 0)
+
+    @Test fun eachDirectionIsFoundWhenItIsTheOnlyNeighbour() {
+        for ((dr, dc) in dirs) {
+            val other = (5 + dr) to (5 + dc)
+            assertEquals("dir $dr,$dc", other, ChainBadge.spot(listOf(other, 5 to 5)))
+        }
+    }
+
+    @Test fun preferenceOrderHoldsWhenSeveralNeighboursAreInTheChain() {
+        for (i in dirs.indices) {
+            // neighbours i.. are in the chain: the first of them in preference order wins
+            val chain = dirs.drop(i).map { (5 + it.first) to (5 + it.second) } + (5 to 5)
+            assertEquals(chain.first(), ChainBadge.spot(chain))
+        }
+    }
+
+    @Test fun twoCellChainIsTheSmallestThatHasASpot() {
+        assertEquals(0 to 0, ChainBadge.spot(listOf(0 to 0, 0 to 1)))
+    }
+
+    @Test fun nonAdjacentEarlierCellsGiveNull() {
+        assertNull(ChainBadge.spot(listOf(0 to 0, 5 to 5)))
+        assertNull(ChainBadge.spot(listOf(5 to 3, 5 to 5)))   // two columns away
+        assertNull(ChainBadge.spot(listOf(3 to 5, 5 to 5)))   // two rows away
+    }
 }

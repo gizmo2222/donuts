@@ -18,6 +18,9 @@
   The AVD to boot (Start only). Default: Pixel_8a.
 .PARAMETER Path
   Drag and Tap: screen points in pixels, "x,y x,y x,y". Tap uses the first point only.
+.PARAMETER Memory
+  Start only: RAM in MB for this boot (the AVD's own setting is kept). Default 4096: the 2 GB AVD
+  config lets the low-memory killer close the app during long runs. 0 uses the AVD setting.
 .PARAMETER ColdBoot
   Start only: boot from scratch instead of from the saved snapshot (use when the device stays "offline").
 .PARAMETER Name
@@ -33,6 +36,7 @@ param(
     [string]$Avd = 'Pixel_8a',
     [string]$Name = 'shot',
     [string]$Path = '',
+    [ValidateRange(0, 16384)][int]$Memory = 4096,
     [switch]$ColdBoot
 )
 $root = Split-Path -Parent $PSScriptRoot
@@ -57,6 +61,7 @@ switch ($Action) {
         if (-not (Test-Booted)) {
             $emuArgs = @('-avd', $Avd, '-no-snapshot-save', '-no-boot-anim')
             if ($ColdBoot) { $emuArgs += '-no-snapshot-load' }
+            if ($Memory -gt 0) { $emuArgs += @('-memory', "$Memory") }
             Start-Process -FilePath $emulator -ArgumentList $emuArgs -WindowStyle Minimized
             $deadline = (Get-Date).AddMinutes(5)
             while (-not (Test-Booted)) {

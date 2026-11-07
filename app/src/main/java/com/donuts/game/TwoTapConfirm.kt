@@ -1,7 +1,7 @@
 package com.donuts.game
 
 /** Two taps inside [windowMs] confirm; a stray single tap just arms and then times out. */
-class TwoTapConfirm(val windowMs: Long) {
+class TwoTapConfirm(private val windowMs: Long) {
     private var armedAt = -1L
 
     /** True on the second tap inside the window (then disarms); otherwise arms and returns false. */
