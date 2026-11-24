@@ -63,6 +63,11 @@ class Prefs(context: Context) {
         get()  = p.getInt("stickers_announced", -1)
         set(v) { p.edit().putInt("stickers_announced", v).apply() }
 
+    // Donut friends met so far (0..12, see FriendRules). Kept forever: resetStickers leaves this alone on purpose.
+    var friendsMet: Int
+        get()  = p.getInt("friends_met", 0).coerceIn(0, FriendRules.FRIEND_COUNT)
+        set(v) { p.edit().putInt("friends_met", v).apply() }
+
     // The board and counter as left by the last pause (see SavedBoard); null = none
     var savedBoard: String?
         get()  = p.getString("saved_board", null)
