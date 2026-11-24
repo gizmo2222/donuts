@@ -9,6 +9,19 @@ import kotlin.math.*
 // -----------------------------------------------------------------------
 // Floating labels (NICE!, AMAZING!, etc.)
 // -----------------------------------------------------------------------
+// Shrinks textPaint until [text] fits [maxW], down to a floor that keeps it readable
+private fun GameView.fitText(text: String, maxW: Float) {
+    while (textPaint.textSize > 10f * u && textPaint.measureText(text) > maxW) textPaint.textSize *= 0.92f
+}
+
+// One banner line: a soft shadow, then the warm brown text
+private fun GameView.drawBannerLine(canvas: Canvas, text: String, cx: Float, ty: Float, alpha: Int) {
+    textPaint.color = Color.argb((alpha * 0.5f).toInt(), 0, 0, 0)
+    canvas.drawText(text, cx + 2f * u, ty + 2f * u, textPaint)
+    textPaint.color = Color.argb(alpha, 90, 40, 0)
+    canvas.drawText(text, cx, ty, textPaint)
+}
+
 internal fun GameView.drawFloatLabels(canvas: Canvas, now: Long) {
     synchronized(floatLabels) {
         val iter = floatLabels.iterator()
@@ -122,7 +135,8 @@ internal fun GameView.drawCelebration(canvas: Canvas, now: Long) {
     val t  = (elapsed / SLIDE_MS).coerceIn(0f, 1f)
     val sc = if (reducedMotion) 1f else 0.5f + 0.5f * easeOutBack(t)
     val bw = min(board.cols * cellSize * 0.92f, 340f * u)
-    val bh = 72f * u
+    val cheer = celebrateCheer
+    val bh = (if (cheer.isEmpty()) 72f else 108f) * u
     val bx = boardLeft + board.cols * cellSize / 2f - bw / 2f
     val by = boardTop + board.rows * cellSize * 0.5f - bh / 2f
     canvas.save()
@@ -142,12 +156,15 @@ internal fun GameView.drawCelebration(canvas: Canvas, now: Long) {
     textPaint.textSize  = 28f * u
     textPaint.letterSpacing = 0.05f
     val maxW = bw - 24f * u
-    while (textPaint.textSize > 10f * u && textPaint.measureText(celebrateLabel) > maxW) textPaint.textSize *= 0.92f
-    val ty = by + bh / 2f + textPaint.textSize * 0.36f
-    textPaint.color = Color.argb((bannerAlpha * 0.5f).toInt(), 0, 0, 0)
-    canvas.drawText(celebrateLabel, bx + bw / 2f + 2f * u, ty + 2f * u, textPaint)
-    textPaint.color = Color.argb(bannerAlpha, 90, 40, 0)
-    canvas.drawText(celebrateLabel, bx + bw / 2f, ty, textPaint)
+    fitText(celebrateLabel, maxW)
+    // One line sits in the middle; with a cheer the main line rides higher and the cheer sits under it
+    val ty = (if (cheer.isEmpty()) by + bh / 2f else by + bh * 0.38f) + textPaint.textSize * 0.36f
+    drawBannerLine(canvas, celebrateLabel, bx + bw / 2f, ty, bannerAlpha)
+    if (cheer.isNotEmpty()) {
+        textPaint.textSize = 21f * u
+        fitText(cheer, maxW)
+        drawBannerLine(canvas, cheer, bx + bw / 2f, by + bh * 0.74f + textPaint.textSize * 0.36f, bannerAlpha)
+    }
     textPaint.letterSpacing = 0f
     canvas.restore()
 }

@@ -121,6 +121,23 @@ class GameInputTest : GameInputTestBase() {
     }
 
     @Test
+    fun goldenChainGetsTheGoldenWordInGold() {
+        val v = planted()
+        v.board.grid[0][2] = GameCell(DonutType.CARAMEL, 0, 2, isGolden = true)
+        drag(v, 0 to 0, 0 to 1, 0 to 2)
+        val label = synchronized(v.floatLabels) { v.floatLabels.single() }
+        assertEquals("GOLDEN!", label.text)
+        assertEquals(GameTheme.goldenLabel, label.color)
+    }
+
+    @Test
+    fun plainChainOfThreeGetsNoWord() {
+        val v = planted()
+        drag(v, 0 to 0, 0 to 1, 0 to 2)
+        assertTrue(synchronized(v.floatLabels) { v.floatLabels.isEmpty() })
+    }
+
+    @Test
     fun touchesOutsideTheBoardMakeNoChain() {
         val v = planted()
         TestViews.touch(v, DOWN, v.boardLeft - 5f, v.boardTop + 20f)

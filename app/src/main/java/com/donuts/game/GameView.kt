@@ -212,7 +212,9 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var celebrateMs     = -1L
     internal val CELEBRATE_MS    = 2600L
     internal var celebrateLabel  = ""
+    internal var celebrateCheer  = ""       // second banner line ("Great job, Steven!"), or empty
     internal val bannerQueue     = BannerQueue(BANNER_FIRST_PART_MS)
+    internal var praiseCount     = 0        // milestones and box fills so far; every second one cheers
     internal var physicsMs       = -1L      // last confetti physics step
     // Mutable class (not data class) so physics can update fields in-place each frame,
     // avoiding the 60-object copy + new-list allocation that a data-class copy() would incur.

@@ -178,6 +178,21 @@ class GameAnimationTest {
     }
 
     @Test
+    fun everySecondBigMomentAddsTheCheerLine() {
+        val v = TestViews.quietView()
+        val t0 = TestViews.now()
+        v.praise(t0, "10 DONUTS!")
+        assertEquals("10 DONUTS!", v.celebrateLabel)
+        assertEquals("", v.celebrateCheer)
+        v.praise(t0 + BANNER_FIRST_PART_MS, "BOX FULL!")
+        assertEquals("BOX FULL!", v.celebrateLabel)
+        assertEquals(Praise.CHEER, v.celebrateCheer)
+        v.drawCelebration(TestViews.canvas(v), t0 + BANNER_FIRST_PART_MS + 400)   // the two-line banner draws
+        v.praise(t0 + 2 * BANNER_FIRST_PART_MS, "25 DONUTS!")
+        assertEquals("", v.celebrateCheer)
+    }
+
+    @Test
     fun hundredDonutMilestoneGetsStarsAroundIt() {
         val v = TestViews.quietView()
         v.board.donutsCleared[DonutType.values()[0]] = 100

@@ -153,6 +153,10 @@ class ScreenGallery {
                 TestViews.touch(v, MotionEvent.ACTION_UP, a.first, a.second)
             }
         }
+        run {
+            val v = game(size)
+            shoot(v, size, "19-cheer", warm = 20, step = 50L) { v.celebrate(TestViews.now(), Praise.banner("BOX FULL!", 1)) }
+        }
     }
 
     @Test fun phone() { assumeTrue(outDir != null); render(sizes[0]) }

@@ -13,4 +13,5 @@ object GameTheme {
     val accent        = Color.rgb(220, 100, 130)   // selected option
     val accentMuted   = Color.rgb(200, 170, 130)   // unselected option
     val chrome        = Color.rgb(170, 120,  60)   // stickers / settings buttons
+    val goldenLabel   = Color.rgb(255, 214,  64)   // the GOLDEN! float word
 }
