@@ -227,7 +227,7 @@ internal fun GameView.advanceCounter(now: Long) {
         for (m in MILESTONES) {
             if (m > lastMilestone && displayedCount >= m) {
                 lastMilestone = m
-                celebrate(now, if (m >= 100) "\u2605 $m DONUTS! \u2605" else "$m DONUTS!")
+                praise(now, if (m >= 100) "\u2605 $m DONUTS! \u2605" else "$m DONUTS!")
             }
         }
     } else if (displayedCount > target) {
@@ -242,10 +242,16 @@ internal fun GameView.celebrate(now: Long, label: String) {
     bannerQueue.offer(now, label)?.let { startCelebration(now, it) }
 }
 
+// A milestone or a full box: the banner, with the cheer line on every second one
+internal fun GameView.praise(now: Long, label: String) {
+    celebrate(now, Praise.banner(label, praiseCount++))
+}
+
 internal fun GameView.startCelebration(now: Long, label: String) {
     celebrateMs    = now
     physicsMs      = now
-    celebrateLabel = label
+    celebrateLabel = label.substringBefore(Praise.LINE_BREAK)
+    celebrateCheer = label.substringAfter(Praise.LINE_BREAK, "")
     spawnParticles()
     if (prefs.soundEnabled)  soundEngine.playMilestone()
     if (prefs.hapticEnabled) hapticEngine.milestone()
@@ -296,7 +302,7 @@ internal fun GameView.checkStickers(now: Long) {
     if (boxesSeen < 0) boxesSeen = boxes
     else if (boxes > boxesSeen && stickerFlyMs < 0) {
         boxesSeen = boxes
-        celebrate(now, "BOX FULL!")
+        praise(now, "BOX FULL!")
         starPulseMs = now
     }
     if (stickerFlyMs >= 0) return

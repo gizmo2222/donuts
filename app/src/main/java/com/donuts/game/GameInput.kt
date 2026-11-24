@@ -189,16 +189,11 @@ internal fun GameView.handleUp() {
             if (prefs.soundEnabled)  soundEngine.playPopClear()
             if (prefs.hapticEnabled) hapticEngine.pop()
 
-            // Floating label for big chains
-            // Chains of 5+ always fire a power-up, so those get the sound-word
-            val label = when {
-                result.powerUp == PowerUp.COLOR_BURST -> "KABOOM!"
-                result.powerUp == PowerUp.ROW_BLAST   -> "WHOOSH!"
-                result.powerUp == PowerUp.BOMB        -> "BOOM!"
-                chainLen == 4 -> "NICE!"
-                else          -> null
-            }
-            label?.let { addFloatLabelAt(allPop, it, result.chainType.labelColor, now) }
+            // Float word that names the act: power-ups get their sound word, a golden cell its own
+            val hasGolden = allPop.any { (r, c) -> board.grid[r][c].isGolden }
+            val label = Praise.chainLabel(result.powerUp, chainLen, hasGolden)
+            val labelColor = if (label == "GOLDEN!") GameTheme.goldenLabel else result.chainType.labelColor
+            label?.let { addFloatLabelAt(allPop, it, labelColor, now) }
         }
     } else if (chain.isNotEmpty()) {
         // Too short to pop: the donuts wobble with a "boop" and a tick, so a tap is never dead.
