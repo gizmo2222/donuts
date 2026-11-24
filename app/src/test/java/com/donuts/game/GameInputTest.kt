@@ -291,4 +291,94 @@ class GameInputTest : GameInputTestBase() {
         assertNull(v.prefs.savedBoard)
         assertEquals(0, TestViews.total(v))
     }
+
+    // ---- loop the ring ----
+
+    // A 2x3 block of strawberries at the top left, and two loose ones at (3,5) and (5,1).
+    private val ringLayout = listOf(
+        "SSSCBV",
+        "SSSMAC",
+        "MAMBVC",
+        "VCAVMS",
+        "BMCABA",
+        "ASBMCV"
+    )
+    private val ring6 = arrayOf(0 to 0, 0 to 1, 0 to 2, 1 to 2, 1 to 1, 1 to 0)
+
+    @Test
+    fun aSixCellRingClosedOnItsStartClearsEveryCellOfThatType() {
+        val v = planted(ringLayout)
+        drag(v, *ring6, release = false)
+        at(v, MOVE, 0, 0)
+        assertTrue(v.chainLooped)
+        assertEquals(ring6.toList(), v.dragChain)       // the first cell is not added again
+        at(v, UP, 0, 0)
+        assertEquals(PowerUp.RING, v.pendingResult?.powerUp)
+        assertEquals(PowerUp.RING, v.powerFx?.kind)
+        assertEquals(ring6.toSet() + setOf(3 to 5, 5 to 1), v.popCells.map { it.row to it.col }.toSet())
+        assertFalse(v.chainLooped)
+        assertEquals(6, v.prefs.bestChainLength)
+        synchronized(v.floatLabels) { assertTrue(v.floatLabels.any { it.text == "RING!" }) }
+    }
+
+    @Test
+    fun aFiveCellClosedPathDoesNotLoop() {
+        val v = planted(ringLayout)
+        drag(v, *ring6.take(5).toTypedArray(), release = false)
+        at(v, MOVE, 0, 0)
+        assertFalse(v.chainLooped)
+        assertEquals(ring6.take(5), v.dragChain)
+        at(v, UP, 0, 0)
+        assertEquals(PowerUp.BOMB, v.pendingResult?.powerUp)
+    }
+
+    @Test
+    fun whileLoopedOtherMovesAreIgnoredAndBackOntoTheLastCellUnloops() {
+        val v = planted(ringLayout)
+        drag(v, *ring6, release = false)
+        at(v, MOVE, 0, 0)
+        assertTrue(v.chainLooped)
+        at(v, MOVE, 0, 1)                                // a move along the ring changes nothing
+        assertTrue(v.chainLooped)
+        assertEquals(ring6.toList(), v.dragChain)
+        at(v, MOVE, 1, 0)                                // back onto the last cell: the ring opens
+        assertFalse(v.chainLooped)
+        assertEquals(ring6.toList(), v.dragChain)
+        at(v, UP, 1, 0)
+        assertEquals(PowerUp.BOMB, v.pendingResult?.powerUp)
+    }
+
+    @Test
+    fun cancelLeavesTheChainUnlooped() {
+        val v = planted(ringLayout)
+        drag(v, *ring6, release = false)
+        at(v, MOVE, 0, 0)
+        assertTrue(v.chainLooped)
+        at(v, MotionEvent.ACTION_CANCEL, 0, 0)
+        assertFalse(v.chainLooped)
+        assertTrue(v.dragChain.isEmpty())
+        assertNull(v.pendingResult)
+    }
+
+    @Test
+    fun aSecondFingerOnTheStartDoesNotCloseTheRing() {
+        val v = planted(ringLayout)
+        val pts = ring6.map { (r, c) -> TestViews.cellCenter(v, r, c) }
+        send(v, pointers(DOWN, 0, Triple(0, pts[0].first, pts[0].second)))
+        for (p in pts.drop(1)) send(v, pointers(MOVE, 0, Triple(0, p.first, p.second)))
+        val last = pts.last(); val start = pts[0]
+        send(v, pointers(MotionEvent.ACTION_POINTER_DOWN, 1, Triple(0, last.first, last.second), Triple(1, start.first, start.second)))
+        send(v, pointers(MOVE, 0, Triple(0, last.first, last.second), Triple(1, start.first, start.second)))
+        assertFalse(v.chainLooped)
+        assertEquals(6, v.dragChain.size)
+    }
+
+    @Test
+    fun startOverClearsALoopedChain() {
+        val v = planted(ringLayout)
+        drag(v, *ring6, release = false)
+        at(v, MOVE, 0, 0)
+        v.startOver()
+        assertFalse(v.chainLooped)
+    }
 }

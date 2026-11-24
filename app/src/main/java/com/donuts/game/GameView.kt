@@ -76,6 +76,8 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // Touch / drag
     // -----------------------------------------------------------------------
     internal val dragChain = mutableListOf<Pair<Int, Int>>()
+    /** The drag chain has closed into a ring on its first cell (see [LoopRules]); it clears as RING. */
+    internal var chainLooped = false
     internal val chainPointer = ChainPointer()
 
     // -----------------------------------------------------------------------

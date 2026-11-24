@@ -105,7 +105,7 @@ internal fun GameView.startHeldDrag() {
 
 internal fun GameView.handleDown(x: Float, y: Float) {
     lastActionMs = SystemClock.elapsedRealtime(); hintCells = emptyList()
-    dragChain.clear(); chainPings.clear()
+    dragChain.clear(); chainPings.clear(); chainLooped = false
     val col = cellCol(x); val row = cellRow(y)
     if (inBounds(row, col)) {
         val now2 = SystemClock.elapsedRealtime()
@@ -119,6 +119,20 @@ internal fun GameView.handleMove(x: Float, y: Float) {
     val col = cellCol(x); val row = cellRow(y)
     if (!inBounds(row, col)) return
     val cell = Pair(row, col)
+    // A closed ring holds until the finger goes back onto the last cell, which opens it again
+    if (chainLooped) {
+        if (cell == dragChain.last()) { chainLooped = false; centerPingMs = SystemClock.elapsedRealtime() }
+        return
+    }
+    if (LoopRules.closes(dragChain, cell)) {
+        val now2 = SystemClock.elapsedRealtime()
+        chainLooped = true
+        chainPings[cell] = now2
+        centerPingMs = now2
+        if (prefs.soundEnabled)  soundEngine.playConnectBlip(dragChain.size + 1)
+        if (prefs.hapticEnabled) hapticEngine.milestone()
+        return
+    }
     if (dragChain.size >= 2 && dragChain[dragChain.size - 2] == cell) {
         chainPings.remove(dragChain.last())
         dragChain.removeAt(dragChain.size - 1)
@@ -156,7 +170,7 @@ internal fun GameView.handleMove(x: Float, y: Float) {
 internal fun GameView.handleUp() {
     val chain = dragChain.toList()
     if (chain.size >= 3) {
-        val result = board.peekChainClear(chain)
+        val result = board.peekChainClear(chain, looped = chainLooped)
         if (result != null) {
             pendingResult = result
             isCascade     = false
@@ -206,7 +220,7 @@ internal fun GameView.handleUp() {
         if (prefs.soundEnabled)  soundEngine.playBoop()
         if (prefs.hapticEnabled) hapticEngine.tick()
     }
-    dragChain.clear(); chainPings.clear(); rejectedCell = null
+    dragChain.clear(); chainPings.clear(); rejectedCell = null; chainLooped = false
 }
 
 /** Every touch on the game screen: finger ownership, the open panel, the HUD buttons, a held finger, then the board. */
@@ -289,7 +303,7 @@ internal fun GameView.handleTouch(event: MotionEvent): Boolean {
                 handleMove(px, py)
             }
             MotionEvent.ACTION_UP     -> { fingerHeld = false; handleUp() }
-            MotionEvent.ACTION_CANCEL -> { fingerHeld = false; dragChain.clear() }
+            MotionEvent.ACTION_CANCEL -> { fingerHeld = false; dragChain.clear(); chainLooped = false }
         }
     }
     return true

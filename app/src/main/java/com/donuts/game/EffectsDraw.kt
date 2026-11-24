@@ -429,6 +429,21 @@ internal fun GameView.drawPowerUpFx(canvas: Canvas, now: Long) {
             val r = (cells - i * 1.2f) * cellSize
             ring(r, cellSize * (0.16f - i * 0.03f), fade, if (i == 1) light else fx.color)
         }
+        PowerUp.RING -> {
+            // A big glazed donut ring rolling out from the loop: dough band, glaze, a shine
+            val r = cells * cellSize
+            val w = cellSize * (0.45f + 0.45f * (cells / 2f).coerceAtMost(1f))
+            if (r > w * 0.5f) {
+                ring(r, w, fade, fx.color)
+                strokePaint.strokeWidth = w * 0.55f
+                strokePaint.color = light
+                canvas.drawCircle(cx, cy, r - w * 0.06f, strokePaint)
+                strokePaint.strokeWidth = w * 0.12f
+                strokePaint.color = Color.argb(170, 255, 255, 255)
+                val sr = r - w * 0.12f
+                canvas.drawArc(cx - sr, cy - sr, cx + sr, cy + sr, 200f, 60f, false, strokePaint)
+            }
+        }
         PowerUp.ROW_BLAST -> {
             val head = cells * cellSize + cellSize * 0.5f
             val tail = cellSize * 1.8f

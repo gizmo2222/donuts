@@ -17,6 +17,7 @@ object Praise {
      * [hasGolden]: the power-up's sound word first, then the golden word, then NICE! for a 4-chain.
      */
     fun chainLabel(powerUp: PowerUp, chainLen: Int, hasGolden: Boolean): String? = when {
+        powerUp == PowerUp.RING        -> "RING!"
         powerUp == PowerUp.COLOR_BURST -> "KABOOM!"
         powerUp == PowerUp.ROW_BLAST   -> "WHOOSH!"
         powerUp == PowerUp.BOMB        -> "BOOM!"
