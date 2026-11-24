@@ -14,12 +14,15 @@ blocked, needs-decision, or user-only (nothing in the repo can do it; work sessi
 
 | Id | Item | Source | Size | Value | Status |
 |---|---|---|---|---|---|
-| B1 | Praise that names what he did: a golden-donut label, an occasional "Great job, Steven!" on milestones and box fills | research #2, top ten #6 | S | 3 | todo |
+| B1 | Praise that names what he did: a golden-donut label, an occasional "Great job, Steven!" on milestones and box fills (wording approved by Nick 2026-11-24; keep labels short enough for an 8x8 float label) | research #2, top ten #6 | S | 3 | todo |
 | B2 | `kidLearner` model in `BalanceSim.kt`, plus a test-only golden-chance and type-count parameter; run 6x6 three ways | state B7, top ten #8, research 4(b) | M | 3 | todo |
 | B3 | Show a grown-up moment: a "Show someone!" card on a big sticker or a full box, any tap closes it | research #3, top ten #7 | M | 3 | todo |
 | B4 | Loop the ring: a chain that closes on its start clears that type, with a minimum length (after B2) | research #4, top ten #9 | M | 3 | todo |
 | B5 | Voice cheers that read the combo words aloud, offline clips, a settings toggle (needs recorded clips) | research #1, top ten #5 | M | 3 | todo |
-| B6 | Silly donut friends in the box: a fixed friend revealed per filled slot, kept forever | research #5, top ten #10 | L | 3 | todo |
+| B6a | Donut friends 1/4: pure `FriendRules.kt` (fixed order, which friend a filled slot reveals, saved in `Prefs`), with tests | research #5, top ten #10 | M | 3 | todo |
+| B6b | Donut friends 2/4: `FriendArt.kt` with the first four friends and the reveal fly in `EffectsDraw.kt` (after B6a) | research #5 | M | 3 | todo |
+| B6c | Donut friends 3/4: a friends row or page in the stickers panel that passes the layout tests (after B6b) | research #5 | M | 3 | todo |
+| B6d | Donut friends 4/4: the remaining friends and a sound each (after B6c) | research #5 | M | 3 | todo |
 | B7 | Gradle wrapper 9.2.1 to 9.3 (two CVEs), checksum from services.gradle.org, then a release build | state B1, build-1 | S | 2 | todo |
 | B8 | Icon-first settings: a big picture above each settings word, taller rows still fit short landscape | state C3, a11y-10, research #6 | S | 2 | todo |
 | B9 | Colour-blind check of the donut set: `tools\colorblind.ps1` over the gallery shots, a marking only if two collide | research #7 | S | 2 | todo |
@@ -35,9 +38,13 @@ blocked, needs-decision, or user-only (nothing in the repo can do it; work sessi
 | B19 | Learn from Steven's real play: a local tally of chain lengths and power-ups, never sent anywhere | research #18 | M | 2 | todo |
 | B20 | Picture prompts as soft goals ("Pop 3 pink!"), nothing lost if ignored | research #19 | M | 2 | todo |
 | B21 | Quiet drought assist: nudge the refill when no long chain has been possible for a while (after B2) | research #20 | M | 2 | todo |
-| B22 | Unlockable toppings and seasonal looks | research #12 | L | 2 | todo |
-| B23 | Donut pal mascot that reacts to play | research #16 | L | 2 | todo |
-| B24 | Donut shop scene that keeps growing with lifetime donuts | research #21 | L | 2 | todo |
+| B22a | Toppings 1/3: pure unlock rules from lifetime donuts and a saved choice, with tests | research #12 | M | 2 | todo |
+| B22b | Toppings 2/3: topping art as overlays in `DonutArt.kt` and the sprite cache, and a picker in a panel (after B22a) | research #12 | M | 2 | todo |
+| B22c | Toppings 3/3: seasonal looks chosen by date (after B22b) | research #12 | M | 2 | todo |
+| B23a | Mascot 1/2: the donut pal art and an idle bob beside the counter, layout tests at the gallery sizes | research #16 | M | 2 | todo |
+| B23b | Mascot 2/2: reactions to chain length, power-ups and milestones, and a reduced-motion still pose (after B23a) | research #16 | M | 2 | todo |
+| B24a | Shop scene 1/2: pure rules for which shop pieces lifetime donuts unlock, with tests, and the scene on the home screen | research #21 | M | 2 | todo |
+| B24b | Shop scene 2/2: more pieces and a small reveal when one is earned (after B24a) | research #21 | M | 2 | todo |
 | B25 | Close rules-18 and tests-8 as kept on purpose (findings file only) | state B6 | S | 1 | todo |
 | B26 | Calm mode switch: a manual reduced-motion toggle in settings | research #22 | S | 1 | todo |
 | B27 | Separate sound levels and a named loudness cap with a test | research #25 | S | 1 | todo |
@@ -57,21 +64,7 @@ blocked, needs-decision, or user-only (nothing in the repo can do it; work sessi
 | B41 | Play production: 12 testers for 14 days, Data safety, privacy policy, content rating, Contains ads: No | state Deferred, top ten #2, research section 7 | S | 3 | user-only |
 | B42 | Real-phone checks: "Amazing!" over a 6x6 edge cell, landscape on an Android 16 large screen | state B10, top ten #4 | S | 2 | user-only |
 
-## How the L items split
+## Decisions
 
-**B6 Silly donut friends.** (1) Pure `FriendRules.kt`: the fixed order, which friend a filled slot reveals,
-saved in `Prefs`, with tests. (2) `FriendArt.kt` with the first four friends and the reveal fly in
-`EffectsDraw.kt`. (3) A friends row or page in the stickers panel (`PanelsDraw.kt`, `GameLayout.kt`) that
-passes the layout tests. (4) The remaining friends and a sound each, a few per session.
-
-**B22 Unlockable toppings and seasonal looks.** (1) Pure unlock rules from lifetime donuts and a saved choice,
-with tests. (2) Topping art as overlays in `DonutArt.kt` and the sprite cache. (3) A picker in the stickers or
-settings panel. (4) Seasonal looks chosen by date, added one season per session.
-
-**B23 Donut pal mascot.** (1) The character art and an idle bob beside the counter, without crowding the board.
-(2) Reactions wired to chain length, power-ups and milestones through the existing celebration paths.
-(3) Layout tests at the five gallery sizes and a reduced-motion still pose.
-
-**B24 Donut shop scene.** (1) Pure rules: which shop pieces lifetime donuts unlock, with tests. (2) A shop
-scene on the home screen (`MainView.kt`) with the first pieces. (3) More pieces and a small reveal when one is
-earned, a few per session.
+- 2026-11-24, Nick: strike nothing, keep the order, B1's wording may be built without asking, and the four L
+  items are split into M rows now (B6a-d, B22a-c, B23a-b, B24a-b). Work sessions do not ask again.
