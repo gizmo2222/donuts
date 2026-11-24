@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-  Runs the balance simulation (test class BalanceSim, plain JVM): 5 player models x grid 6 and 8 x 25 seeds,
-  150 moves each. Writes scenarios.csv, moves.csv, summary.md and invariants.txt to the output folder.
+  Runs the balance simulation (test class BalanceSim, plain JVM): 7 player models x grid 6 and 8 x 25 seeds,
+  150 moves each, plus the 6x6 kidLearner variants types5 and golden08. Writes scenarios.csv, moves.csv, summary.md and invariants.txt to the output folder.
   Gradle output goes to build\logs\balance.log. Prints BALANCE OK or BALANCE FAILED and the number of
   invariant failures (each one is a real rule bug: seed and move are in invariants.txt).
 .PARAMETER Out

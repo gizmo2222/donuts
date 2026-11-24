@@ -138,12 +138,16 @@ Date: 2026-11-07. Phase 8 of the repo overhaul.
 
 If row blasts appear in under about 5% of sessions, consider #10 (party meter) or lowering the row blast threshold. Build #18 (play tally) to replace the guessed error rates with Steven's real chain lengths.
 
+- **Run 2026-11-24 (B2).** `kidLearner56` (slip base 0.15) and `kidLearner78` (0.08) added to BalanceSim; 25 seeds x 150 moves, base rules. Share of moves with a 7+ chain, and share of 25 scenarios with at least one row blast: 6x6 kidLearner56 0.3% and 28%, kidLearner78 2.2% and 96%; 8x8 kidLearner56 0.6% and 56%, kidLearner78 4.1% and 100%. Reading: an age 5-6 child on 6x6 sees a row blast in about a quarter of 150-move sessions, while an age 7-8 child reaches one in nearly every session, so the thresholds need no change on this evidence; the error rates are still guesses until #18.
+
 **(b) Should 6x6 get a higher golden chance, or fewer colours?**
 
 - **What the evidence supports.** No source addresses this. The design-judge score for evidence was 0 (#27). The general support is for bot simulation before tuning [G4] and for adjusting difficulty to the child [G13].
 - **Reasoning.** Fewer types means bigger groups everywhere on the board. A higher golden chance only adds wild cells, and wild cells need the child to understand they are wild. So fewer types is the stronger lever for long chains, and it keeps the golden cell feeling rare.
 - **Confidence.** Low. This is a hypothesis.
 - **Recommendation.** Run BalanceSim with the kidLearner model on 6x6 three ways: as it is now, with five donut types instead of six (the golden ball unchanged), and with `GOLDEN_CHANCE` raised from 0.04 to, say, 0.08. Both need a test-only parameter in `GameBoard` or BalanceSim, since `GOLDEN_CHANCE` is a const at `GameBoard.kt` 19. Compare the share of 5+ and 7+ chains. Watch whether colour bursts become trivial. Change no code until the run shows a clear gap.
+
+- **Run 2026-11-24 (B2).** `GameBoard` now takes test-only `goldenChance` and `typeCount`; 6x6, kidLearner, same seeds. 5+ / 7+ share of moves, base then `types5` then `golden08`: kidLearner56 13.9/0.3, 25.4/0.9, 17.8/0.6; kidLearner78 28.5/2.2, 44.9/6.3, 35.5/4.3. Colour bursts stay at 0.0 to 0.3 per 100 moves in every variant (only types5 with kidLearner78 reaches 0.3), shuffles drop from about 1 to 0.1-0.2 per 100 with five types. Reading: five types is the clearer lever (roughly 2-3x the 7+ share, about 1.8x the 5+ share), doubling the golden chance gives a smaller gain (about 1.5-2x), and neither makes colour bursts trivial; no game constant was changed, that decision belongs to B29/B4.
 
 ## 5. Ranked features
 

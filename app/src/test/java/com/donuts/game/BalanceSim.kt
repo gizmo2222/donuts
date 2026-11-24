@@ -6,7 +6,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 /**
- * Balance simulation: five player models x grid 6 and 8 x 25 seeds, 150 moves each, played against the
+ * Balance simulation: seven player models x grid 6 and 8 x 25 seeds, 150 moves each, played against the
  * real [GameBoard] rules. Skipped in the normal suite; tools\balance.ps1 runs it with the system property
  * `donuts.balance` set to the output folder (via the init script tools\balance.gradle).
  * Writes scenarios.csv, moves.csv, summary.md and invariants.txt (one line per broken rule; empty when none).
@@ -15,7 +15,11 @@ class BalanceSim {
 
     private val outDir: String? = System.getProperty("donuts.balance")?.takeIf { it.isNotBlank() }
 
-    private val strategies = listOf("kidShort", "kidRandom", "greedyLong", "hint", "goldenHunter")
+    private val strategies = listOf("kidShort", "kidRandom", "greedyLong", "hint", "goldenHunter", "kidLearner56", "kidLearner78")
+    /** Slip chance per extra cell for the kidLearner strategies. */
+    private val learnerBase = mapOf("kidLearner56" to 0.15, "kidLearner78" to 0.08)
+    /** Variants: base runs every strategy on both grids; the others run only the kidLearners on 6x6. */
+    private val variants = listOf("base", "types5", "golden08")
     private val grids = listOf(6, 8)
     private val seeds = 0..24
     private val movesPerScenario = 150
@@ -29,12 +33,12 @@ class BalanceSim {
     private class Analysis(val comps: List<Comp>, val bestAny: IntArray, val bestGold: IntArray?)
 
     private class MoveRow(
-        val strategy: String, val grid: Int, val seed: Int, val move: Int,
+        val strategy: String, val variant: String, val grid: Int, val seed: Int, val move: Int,
         val chainLen: Int, val powerUp: PowerUp, val cleared: Int, val passes: Int,
         val options: Int, val bestPossible: Int, val golden: Int, val shuffled: Boolean, val goldenInChain: Boolean
     )
 
-    private class Scenario(val strategy: String, val grid: Int, val seed: Int) {
+    private class Scenario(val strategy: String, val variant: String, val grid: Int, val seed: Int) {
         var total = 0
         val tiers = IntArray(4)
         var shuffles = 0
@@ -157,6 +161,13 @@ class BalanceSim {
             "greedyLong" -> an.bestAny
             "hint" -> board.findHint().map { (r, c) -> r * n + c }.toIntArray().takeIf { it.size >= 3 } ?: an.bestAny
             "goldenHunter" -> an.bestGold?.takeIf { it.size >= 3 } ?: an.bestAny
+            "kidLearner56", "kidLearner78" -> {
+                val base = learnerBase.getValue(strategy)
+                val best = an.bestAny
+                var len = best.size
+                for (i in 3 until best.size) if (rng.nextDouble() < minOf(0.95, base * (i - 1))) { len = i; break }
+                best.copyOf(len)
+            }
             else -> error(strategy)
         }
     }
@@ -187,14 +198,16 @@ class BalanceSim {
 
     // ---- one scenario --------------------------------------------------------------------------
 
-    private fun play(sIdx: Int, n: Int, seed: Int, moves: MutableList<MoveRow>, bad: MutableList<String>): Scenario {
+    private fun play(sIdx: Int, variant: String, n: Int, seed: Int, moves: MutableList<MoveRow>, bad: MutableList<String>): Scenario {
         val strategy = strategies[sIdx]
-        val sc = Scenario(strategy, n, seed)
-        val board = GameBoard(n, n, Random(seed * 7919 + sIdx))
+        val sc = Scenario(strategy, variant, n, seed)
+        val board = GameBoard(n, n, Random(seed * 7919 + sIdx),
+            goldenChance = if (variant == "golden08") 0.08 else GameBoard.GOLDEN_CHANCE,
+            typeCount = if (variant == "types5") 5 else DonutType.values().size)
         val rng = Random(seed.toLong() * 104729L + sIdx + 1)
         val geo = Geometry(n); val dfs = Dfs(geo)
         var bestChain = 0; var goldenPoppedFlag = false; var dry = 0
-        fun fail(move: Int, msg: String) { bad.add("$strategy grid=$n seed=$seed move=$move: $msg") }
+        fun fail(move: Int, msg: String) { bad.add("$strategy/$variant grid=$n seed=$seed move=$move: $msg") }
 
         for (m in 1..movesPerScenario) {
             try {
@@ -245,7 +258,7 @@ class BalanceSim {
                     bestChain = bestChain, goldenPopped = goldenPoppedFlag, sessions = 1
                 )
                 for (i in 0 until stickerCount) if (sc.stickerMove[i] < 0 && StickerRules.isEarned(i, stats)) sc.stickerMove[i] = m
-                moves.add(MoveRow(strategy, n, seed, m, chain.size, res.powerUp, cleared, passes,
+                moves.add(MoveRow(strategy, variant, n, seed, m, chain.size, res.powerUp, cleared, passes,
                     an.comps.size, an.bestAny.size, goldenOnBoard, shuffled, goldenIn))
             } catch (e: Throwable) {
                 fail(m, "exception $e"); break
@@ -274,9 +287,9 @@ class BalanceSim {
         sb.appendLine("Rows are strategy x grid over seeds 0..24; p10/p50/p90 are across scenarios.")
         sb.appendLine()
         for (n in grids) for (st in strategies) {
-            val g = scs.filter { it.strategy == st && it.grid == n }
+            val g = scs.filter { it.strategy == st && it.grid == n && it.variant == "base" }
             if (g.isEmpty()) continue
-            val mv = moves.filter { it.strategy == st && it.grid == n }
+            val mv = moves.filter { it.strategy == st && it.grid == n && it.variant == "base" }
             val played = g.sumOf { it.movesPlayed }.coerceAtLeast(1)
             val dpm = g.map { it.total.toDouble() / it.movesPlayed.coerceAtLeast(1) }
             sb.appendLine("## $st, ${n}x$n")
@@ -301,6 +314,22 @@ class BalanceSim {
                 "#$i: ${pct(v, 50)}/${pct(v, 90)}, never ${g.size - v.size}" })
             sb.appendLine()
         }
+        sb.appendLine("## 6x6 variants, kidLearner")
+        sb.appendLine()
+        sb.appendLine("Per 100 moves unless stated; 5+ and 7+ are shares of moves; row blast % is the share of scenarios with at least one.")
+        sb.appendLine()
+        sb.appendLine("| variant | strategy | 5+ % | 7+ % | bombs | row blasts | colour bursts | scenarios with row blast % | shuffles |")
+        sb.appendLine("|---|---|---|---|---|---|---|---|---|")
+        for (v in variants) for (st in learnerBase.keys) {
+            val g = scs.filter { it.strategy == st && it.grid == 6 && it.variant == v }
+            if (g.isEmpty()) continue
+            val mv = moves.filter { it.strategy == st && it.grid == 6 && it.variant == v }
+            val played = g.sumOf { it.movesPlayed }.coerceAtLeast(1)
+            sb.appendLine("| $v | $st | ${f1(mv.count { it.chainLen >= 5 } * 100.0 / played)} | ${f1(mv.count { it.chainLen >= 7 } * 100.0 / played)} | " +
+                "${f1(g.sumOf { it.tiers[1] } * 100.0 / played)} | ${f1(g.sumOf { it.tiers[2] } * 100.0 / played)} | ${f1(g.sumOf { it.tiers[3] } * 100.0 / played)} | " +
+                "${f1(g.count { it.tiers[2] > 0 } * 100.0 / g.size)} | ${f1(g.sumOf { it.shuffles } * 100.0 / played)} |")
+        }
+        sb.appendLine()
         if (bad.isNotEmpty()) {
             sb.appendLine("## Invariant failures (first 30)")
             bad.take(30).forEach { sb.appendLine("- $it") }
@@ -316,22 +345,25 @@ class BalanceSim {
         val moves = ArrayList<MoveRow>(40000)
         val scs = ArrayList<Scenario>()
         val bad = ArrayList<String>()
-        for (n in grids) for (sIdx in strategies.indices) for (seed in seeds) scs.add(play(sIdx, n, seed, moves, bad))
+        for (v in variants) for (n in grids) for (sIdx in strategies.indices) {
+            if (v != "base" && (n != 6 || strategies[sIdx] !in learnerBase)) continue
+            for (seed in seeds) scs.add(play(sIdx, v, n, seed, moves, bad))
+        }
         val seconds = (System.nanoTime() - t0) / 1e9
 
-        val sc = StringBuilder("strategy,grid,seed,moves,total,none,bomb,rowBlast,colorBurst,shuffles,maxCascade,singleOptionMoves,lowBestMoves,longestDry,goldenMoves,")
+        val sc = StringBuilder("strategy,variant,grid,seed,moves,total,none,bomb,rowBlast,colorBurst,shuffles,maxCascade,singleOptionMoves,lowBestMoves,longestDry,goldenMoves,")
         sc.append(types.joinToString(",") { "cleared_" + it.name.lowercase() }).append(',')
         sc.append(milestones.joinToString(",") { "ms$it" }).append(',')
         sc.appendLine((0 until stickerCount).joinToString(",") { "sticker$it" })
         for (s in scs) {
-            sc.append("${s.strategy},${s.grid},${s.seed},${s.movesPlayed},${s.total},${s.tiers.joinToString(",")},${s.shuffles},${s.maxCascade},")
+            sc.append("${s.strategy},${s.variant},${s.grid},${s.seed},${s.movesPlayed},${s.total},${s.tiers.joinToString(",")},${s.shuffles},${s.maxCascade},")
             sc.append("${s.singleOption},${s.lowBest},${s.longestDry},${s.goldenPopped},${s.cleared.joinToString(",")},")
             sc.appendLine("${s.milestoneMove.joinToString(",")},${s.stickerMove.joinToString(",")}")
         }
         File(dir, "scenarios.csv").writeText(sc.toString())
 
-        val mv = StringBuilder("strategy,grid,seed,move,chainLen,powerUp,cleared,cascadePasses,options,bestPossible,goldenOnBoard,shuffled,goldenInChain\n")
-        for (r in moves) mv.append("${r.strategy},${r.grid},${r.seed},${r.move},${r.chainLen},${r.powerUp},${r.cleared},${r.passes},${r.options},${r.bestPossible},${r.golden},${r.shuffled},${r.goldenInChain}\n")
+        val mv = StringBuilder("strategy,variant,grid,seed,move,chainLen,powerUp,cleared,cascadePasses,options,bestPossible,goldenOnBoard,shuffled,goldenInChain\n")
+        for (r in moves) mv.append("${r.strategy},${r.variant},${r.grid},${r.seed},${r.move},${r.chainLen},${r.powerUp},${r.cleared},${r.passes},${r.options},${r.bestPossible},${r.golden},${r.shuffled},${r.goldenInChain}\n")
         File(dir, "moves.csv").writeText(mv.toString())
         File(dir, "invariants.txt").writeText(bad.joinToString("\n"))
         File(dir, "summary.md").writeText(summary(scs, moves, seconds, bad))
