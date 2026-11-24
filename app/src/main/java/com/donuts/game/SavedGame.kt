@@ -128,6 +128,6 @@ internal fun GameView.clearMotion() {
     animPhase = AnimPhase.IDLE
     popCells.clear(); dropCells.clear(); dropColMask.clear(); powerFx = null
     cascadeCount = 0; isCascade = false
-    dragChain.clear(); fingerHeld = false
+    dragChain.clear(); chainLooped = false; fingerHeld = false
     hintCells = emptyList()
 }

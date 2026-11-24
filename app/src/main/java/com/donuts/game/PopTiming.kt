@@ -13,11 +13,20 @@ object PopTiming {
         PowerUp.NONE        -> 0L
         PowerUp.BOMB        -> 160L
         PowerUp.ROW_BLAST   -> 60L
-        PowerUp.COLOR_BURST -> 320L
+        PowerUp.COLOR_BURST, PowerUp.RING -> 320L
     }
 
-    /** The middle donut of the chain: where the power-up starts. */
-    fun origin(r: ChainResult): Pair<Int, Int> = midCell(r.chainCells)
+    /**
+     * Where the power-up starts: the middle donut of the chain, or for a ring the chain cell
+     * nearest the ring's centre (the first such cell in chain order on a tie).
+     */
+    fun origin(r: ChainResult): Pair<Int, Int> {
+        if (r.powerUp != PowerUp.RING) return midCell(r.chainCells)
+        val n = r.chainCells.size.toDouble()
+        val mr = r.chainCells.sumOf { it.first } / n
+        val mc = r.chainCells.sumOf { it.second } / n
+        return r.chainCells.minByOrNull { (row, col) -> (row - mr) * (row - mr) + (col - mc) * (col - mc) }!!
+    }
 
     /** Pop delay in ms for every chain and bonus cell. */
     fun delays(r: ChainResult): Map<Pair<Int, Int>, Long> {

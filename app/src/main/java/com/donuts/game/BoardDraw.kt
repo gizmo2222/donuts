@@ -75,6 +75,7 @@ internal fun GameView.drawChainLine(canvas: Canvas) {
         val cy = boardTop  + r * cellSize + cellSize / 2f
         if (i == 0) scratchPath2.moveTo(cx, cy) else scratchPath2.lineTo(cx, cy)
     }
+    if (chainLooped) scratchPath2.close()   // the ring is closed: the string runs from the last donut back to the first
     val path = scratchPath2
     val chainColor = board.chainTypeOf(dragChain)?.glazeColor ?: Color.WHITE
     val cr = Color.red(chainColor); val cg = Color.green(chainColor); val cb = Color.blue(chainColor)
@@ -349,7 +350,7 @@ internal fun GameView.drawPoppingCells(canvas: Canvas, now: Long) {
                             cx += dx / len * shove; cy += dy / len * shove
                         }
                     }
-                    PowerUp.COLOR_BURST -> if (isBonus) {
+                    PowerUp.COLOR_BURST, PowerUp.RING -> if (isBonus) {
                         rot = 12f * kotlin.math.sin(sinceGo * 0.045f + cell.col * 1.7f + cell.row)
                     }
                     else -> {}

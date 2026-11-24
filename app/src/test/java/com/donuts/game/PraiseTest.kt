@@ -6,6 +6,7 @@ import org.junit.Test
 class PraiseTest {
     @Test
     fun powerUpWordsComeFirstEvenWithAGoldenCell() {
+        assertEquals("RING!", Praise.chainLabel(PowerUp.RING, 6, hasGolden = true))
         assertEquals("KABOOM!", Praise.chainLabel(PowerUp.COLOR_BURST, 9, hasGolden = true))
         assertEquals("WHOOSH!", Praise.chainLabel(PowerUp.ROW_BLAST, 7, hasGolden = true))
         assertEquals("BOOM!", Praise.chainLabel(PowerUp.BOMB, 5, hasGolden = true))

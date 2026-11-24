@@ -226,11 +226,13 @@ class GameBoard(
      *   5–6  → BOMB       : 3×3 area around chain mid-point
      *   7–8  → ROW_BLAST  : entire row of chain mid-point
      *   9+   → COLOR_BURST: every remaining cell of the chain type
+     *   [looped] → RING       : every remaining cell of the chain type, at any length (the
+     *                           caller guarantees the ring has [LoopRules.MIN_LOOP]+ cells)
      *
      * @return A [ChainResult] describing all cells to clear, or null if the chain
      *         is invalid (< 3 cells, or mixed types without golden wildcards).
      */
-    fun peekChainClear(cells: List<Pair<Int, Int>>): ChainResult? {
+    fun peekChainClear(cells: List<Pair<Int, Int>>, looped: Boolean = false): ChainResult? {
         if (cells.size < 3) return null
 
         // Chain type: first non-golden cell's type, or the first cell's if every cell is golden.
@@ -245,8 +247,8 @@ class GameBoard(
         val powerUp: PowerUp
         val bonusCells: List<Pair<Int, Int>>
         when {
-            cells.size >= 9 -> {
-                powerUp = PowerUp.COLOR_BURST
+            looped || cells.size >= 9 -> {
+                powerUp = if (looped) PowerUp.RING else PowerUp.COLOR_BURST
                 bonusCells = (0 until rows).flatMap { r -> (0 until cols).map { c -> Pair(r, c) } }
                     .filter { (r, c) -> Pair(r, c) !in cellSet && grid[r][c].type == chainType }
             }

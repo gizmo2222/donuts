@@ -161,6 +161,14 @@ class ScreenGallery {
             val v = game(size)
             shoot(v, size, "20-show-someone", warm = 20, step = 50L) { v.showSomeoneKind = 2; v.showSomeoneMs = TestViews.now() - 500L }
         }
+        run {
+            // A ring closed on its start, before release: two rows out and back, then onto the first cell
+            val v = game(size)
+            drag(v, 2 * v.board.cols, release = false)
+            val a = TestViews.cellCenter(v, 0, 0)
+            TestViews.touch(v, MotionEvent.ACTION_MOVE, a.first, a.second)
+            shoot(v, size, "21-ring")
+        }
     }
 
     @Test fun phone() { assumeTrue(outDir != null); render(sizes[0]) }

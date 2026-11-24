@@ -75,6 +75,23 @@ class PopTimingTest {
         assertTrue(times.last() > times.first())
     }
 
+    @Test
+    fun ringStartsAtTheCellNearestItsCentreAndRipplesOutwardAfterTheLead() {
+        val board = boardOf("SSSC", "SSSC", "SCCC", "CCCC", "CCCS")
+        val ring = listOf(0 to 0, 0 to 1, 0 to 2, 1 to 2, 1 to 1, 1 to 0)
+        val r = board.peekChainClear(ring, looped = true)!!
+        assertEquals(PowerUp.RING, r.powerUp)
+        assertEquals(PopTiming.leadMs(PowerUp.COLOR_BURST), PopTiming.leadMs(PowerUp.RING))
+        // centroid (0.5, 1.0): (0,1) and (1,1) tie; the first in chain order wins
+        assertEquals(0 to 1, PopTiming.origin(r))
+        val d = PopTiming.delays(r)
+        checkEveryCellHasAnEntry(r, d)
+        assertTrue(ring.all { d[it] == 0L })
+        val lead = PopTiming.leadMs(PowerUp.RING)
+        assertEquals(lead + 2 * PopTiming.STEP_MS, d[2 to 0])   // two rows down from (0,1)
+        assertEquals(lead + 4 * PopTiming.STEP_MS, d[4 to 3])   // four rows down
+    }
+
     private fun result(chain: List<Pair<Int, Int>>, bonus: List<Pair<Int, Int>>, p: PowerUp) =
         ChainResult(chain, bonus, p, DonutType.STRAWBERRY)
 

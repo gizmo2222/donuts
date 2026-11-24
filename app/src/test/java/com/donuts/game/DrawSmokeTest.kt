@@ -7,6 +7,7 @@ import android.view.MotionEvent
 import android.view.View
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -111,6 +112,31 @@ class DrawSmokeTest {
     @Test fun bombEffect() = powerUpCase(5, PowerUp.BOMB)
     @Test fun rowBlastEffect() = powerUpCase(7, PowerUp.ROW_BLAST)
     @Test fun colourBurstEffect() = powerUpCase(9, PowerUp.COLOR_BURST)
+
+    @Test fun ringEffect() {
+        val s = scene(); s.frames(3)
+        val v = s.v
+        val ring = listOf(0 to 0, 0 to 1, 0 to 2, 1 to 2, 1 to 1, 1 to 0)
+        ring.forEach { (r, c) -> v.board.grid[r][c] = v.board.grid[r][c].copy(type = DonutType.STRAWBERRY) }
+        val path = (ring + (0 to 0)).map { (r, c) -> TestViews.cellCenter(v, r, c) }
+        TestViews.touch(v, MotionEvent.ACTION_DOWN, path[0].first, path[0].second)
+        for (p in path.drop(1)) TestViews.touch(v, MotionEvent.ACTION_MOVE, p.first, p.second)
+        assertTrue(v.chainLooped)
+        // The closing string runs from the last donut back to the first: compare the strip between them
+        val (x0, y0) = TestViews.cellCenter(v, 0, 0); val (_, y1) = TestViews.cellCenter(v, 1, 0)
+        fun strip(): List<Int> = (0..4).map { s.bmp.getPixel(x0.toInt(), (y0 + (y1 - y0) * (0.3f + it * 0.1f)).toInt()) }
+        s.frames(1); val closed = strip()
+        v.chainLooped = false; s.frames(1); val open = strip()
+        assertNotEquals("closing segment", open, closed)
+        v.chainLooped = true
+        release(s)
+        assertEquals(PowerUp.RING, v.powerFx?.kind)
+        s.frames(15, 40L)
+        assertPainted(s, "RING")
+        s.frames(80, 40L)
+        assertEquals(AnimPhase.IDLE, v.animPhase)
+        assertTrue(TestViews.total(v) >= 6)
+    }
 
     @Test fun goldenCellsPaint() {
         val s = scene()
