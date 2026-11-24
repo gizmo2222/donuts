@@ -71,6 +71,7 @@ internal fun GameView.resetStickers() {
     prefs.lifetimeDonuts = 0; prefs.highScore6x6 = 0; prefs.highScore8x8 = 0
     prefs.bestChainLength = 0; prefs.sessionCount = 0; prefs.goldenPopped = false
     sessionSaved = 0; earnedMask = 0; prefs.stickersAnnounced = 0; boxesSeen = -1; allStickersParty = false
+    showSomeonePending = SHOW_NONE; showSomeoneKind = SHOW_NONE; showSomeoneMs = -1L
     closeSettings()
 }
 
@@ -215,6 +216,12 @@ internal fun GameView.handleTouch(event: MotionEvent): Boolean {
         act != MotionEvent.ACTION_POINTER_DOWN && act != MotionEvent.ACTION_POINTER_UP) return true
 
     // One finger owns the touch: later fingers are ignored, and lifting the owner releases.
+    if (showSomeoneMs >= 0) {
+        // The card swallows every touch; a tap after the guard closes it
+        val now = SystemClock.elapsedRealtime()
+        if (act == MotionEvent.ACTION_DOWN && now - showSomeoneMs >= SHOW_CARD_GUARD_MS) closeShowSomeone(now)
+        return true
+    }
     var action = act
     if (act == MotionEvent.ACTION_DOWN) chainPointer.onDown(event.getPointerId(0))
     if (act == MotionEvent.ACTION_POINTER_DOWN) return true   // extra fingers are ignored; the first owns the chain
@@ -299,6 +306,7 @@ internal fun GameView.adjacent8(r1: Int, c1: Int, r2: Int, c2: Int) =
 // System Back: close an open panel first; false means nothing was open
 internal fun GameView.onBackPressed(): Boolean {
     synchronized(holder) {
+        if (showSomeoneMs >= 0) { closeShowSomeone(SystemClock.elapsedRealtime()); return true }
         if (settingsOpen) { closeSettings(); return true }
         if (stickersOpen) { stickersOpen = false; return true }
     }

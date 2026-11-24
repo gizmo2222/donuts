@@ -157,6 +157,10 @@ class ScreenGallery {
             val v = game(size)
             shoot(v, size, "19-cheer", warm = 20, step = 50L) { v.celebrate(TestViews.now(), Praise.banner("BOX FULL!", 1)) }
         }
+        run {
+            val v = game(size)
+            shoot(v, size, "20-show-someone", warm = 20, step = 50L) { v.showSomeoneKind = 2; v.showSomeoneMs = TestViews.now() - 500L }
+        }
     }
 
     @Test fun phone() { assumeTrue(outDir != null); render(sizes[0]) }

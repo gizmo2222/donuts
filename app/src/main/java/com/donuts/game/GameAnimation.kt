@@ -15,7 +15,7 @@ private val CASCADE_WORDS = listOf("Again!", "Wow!", "Hooray!", "Yippee!", "Amaz
 // -----------------------------------------------------------------------
 internal fun GameView.updateHint(now: Long) {
     val delay = prefs.hintDelayMs
-    if (tutorialActive || delay == 0L || animPhase != AnimPhase.IDLE || dragChain.isNotEmpty()) return
+    if (tutorialActive || showSomeoneMs >= 0 || delay == 0L || animPhase != AnimPhase.IDLE || dragChain.isNotEmpty()) return
     if (now - lastActionMs >= delay) {
         if (hintCells.isEmpty()) { hintCells = board.findHint(); hintPulseMs = now }
     } else {
@@ -303,6 +303,7 @@ internal fun GameView.checkStickers(now: Long) {
     else if (boxes > boxesSeen && stickerFlyMs < 0) {
         boxesSeen = boxes
         praise(now, "BOX FULL!")
+        showSomeonePending = SHOW_BOX
         starPulseMs = now
     }
     if (stickerFlyMs >= 0) return
@@ -312,9 +313,25 @@ internal fun GameView.checkStickers(now: Long) {
     earnedMask = earnedMask or (1 shl idx)
     prefs.stickersAnnounced = earnedMask
     if (earnedMask == (1 shl 12) - 1) allStickersParty = true
+    if (StickerRules.isBig(idx) || allStickersParty) showSomeonePending = idx
     stickerFlyIdx = idx; stickerFlyMs = now
     if (prefs.soundEnabled)  soundEngine.playMilestone()
     if (prefs.hapticEnabled) hapticEngine.milestone()
+}
+
+// A pending Show someone card appears once the sticker has landed and no panel is up
+internal fun GameView.advanceShowSomeone(now: Long) {
+    if (showSomeonePending == SHOW_NONE || showSomeoneMs >= 0 || stickerFlyMs >= 0 || panelBusy()) return
+    showSomeoneKind = showSomeonePending; showSomeonePending = SHOW_NONE
+    showSomeoneMs = now
+    hintCells = emptyList()
+    if (prefs.soundEnabled)  soundEngine.playMilestone()
+    if (prefs.hapticEnabled) hapticEngine.milestone()
+}
+
+internal fun GameView.closeShowSomeone(now: Long) {
+    showSomeoneMs = -1L; showSomeoneKind = SHOW_NONE
+    lastActionMs = now
 }
 
 internal fun GameView.starPulse(now: Long): Float {
