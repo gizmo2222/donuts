@@ -488,11 +488,11 @@ internal fun GameView.drawShowSomeone(canvas: Canvas, now: Long) {
 
     // The picture: the earned sticker, or the closed box; a gentle wobble keeps it alive
     val artSize = bh * 0.40f
-    val artY = by + bh * 0.52f
+    val artY = by + bh * 0.56f
     val wob = if (reducedMotion) 0f else 4f * sin(elapsed / 220f)
     canvas.save()
     canvas.rotate(wob, cx, artY)
-    if (showSomeoneKind >= 0) drawStickerArt(canvas, showSomeoneKind, cx, artY, artSize * 1.6f)
+    if (showSomeoneKind >= 0) drawStickerArt(canvas, showSomeoneKind, cx, artY, artSize * 1.3f)
     else drawClosedBox(canvas, cx - artSize * 0.5f, artY - artSize * 0.5f, artSize, 1f, 0)
     canvas.restore()
 
