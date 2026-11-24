@@ -45,6 +45,42 @@ class GameBoardMoreTest {
         assertTrue(b.grid.all { r -> r.all { !it.isGolden } })
     }
 
+    @Test
+    fun aFiveTypeBoardNeverHoldsTheSixthType() {
+        val sixth = DonutType.values().last()
+        val b = GameBoard(8, 8, Random(11), typeCount = 5)
+        assertTrue(b.grid.flatten().none { it.type == sixth })
+        repeat(200) {
+            b.clearChain(ChainResult(wholeBoard(b), emptyList(), PowerUp.NONE, S))
+            assertTrue(b.grid.flatten().none { it.type == sixth })
+        }
+        b.shuffle()
+        assertTrue(b.grid.flatten().none { it.type == sixth })
+        assertTrue(b.hasValidMoves())
+    }
+
+    @Test
+    fun goldenChanceZeroNeverSpawnsGoldenAndOneAlwaysDoes() {
+        val none = GameBoard(8, 8, Random(5), goldenChance = 0.0)
+        repeat(100) {
+            none.clearChain(ChainResult(wholeBoard(none), emptyList(), PowerUp.NONE, S))
+            assertTrue(none.grid.flatten().none { it.isGolden })
+        }
+        val all = GameBoard(8, 8, Random(5), goldenChance = 1.0)
+        all.clearChain(ChainResult(wholeBoard(all), emptyList(), PowerUp.NONE, S))
+        assertTrue(all.grid.flatten().all { it.isGolden })
+    }
+
+    @Test
+    fun explicitDefaultsGiveTheSameBoardAsOmittingThem() {
+        val a = GameBoard(8, 8, Random(77))
+        val b = GameBoard(8, 8, Random(77), GameBoard.GOLDEN_CHANCE, DonutType.values().size)
+        assertTrue(a.cellCodes().contentEquals(b.cellCodes()))
+        a.clearChain(ChainResult(wholeBoard(a), emptyList(), PowerUp.NONE, S))
+        b.clearChain(ChainResult(wholeBoard(b), emptyList(), PowerUp.NONE, S))
+        assertTrue(a.cellCodes().contentEquals(b.cellCodes()))
+    }
+
     // ---------------------------------------------------------------- gravity and spawning
 
     @Test

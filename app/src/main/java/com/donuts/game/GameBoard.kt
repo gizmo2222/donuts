@@ -12,7 +12,11 @@ import kotlin.random.Random
 class GameBoard(
     val rows: Int = 8,
     val cols: Int = 8,
-    private val random: Random = Random.Default
+    private val random: Random = Random.Default,
+    /** Chance that a refilled cell is golden. For the balance sim; the game uses the default. */
+    private val goldenChance: Double = GOLDEN_CHANCE,
+    /** How many donut types are drawn, the first [typeCount] of [DonutType]. For the balance sim; the game uses the default. */
+    typeCount: Int = DonutType.values().size
 ) {
     companion object {
         /** Chance that a freshly spawned (gravity-fill) cell is golden. */
@@ -22,6 +26,8 @@ class GameBoard(
         /** Cap on refill attempts when looking for a board with a valid move. */
         const val REFILL_TRIES = 100
     }
+
+    private val activeTypes: List<DonutType> = DonutType.values().take(typeCount)
 
     val grid: Array<Array<GameCell>> = Array(rows) { r ->
         Array(cols) { c -> GameCell(randomType(), r, c) }
@@ -64,7 +70,7 @@ class GameBoard(
         }
     }
 
-    private fun randomType(): DonutType = DonutType.values().random(random)
+    private fun randomType(): DonutType = activeTypes.random(random)
 
     /** Choose a random type that won't immediately form a 3-in-a-row. */
     private fun safeRandom(row: Int, col: Int): DonutType {
@@ -80,17 +86,17 @@ class GameBoard(
             grid[row - 1][col].type == grid[row - 2][col].type
         ) forbidden += grid[row - 1][col].type
 
-        val choices = DonutType.values().filterNot { it in forbidden }
+        val choices = activeTypes.filterNot { it in forbidden }
         return choices.randomOrNull(random) ?: randomType()
     }
 
     /**
-     * Spawn a fresh cell at [row],[col] with a [GOLDEN_CHANCE] chance of being
+     * Spawn a fresh cell at [row],[col] with a [goldenChance] chance of being
      * golden.  Used only during gravity fills so the starting board is always
      * golden-free.
      */
     private fun spawnCell(row: Int, col: Int): GameCell =
-        GameCell(randomType(), row, col, isGolden = random.nextDouble() < GOLDEN_CHANCE)
+        GameCell(randomType(), row, col, isGolden = random.nextDouble() < goldenChance)
 
     // -----------------------------------------------------------------------
     // Match detection
