@@ -1,0 +1,77 @@
+# Backlog
+
+The shared ledger for `/backlog`. Every session reads it first and writes it last. Built 2026-11-24 from the
+Deferred list in `docs/overhaul-state.md`, the unfixed items in `docs/overhaul-findings.md`, the top ten in
+`docs/overhaul-summary.md` and the ranked features in `docs/research.md` section 5 (`#n` is the research rank).
+Look up the detail there, by the source id.
+
+Already done and left out: merging the overhaul, releasing 2.0.5, a11y-4 (still cue under reduced motion), the
+`.claude/settings.json.disabled` hook, the phase 2 and phase 4 hardening (saved counts, `decode` size bound,
+`AudioTrack` release, keystore ignores, `grid_size` clamp). Dropped earlier: C4, silhouettes on locked stickers.
+
+Size: S under an hour, M a session, L several sessions. Value: 3 high, 1 low. Status: todo, done,
+blocked, needs-decision, or user-only (nothing in the repo can do it; work sessions skip it).
+
+| Id | Item | Source | Size | Value | Status |
+|---|---|---|---|---|---|
+| B1 | Praise that names what he did: a golden-donut label, an occasional "Great job, Steven!" on milestones and box fills | research #2, top ten #6 | S | 3 | todo |
+| B2 | `kidLearner` model in `BalanceSim.kt`, plus a test-only golden-chance and type-count parameter; run 6x6 three ways | state B7, top ten #8, research 4(b) | M | 3 | todo |
+| B3 | Show a grown-up moment: a "Show someone!" card on a big sticker or a full box, any tap closes it | research #3, top ten #7 | M | 3 | todo |
+| B4 | Loop the ring: a chain that closes on its start clears that type, with a minimum length (after B2) | research #4, top ten #9 | M | 3 | todo |
+| B5 | Voice cheers that read the combo words aloud, offline clips, a settings toggle (needs recorded clips) | research #1, top ten #5 | M | 3 | todo |
+| B6 | Silly donut friends in the box: a fixed friend revealed per filled slot, kept forever | research #5, top ten #10 | L | 3 | todo |
+| B7 | Gradle wrapper 9.2.1 to 9.3 (two CVEs), checksum from services.gradle.org, then a release build | state B1, build-1 | S | 2 | todo |
+| B8 | Icon-first settings: a big picture above each settings word, taller rows still fit short landscape | state C3, a11y-10, research #6 | S | 2 | todo |
+| B9 | Colour-blind check of the donut set: `tools\colorblind.ps1` over the gallery shots, a marking only if two collide | research #7 | S | 2 | todo |
+| B10 | Forgiving hit zones: join a cell on entering a circle around its centre, biased toward the drag | research #8 | S | 2 | todo |
+| B11 | Surprise stickers, not a checklist: hide the to-do feel of locked tiles | research #13 | S | 2 | todo |
+| B12 | Flash-safety audit with a timing test: no full-screen flash faster than 3 a second | research #14 | S | 2 | todo |
+| B13 | Parent-facing promise and privacy note (also the text a hosted privacy policy needs) | research #17, research section 7 | S | 2 | todo |
+| B14 | Drop appcompat and material, the `values-v27` theme, and fix the cold-start splash and black first frame | state B3, rules-24, build-7 | M | 2 | todo |
+| B15 | Variety and rare surprises in celebrations, with a seedable `Random` for `spawnParticles` | research #9 | M | 2 | todo |
+| B16 | Sprinkle party meter: every clear fills it, a full meter starts a party (after B2) | research #10 | M | 2 | todo |
+| B17 | Grown-up corner behind a gate: New game, Reset stickers and grid size behind a parent gate | research #11 | M | 2 | todo |
+| B18 | Lift grace: pick a chain back up shortly after lifting the finger | research #15 | M | 2 | todo |
+| B19 | Learn from Steven's real play: a local tally of chain lengths and power-ups, never sent anywhere | research #18 | M | 2 | todo |
+| B20 | Picture prompts as soft goals ("Pop 3 pink!"), nothing lost if ignored | research #19 | M | 2 | todo |
+| B21 | Quiet drought assist: nudge the refill when no long chain has been possible for a while (after B2) | research #20 | M | 2 | todo |
+| B22 | Unlockable toppings and seasonal looks | research #12 | L | 2 | todo |
+| B23 | Donut pal mascot that reacts to play | research #16 | L | 2 | todo |
+| B24 | Donut shop scene that keeps growing with lifetime donuts | research #21 | L | 2 | todo |
+| B25 | Close rules-18 and tests-8 as kept on purpose (findings file only) | state B6 | S | 1 | todo |
+| B26 | Calm mode switch: a manual reduced-motion toggle in settings | research #22 | S | 1 | todo |
+| B27 | Separate sound levels and a named loudness cap with a test | research #25 | S | 1 | todo |
+| B28 | Families-policy release check script (merged manifest: AD_ID, permissions, SDKs) | research #26 | S | 1 | todo |
+| B29 | Fewer donut types on 6x6, only if B2's runs favour it | research #27 | S | 1 | todo |
+| B30 | Smarter hint and gentle assist (slow finger trace kept, never plays the move) | research #28 | S | 1 | todo |
+| B31 | Visual cues for sound-only events | research #29 | S | 1 | todo |
+| B32 | AndroidX, Material, AGP and Robolectric 4.17 updates, one at a time (after B14) | state B2, build-8, build-9 | M | 1 | todo |
+| B33 | Build tidy-ups: launcher icon XMLs, SDK/JDK lookup via `env.ps1`, proguard rules | state B4, build-10/11/12 | M | 1 | todo |
+| B34 | Merge duplicate drawing code and add an `ink()` colour helper, gallery before and after | state B5, draw-10/11/15/22/23/24 | M | 1 | todo |
+| B35 | Mutation check of `GameInput` with `tools\mutate.ps1`, kill the survivors | state B8 | M | 1 | todo |
+| B36 | Tests for what is still untested: `RenderThread` pacing, the `saveState` race, sprite bitmaps, pixel checks | state B9 | M | 1 | todo |
+| B37 | Tappable bubble power-up | research #23 | M | 1 | todo |
+| B38 | Parent-set wind-down (opt-in, never an unprompted break) | research #24 | M | 1 | todo |
+| B39 | TalkBack labels for buttons and panels | research #30 | M | 1 | todo |
+| B40 | The sticker box and stats look small on a tablet; needs a layout decision from the `10_Tablet` shots | state C5, responsive-7 | M | 1 | todo |
+| B41 | Play production: 12 testers for 14 days, Data safety, privacy policy, content rating, Contains ads: No | state Deferred, top ten #2, research section 7 | S | 3 | user-only |
+| B42 | Real-phone checks: "Amazing!" over a 6x6 edge cell, landscape on an Android 16 large screen | state B10, top ten #4 | S | 2 | user-only |
+
+## How the L items split
+
+**B6 Silly donut friends.** (1) Pure `FriendRules.kt`: the fixed order, which friend a filled slot reveals,
+saved in `Prefs`, with tests. (2) `FriendArt.kt` with the first four friends and the reveal fly in
+`EffectsDraw.kt`. (3) A friends row or page in the stickers panel (`PanelsDraw.kt`, `GameLayout.kt`) that
+passes the layout tests. (4) The remaining friends and a sound each, a few per session.
+
+**B22 Unlockable toppings and seasonal looks.** (1) Pure unlock rules from lifetime donuts and a saved choice,
+with tests. (2) Topping art as overlays in `DonutArt.kt` and the sprite cache. (3) A picker in the stickers or
+settings panel. (4) Seasonal looks chosen by date, added one season per session.
+
+**B23 Donut pal mascot.** (1) The character art and an idle bob beside the counter, without crowding the board.
+(2) Reactions wired to chain length, power-ups and milestones through the existing celebration paths.
+(3) Layout tests at the five gallery sizes and a reduced-motion still pose.
+
+**B24 Donut shop scene.** (1) Pure rules: which shop pieces lifetime donuts unlock, with tests. (2) A shop
+scene on the home screen (`MainView.kt`) with the first pieces. (3) More pieces and a small reveal when one is
+earned, a few per session.
