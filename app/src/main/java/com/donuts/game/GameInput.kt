@@ -68,6 +68,7 @@ internal fun GameView.handleSettingsTap(hit: Int) {
 /** Back to 0 of 12 stickers and an empty donut box. The board is banked and cleared first so nothing from it counts again. */
 internal fun GameView.resetStickers() {
     startOver()
+    // Donut friends (prefs.friendsMet) are kept forever: a sticker reset leaves them alone on purpose.
     prefs.lifetimeDonuts = 0; prefs.highScore6x6 = 0; prefs.highScore8x8 = 0
     prefs.bestChainLength = 0; prefs.sessionCount = 0; prefs.goldenPopped = false
     sessionSaved = 0; earnedMask = 0; prefs.stickersAnnounced = 0; boxesSeen = -1; allStickersParty = false
