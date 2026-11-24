@@ -106,4 +106,10 @@ class StickerRulesTest {
         val earned = StickerRules.earnedMask(StickerStats(60, 0, 0, 0, false, 0))
         assertTrue(StickerRules.toAnnounce(earned, announced) and 0b10 != 0)
     }
+
+    @Test
+    fun onlyTheTopOfEachLadderIsBig() {
+        val big = (0 until StickerRules.STICKER_COUNT).filter { StickerRules.isBig(it) }
+        assertEquals(listOf(2, 5, 8), big)
+    }
 }

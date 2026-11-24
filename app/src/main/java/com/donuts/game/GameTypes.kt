@@ -39,3 +39,8 @@ internal class BoxStrip {
     var slotPopMs = -1L
     var boxPopMs = -1L
 }
+
+/** Values for the Show someone card's `showSomeonePending` and `showSomeoneKind` (0..11 means that sticker). */
+internal const val SHOW_NONE = -2
+internal const val SHOW_BOX  = -1
+internal const val SHOW_CARD_GUARD_MS = 400L

@@ -455,3 +455,57 @@ internal fun GameView.drawPowerUpFx(canvas: Canvas, now: Long) {
     canvas.restore()
     canvas.restore()
 }
+
+// -----------------------------------------------------------------------
+// Show someone! card: a quiet moment for a grown-up to cheer; any tap closes it
+// -----------------------------------------------------------------------
+internal fun GameView.drawShowSomeone(canvas: Canvas, now: Long) {
+    val elapsed = (now - showSomeoneMs).toFloat()
+    val t   = (elapsed / 380f).coerceIn(0f, 1f)
+    val sc  = if (reducedMotion) 1f else 0.4f + 0.6f * easeOutBack(t)
+    val a   = (t * 255).toInt().coerceIn(0, 255)
+    fillPaint.color = Color.argb((a * 0.45f).toInt(), 28, 12, 0)
+    canvas.drawRect(0f, 0f, surfaceW.toFloat(), surfaceH.toFloat(), fillPaint)
+
+    val bw = min(board.cols * cellSize * 0.92f, 340f * u)
+    val bh = min(bw * 0.95f, 300f * u)
+    val cx = boardLeft + board.cols * cellSize / 2f
+    val cy = boardTop + board.rows * cellSize / 2f
+    val bx = cx - bw / 2f; val by = cy - bh / 2f
+    canvas.save()
+    canvas.scale(sc, sc, cx, cy)
+    fillPaint.color = Color.argb((a * 0.35f).toInt(), 0, 0, 0)
+    canvas.drawRoundRect(scratchRectF.apply { set(bx + 3f * u, by + 7f * u, bx + bw + 3f * u, by + bh + 7f * u) }, 24f * u, 24f * u, fillPaint)
+    fillPaint.color = Color.argb(a, 28, 12, 0)
+    canvas.drawRoundRect(scratchRectF.apply { set(bx - 5f * u, by - 5f * u, bx + bw + 5f * u, by + bh + 5f * u) }, 28f * u, 28f * u, fillPaint)
+    fillPaint.color = Color.argb(a, 255, 210, 50)
+    canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + bw, by + bh) }, 23f * u, 23f * u, fillPaint)
+    canvas.save()
+    canvas.clipRect(bx, by, bx + bw, by + bh * 0.3f)
+    fillPaint.color = Color.argb((a * 0.35f).toInt(), 255, 255, 255)
+    canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + bw, by + bh) }, 23f * u, 23f * u, fillPaint)
+    canvas.restore()
+
+    // The picture: the earned sticker, or the closed box; a gentle wobble keeps it alive
+    val artSize = bh * 0.40f
+    val artY = by + bh * 0.52f
+    val wob = if (reducedMotion) 0f else 4f * sin(elapsed / 220f)
+    canvas.save()
+    canvas.rotate(wob, cx, artY)
+    if (showSomeoneKind >= 0) drawStickerArt(canvas, showSomeoneKind, cx, artY, artSize * 1.6f)
+    else drawClosedBox(canvas, cx - artSize * 0.5f, artY - artSize * 0.5f, artSize, 1f, 0)
+    canvas.restore()
+
+    textPaint.textAlign = Paint.Align.CENTER
+    textPaint.letterSpacing = 0.04f
+    val maxW = bw - 28f * u
+    textPaint.textSize = 38f * u
+    fitText("Show someone!", maxW)
+    drawBannerLine(canvas, "Show someone!", cx, by + bh * 0.17f + textPaint.textSize * 0.36f, a)
+    textPaint.textSize = 26f * u
+    val line = "Steven did it!"
+    fitText(line, maxW)
+    drawBannerLine(canvas, line, cx, by + bh * 0.87f + textPaint.textSize * 0.36f, a)
+    textPaint.letterSpacing = 0f
+    canvas.restore()
+}

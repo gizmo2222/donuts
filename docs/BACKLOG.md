@@ -16,7 +16,7 @@ blocked, needs-decision, or user-only (nothing in the repo can do it; work sessi
 |---|---|---|---|---|---|
 | B1 | Praise that names what he did: a golden-donut label, an occasional "Great job, Steven!" on milestones and box fills (wording approved by Nick 2026-11-24; keep labels short enough for an 8x8 float label) | research #2, top ten #6 | S | 3 | todo |
 | B2 | `kidLearner` model in `BalanceSim.kt`, plus a test-only golden-chance and type-count parameter; run 6x6 three ways | state B7, top ten #8, research 4(b) | M | 3 | todo |
-| B3 | Show a grown-up moment: a "Show someone!" card on a big sticker or a full box, any tap closes it | research #3, top ten #7 | M | 3 | todo |
+| B3 | Show a grown-up moment: a "Show someone!" card on a big sticker or a full box, any tap closes it | research #3, top ten #7 | M | 3 | done |
 | B4 | Loop the ring: a chain that closes on its start clears that type, with a minimum length (after B2) | research #4, top ten #9 | M | 3 | todo |
 | B5 | Voice cheers that read the combo words aloud, offline clips, a settings toggle (needs recorded clips) | research #1, top ten #5 | M | 3 | todo |
 | B6a | Donut friends 1/4: pure `FriendRules.kt` (fixed order, which friend a filled slot reveals, saved in `Prefs`), with tests | research #5, top ten #10 | M | 3 | todo |

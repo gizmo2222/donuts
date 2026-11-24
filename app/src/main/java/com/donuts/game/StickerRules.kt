@@ -17,6 +17,9 @@ object StickerRules {
     const val BOX_SLOTS = 12
     const val BOX_SLOT_DONUTS = 10
 
+    /** The top sticker of each ladder (500 donuts, chain of 8, best score 200): these earn the Show someone card. */
+    fun isBig(i: Int): Boolean = i == 2 || i == 5 || i == 8
+
     /** Donuts in one full box. */
     const val BOX_DONUTS = BOX_SLOTS * BOX_SLOT_DONUTS
 

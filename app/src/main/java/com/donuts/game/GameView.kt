@@ -123,6 +123,10 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal val donutBoxRect     = RectF()
     internal val boxStrip         = BoxStrip()   // the same box on the board screen, under the counter
     internal var boxesSeen        = -1        // full boxes at the last check; -1 until first frame
+    // "Show someone!" card: pending until the sticker fly and any panel are done, then up until a tap
+    internal var showSomeonePending = SHOW_NONE   // SHOW_NONE, SHOW_BOX, or a sticker index
+    internal var showSomeoneKind    = SHOW_NONE
+    internal var showSomeoneMs      = -1L
     internal var allStickersParty = false     // "all 12" banner waits until the sticker fly lands
 
     // 12 stickers — 4 rows × 3 cols
@@ -408,12 +412,14 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
         drawNoMovesWarning(canvas, now)
         if (celebrateMs >= 0) drawCelebration(canvas, now)
         checkStickers(now)
+        advanceShowSomeone(now)
         if (stickerFlyMs >= 0) drawStickerFly(canvas, now)
         if (settingsAnim > 0f) drawSettings(canvas, now)
         if (stickersAnim > 0f) drawStickersPanel(canvas, now)
         drawChainFlash(canvas, now)
         drawResetFlash(canvas, now)
         if (tutorialActive && settingsAnim == 0f && stickersAnim == 0f) drawTutorial(canvas, now)
+        if (showSomeoneMs >= 0) drawShowSomeone(canvas, now)
     }
 
     // -----------------------------------------------------------------------
