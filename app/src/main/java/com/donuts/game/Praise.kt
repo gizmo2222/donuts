@@ -9,6 +9,9 @@ object Praise {
     /** The cheer under every second milestone or box banner. Approved by Nick, 2026-11-24. */
     const val CHEER = "Great job, Steven!"
 
+    /** The float word over a lone tap that giggles instead of booping (rare, see CelebrationMix). */
+    const val GIGGLE = "HEE HEE!"
+
     /** Splits a banner label into its main line and its cheer line. */
     const val LINE_BREAK = '\n'
 

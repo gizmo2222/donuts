@@ -14,4 +14,10 @@ object GameTheme {
     val accentMuted   = Color.rgb(200, 170, 130)   // unselected option
     val chrome        = Color.rgb(170, 120,  60)   // stickers / settings buttons
     val goldenLabel   = Color.rgb(255, 214,  64)   // the GOLDEN! float word
+    // Celebration banners take turns: gold, strawberry pink, mint, sky. All light, so the brown words read.
+    val bannerColors  = intArrayOf(
+        Color.rgb(255, 210,  50), Color.rgb(255, 160, 205), Color.rgb(130, 228, 170), Color.rgb(140, 205, 255))
+    // The rare golden shower's confetti
+    val goldColors    = intArrayOf(
+        Color.rgb(255, 210,  50), Color.rgb(255, 236, 140), Color.WHITE, Color.rgb(240, 165,  30))
 }

@@ -247,37 +247,57 @@ internal fun GameView.praise(now: Long, label: String) {
     celebrate(now, Praise.banner(label, praiseCount++))
 }
 
-internal fun GameView.startCelebration(now: Long, label: String) {
+internal fun GameView.startCelebration(now: Long, label: String,
+                                      look: CelebrationLook = CelebrationMix.next(fxRandom, celebrateLook)) {
     celebrateMs    = now
     physicsMs      = now
     celebrateLabel = label.substringBefore(Praise.LINE_BREAK)
     celebrateCheer = label.substringAfter(Praise.LINE_BREAK, "")
-    spawnParticles()
-    if (prefs.soundEnabled)  soundEngine.playMilestone()
+    celebrateLook  = look
+    spawnParticles(look)
+    if (prefs.soundEnabled)  soundEngine.playMilestone(look.style.ordinal, look.golden)
     if (prefs.hapticEnabled) hapticEngine.milestone()
 }
 
-internal fun GameView.spawnParticles() {
+/** Confetti for [look]: two cannons at the board's bottom corners, one fountain in the middle, or a fluttering rain. */
+internal fun GameView.spawnParticles(look: CelebrationLook = CelebrationMix.CLASSIC) {
     particles.clear()
+    val rnd = fxRandom
     val n  = if (reducedMotion) 24 else 140
     val bL = boardLeft + cellSize * 0.3f
     val bR = boardLeft + board.cols * cellSize - cellSize * 0.3f
     val bB = boardTop + board.rows * cellSize
     val types = DonutType.values()
     for (i in 0 until n) {
-        val fromLeft = i % 2 == 0
-        val angle = Math.toRadians((if (fromLeft) -68.0 else -112.0) + (Math.random() - 0.5) * 55.0)
-        val speed = cellSize * (0.20 + Math.random() * 0.20)
-        particles.add(Particle(
-            x        = if (fromLeft) bL else bR,
-            y        = bB,
-            vx       = (cos(angle) * speed).toFloat(),
-            vy       = (sin(angle) * speed).toFloat(),
-            color    = if (i % 4 == 0) SPRINKLE_COLORS[i % 6] else types[i % 6].glazeColor,
-            radius   = (Math.random() * cellSize * 0.07 + cellSize * 0.05).toFloat(),
-            rotSpeed = (Math.random() * 10f - 5f).toFloat(),
-            ring     = i % 3 == 0
-        ))
+        val color = when {
+            look.golden -> GameTheme.goldColors[i % GameTheme.goldColors.size]
+            i % 4 == 0  -> SPRINKLE_COLORS[i % 6]
+            else        -> types[i % 6].glazeColor
+        }
+        val radius   = (rnd.nextDouble() * cellSize * 0.07 + cellSize * 0.05).toFloat()
+        val rotSpeed = (rnd.nextDouble() * 10.0 - 5.0).toFloat()
+        val ring     = i % 3 == 0
+        when (look.style) {
+            ConfettiStyle.CANNONS, ConfettiStyle.FOUNTAIN -> {
+                val fountain = look.style == ConfettiStyle.FOUNTAIN
+                val fromLeft = i % 2 == 0
+                val aim   = if (fountain) -90.0 else if (fromLeft) -68.0 else -112.0
+                val angle = Math.toRadians(aim + (rnd.nextDouble() - 0.5) * (if (fountain) 70.0 else 55.0))
+                val speed = cellSize * (if (fountain) 0.24 + rnd.nextDouble() * 0.20 else 0.20 + rnd.nextDouble() * 0.20)
+                particles.add(Particle(
+                    x = if (fountain) (bL + bR) / 2f else if (fromLeft) bL else bR, y = bB,
+                    vx = (cos(angle) * speed).toFloat(), vy = (sin(angle) * speed).toFloat(),
+                    color = color, radius = radius, rotSpeed = rotSpeed, ring = ring))
+            }
+            ConfettiStyle.RAIN -> {
+                // Starts above the board, staggered so it keeps falling in, and flutters down slowly
+                val fall = cellSize * (0.05f + rnd.nextFloat() * 0.04f)
+                particles.add(Particle(
+                    x = bL + rnd.nextFloat() * (bR - bL), y = boardTop - cellSize * (0.3f + rnd.nextFloat() * 4f),
+                    vx = cellSize * (rnd.nextFloat() - 0.5f) * 0.02f, vy = fall,
+                    color = color, radius = radius, rotSpeed = rotSpeed, ring = ring, fall = fall))
+            }
+        }
     }
 }
 

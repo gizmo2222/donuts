@@ -40,14 +40,32 @@ class SoundEngine {
         playTone(90f, 0.08f, 0.30f)
     }
 
-    /** Happy arpeggio on milestone. */
-    fun playMilestone() {
+    /**
+     * Happy arpeggio on milestone, with a twist per confetti style ([twist] is its ordinal): 0 climbs C-E-G,
+     * 1 climbs and whoops up, 2 tumbles down and hops back up. [golden] adds a high sparkly trill.
+     */
+    fun playMilestone(twist: Int = 0, golden: Boolean = false) {
+        val notes = MILESTONE_TUNES[Math.floorMod(twist, MILESTONE_TUNES.size)]
         Thread {
-            playToneBlocking(523f, 0.09f, 0.40f)   // C5
-            Thread.sleep(80)
-            playToneBlocking(659f, 0.09f, 0.40f)   // E5
-            Thread.sleep(80)
-            playToneBlocking(784f, 0.14f, 0.50f)   // G5
+            for (n in notes.indices step 3) {
+                if (notes[n] == notes[n + 1]) playToneBlocking(notes[n], notes[n + 2], 0.42f)
+                else playSweepBlocking(notes[n], notes[n + 1], notes[n + 2], 0.40f)
+                Thread.sleep(80)
+            }
+            if (golden) for (k in 0 until 4) {
+                playToneBlocking(if (k % 2 == 0) 1047f else 1319f, 0.06f, 0.30f)   // C6, E6
+                Thread.sleep(30)
+            }
+        }.start()
+    }
+
+    /** A rare giggle on a lone tap instead of the boop: three quick bouncy "hee"s. */
+    fun playGiggle() {
+        Thread {
+            for (k in 0 until 3) {
+                playSweepBlocking(700f + k * 60f, 980f + k * 60f, 0.07f, 0.30f)
+                Thread.sleep(35)
+            }
         }.start()
     }
 
@@ -140,6 +158,12 @@ class SoundEngine {
         }
     }
 }
+
+// Milestone tunes by confetti style, as (start Hz, end Hz, seconds) per note
+private val MILESTONE_TUNES: Array<FloatArray> = arrayOf(
+    floatArrayOf(523f, 523f, 0.09f, 659f, 659f, 0.09f, 784f, 784f, 0.14f),                         // cannons: C-E-G
+    floatArrayOf(523f, 523f, 0.08f, 659f, 659f, 0.08f, 784f, 1175f, 0.16f),                        // fountain: whoop up
+    floatArrayOf(784f, 784f, 0.08f, 659f, 659f, 0.08f, 523f, 523f, 0.08f, 1047f, 1047f, 0.14f))    // rain: down, hop up
 
 private val FRIEND_TUNES: Array<FloatArray> = arrayOf(
     floatArrayOf(1047f, 1047f, 0.06f, 1319f, 1319f, 0.06f, 1568f, 1568f, 0.10f),                     // Sprinkle: sparkly up

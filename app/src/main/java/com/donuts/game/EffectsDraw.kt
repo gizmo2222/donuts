@@ -105,6 +105,11 @@ internal fun GameView.drawCelebration(canvas: Canvas, now: Long) {
     while (iter.hasNext()) {
         val p = iter.next()
         p.vy  += gravity * k
+        if (p.fall > 0f) {
+            // Rain flutters: falls no faster than its own speed and sways side to side as it spins
+            if (p.vy > p.fall) p.vy = p.fall
+            p.x += cos(Math.toRadians(p.rot.toDouble() * 0.6).toFloat()) * p.fall * 0.6f * k
+        }
         p.x   += p.vx * k
         p.y   += p.vy * k
         p.rot += p.rotSpeed * k
@@ -145,7 +150,8 @@ internal fun GameView.drawCelebration(canvas: Canvas, now: Long) {
     canvas.drawRoundRect(scratchRectF.apply { set(bx + 3f * u, by + 6f * u, bx + bw + 3f * u, by + bh + 6f * u) }, 18f * u, 18f * u, fillPaint)
     fillPaint.color = Color.argb(bannerAlpha, 28, 12, 0)
     canvas.drawRoundRect(scratchRectF.apply { set(bx - 4f * u, by - 4f * u, bx + bw + 4f * u, by + bh + 4f * u) }, 20f * u, 20f * u, fillPaint)
-    fillPaint.color = Color.argb(bannerAlpha, 255, 210, 50)
+    val look = celebrateLook ?: CelebrationMix.CLASSIC
+    fillPaint.color = (GameTheme.bannerColors[look.banner] and 0x00FFFFFF) or (bannerAlpha shl 24)
     canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + bw, by + bh) }, 16f * u, 16f * u, fillPaint)
     canvas.save()
     canvas.clipRect(bx, by, bx + bw, by + bh * 0.45f)
@@ -167,6 +173,28 @@ internal fun GameView.drawCelebration(canvas: Canvas, now: Long) {
     }
     textPaint.letterSpacing = 0f
     canvas.restore()
+    if (look.golden) drawBannerSparkles(canvas, bx, by, bw, bh, elapsed, bannerAlpha)
+}
+
+// The golden shower's banner twinkles: four white sparks at its corners, each pulsing on its own beat
+private fun GameView.drawBannerSparkles(canvas: Canvas, bx: Float, by: Float, bw: Float, bh: Float,
+                                        elapsed: Float, alpha: Int) {
+    fillPaint.color = Color.argb(alpha, 255, 255, 255)
+    for (i in 0 until 4) {
+        val pulse = if (reducedMotion) 1f else 0.6f + 0.4f * sin(elapsed / 140f + i * 1.7f)
+        val r  = 13f * u * pulse
+        val cx = if (i % 2 == 0) bx + 6f * u else bx + bw - 6f * u
+        val cy = if (i < 2) by + 4f * u else by + bh - 4f * u
+        scratchPath.reset()
+        for (j in 0 until 8) {
+            val rr = if (j % 2 == 0) r else r * 0.32f
+            val px = cx + sparkCos[j] * rr; val py = cy + sparkSin[j] * rr
+            if (j == 0) scratchPath.moveTo(px, py) else scratchPath.lineTo(px, py)
+        }
+        scratchPath.close()
+        canvas.drawPath(scratchPath, fillPaint)
+    }
+    fillPaint.alpha = 255
 }
 
 internal fun GameView.drawStickerFly(canvas: Canvas, now: Long) {

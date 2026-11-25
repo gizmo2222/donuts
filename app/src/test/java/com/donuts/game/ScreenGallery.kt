@@ -97,6 +97,11 @@ class ScreenGallery {
             shoot(v, size, "05-celebration", warm = 20, step = 50L) { v.celebrate(TestViews.now(), "WOW!") }
         }
         run {
+            val v = game(size)
+            val gold = CelebrationLook(ConfettiStyle.RAIN, 0, golden = true)
+            shoot(v, size, "05b-golden", warm = 20, step = 50L) { v.startCelebration(TestViews.now(), "WOW!", gold) }
+        }
+        run {
             val v = game(size) { it.lifetimeDonuts = 75; it.bestChainLength = 8; it.highScore6x6 = 70; it.goldenPopped = true }
             shoot(v, size, "06-stickers", warm = 30, step = 20L) { v.stickersOpen = true }
         }

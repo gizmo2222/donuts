@@ -233,6 +233,10 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // Mutable class (not data class) so physics can update fields in-place each frame,
     // avoiding the 60-object copy + new-list allocation that a data-class copy() would incur.
     internal val particles = mutableListOf<Particle>()
+    internal var celebrateLook: CelebrationLook? = null   // this (or the last) celebration's look, see CelebrationMix
+    // Every random choice in the effects (confetti, looks, the tap giggle); tests and the gallery seed it
+    internal var fxRandom: kotlin.random.Random = kotlin.random.Random.Default
+    internal var wobbleGiggle = false       // the current tap wobble is the rare giggle: bigger and longer
 
     // Landing squish: the whole column squashes for a beat when a drop lands
     internal var landMs = -1L
