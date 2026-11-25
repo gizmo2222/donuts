@@ -94,6 +94,7 @@ All sources are in `app\src\main\java\com\donuts\game`. No main source is over a
 | `PopTiming.kt` | When each cell of a power-up clear starts to pop (pure, unit tested) |
 | `ChainRules.kt` | `ChainRules.accepts`: which cell may join a drag chain, golden wild rules (pure, unit tested) |
 | `LoopRules.kt` | `LoopRules.closes`: when a drag chain closes into a ring (`MIN_LOOP` cells, back on its first cell) and clears as RING (pure, unit tested) |
+| `LiftGrace.kt` | `LiftGrace`: how long a lifted chain waits for the finger to come back (120 ms if it would pop, 450 ms for two, none for a tap or ring) (pure, unit tested) |
 | `HitZone.kt` | `HitZone.target`: which cell a drag aims at from the chain's end, nearest centre led along the drag, diagonals weighted (more on 8x8) (pure, unit tested) |
 | `ChainPointer.kt` | `ChainPointer`: which finger owns the current chain (pure, unit tested) |
 | `ChainBadge.kt` | Where the chain-count badge sits: a chain cell next to the last one (pure, unit tested) |
@@ -142,16 +143,17 @@ so read just that range.
 | GameAnimation.kt | 405 | `cascadeWord` 10-15, `updateHint` 16-29, `advancePowerPops` 30-41, `advanceAnimation` 42-165, `addFloatLabelAt` 166-174, `advanceSettingsAnim` 175-185, `slideToward` 186-197, `easeOutQuint` 198-203, `settingsSlideY` 204-204, `stickersSlideY` 205-210, `panelBusy` 211-212, `advanceCounter` 213-246, `celebrate` 247-251, `praise` 252-255, `startCelebration` 256-269, `spawnParticles` 270-310, `easeOutBack` 311-316, `checkStickers` 317-349, `advanceShowSomeone` 350-358, `closeShowSomeone` 359-363, `starPulse` 364-371, `advanceBoxStrip` 372-384, `pourParty` 385-392, `setParty` 393-399, `advancePartyMeter` 400-405 |
 | GameBoard.kt | 359 | `GameBoard` 12-53, `refill` 54-72, `randomType` 73-75, `safeRandom` 76-97, `spawnCell` 98-105, `findMatches` 106-146, `resolveOnce` 147-162, `findHint` 163-181, `dragOrder` 182-186, `floodFill` 187-214, `chainTypeOf` 215-234, `peekChainClear` 235-275, `countCleared` 276-280, `collapse` 281-298, `clearChain` 299-306, `hasValidMoves` 307-313, `shuffle` 314-317, `reset` 318-327, `settle` 328-332, `cellCodes` 333-338, `clearedCounts` 339-344, `restore` 345-359 |
 | GameCell.kt | 18 | `GameCell` 13-18 |
-| GameInput.kt | 395 | `settingsHit` 14-39, `stickersHit` 40-53, `handleStickersTap` 54-66, `panelHitRect` 67-81, `turnSettingsPage` 82-88, `handleSettingsTap` 89-119, `resetStickers` 120-131, `closeSettings` 132-134, `startOver` 135-150, `startHeldDrag` 151-157, `handleDown` 158-170, `handleMove` 171-227, `handleUp` 228-287, `handleTouch` 288-372, `cellCol` 373-374, `cellRow` 375-377, `cellU` 378-379, `cellV` 380-381, `inBounds` 382-383, `adjacent8` 384-387, `onBackPressed` 388-395 |
+| GameInput.kt | 441 | `settingsHit` 14-39, `stickersHit` 40-53, `handleStickersTap` 54-66, `panelHitRect` 67-81, `turnSettingsPage` 82-88, `handleSettingsTap` 89-119, `resetStickers` 120-131, `closeSettings` 132-134, `startOver` 135-150, `startHeldDrag` 151-157, `handleDown` 158-170, `handleMove` 171-227, `handleUp` 228-287, `beginLift` 288-295, `finishLift` 296-302, `advanceLift` 303-311, `resumeLift` 312-329, `handleTouch` 330-418, `cellCol` 419-420, `cellRow` 421-423, `cellU` 424-425, `cellV` 426-427, `inBounds` 428-429, `adjacent8` 430-433, `onBackPressed` 434-441 |
 | GameLayout.kt | 221 | `computeLayout` 10-67, `layoutSettingsPanel` 68-83, `showSettingsPage` 84-91, `placeSettings` 92-116, `row` 117-166, `layoutStickersPanel` 167-175, `sideFor` 176-212, `excludeBackSwipe` 213-221 |
 | GameTheme.kt | 23 | `GameTheme` 6-23 |
 | GameTypes.kt | 52 | `AnimPhase` 7-13, `AnimCell` 14-20, `PowerUpFx` 21-25, `DigitFlip` 26-27, `Particle` 28-35, `FloatLabel` 36-41, `BoxStrip` 42-52 |
-| GameView.kt | 484 | `GameView` 14-405, `surfaceCreated` 406-410, `surfaceChanged` 411-414, `surfaceDestroyed` 415-434, `drawFrame` 435-482, `onTouchEvent` 483-484 |
+| GameView.kt | 489 | `GameView` 14-409, `surfaceCreated` 410-414, `surfaceChanged` 415-418, `surfaceDestroyed` 419-438, `drawFrame` 439-487, `onTouchEvent` 488-489 |
 | GateDraw.kt | 74 | `drawGrownUpsButton` 16-34, `drawGatePage` 35-66, `drawPromise` 67-74 |
 | HapticEngine.kt | 34 | `HapticEngine` 10-21, `tick` 22-24, `pop` 25-27, `milestone` 28-31, `shuffle` 32-34 |
 | HitZone.kt | 62 | `HitZone` 16-25, `diagWeight` 26-32, `target` 33-56, `aim` 57-62 |
 | HudDraw.kt | 288 | `drawHUD` 12-16, `drawBackdrop` 17-30, `drawIconButton` 31-38, `drawStarIcon` 39-55, `drawGearIcon` 56-73, `pressScaleFor` 74-77, `buttonPressScale` 78-84, `drawPrettyButton` 85-126, `drawCounter` 127-194, `drawLabel` 195-210, `drawOutlinedText` 211-221, `drawBoxStrip` 222-228, `drawPartyMeter` 229-284, `blendColor` 285-285, `ch` 286-288 |
 | LayoutMath.kt | 36 | `LayoutMath` 7-8, `spareShare` 9-12, `gutter` 13-15, `cellIndex` 16-19, `boardSide` 20-22, `panelLocalY` 23-25, `fitSide` 26-33, `clampCenter` 34-36 |
+| LiftGrace.kt | 24 | `LiftGrace` 9-15, `graceMs` 16-22, `expired` 23-24 |
 | LoopRules.kt | 22 | `LoopRules` 9-15, `closes` 16-22 |
 | MainActivity.kt | 28 | `MainActivity` 8-12, `onResume` 13-17, `onCreate` 18-28 |
 | MainView.kt | 372 | `MainView` 13-66, `onSizeChanged` 67-72, `relayout` 73-94, `onDraw` 95-116, `drawDotGrid` 117-131, `drawLogo` 132-150, `drawDonut` 151-192, `drawSoccerBall` 193-235, `regularPolygon` 236-250, `addSheen` 251-267, `drawTitle` 268-308, `buttonPressScale` 309-315, `drawPlayButton` 316-356, `onTouchEvent` 357-372 |
@@ -164,7 +166,7 @@ so read just that range.
 | Prefs.kt | 90 | `Prefs` 5-52, `highScore` 53-53, `setHighScore` 54-90 |
 | RenderThread.kt | 62 | `RenderThread` 9-12, `lockFrame` 13-27, `run` 28-62 |
 | SavedBoard.kt | 30 | `SavedBoard` 4-5, `encode` 6-12, `decode` 13-24, `ints` 25-30 |
-| SavedGame.kt | 133 | `settleBoard` 19-30, `saveState` 31-45, `restoreState` 46-52, `applySaved` 53-69, `saveToPrefs` 70-78, `restoreFromPrefs` 79-84, `saveSession` 85-92, `lifetimeDonuts` 93-95, `displayedLifetime` 96-97, `rebuildBoard` 98-111, `resetPlayState` 112-126, `clearMotion` 127-133 |
+| SavedGame.kt | 134 | `settleBoard` 19-31, `saveState` 32-46, `restoreState` 47-53, `applySaved` 54-70, `saveToPrefs` 71-79, `restoreFromPrefs` 80-85, `saveSession` 86-93, `lifetimeDonuts` 94-96, `displayedLifetime` 97-98, `rebuildBoard` 99-112, `resetPlayState` 113-127, `clearMotion` 128-134 |
 | SettingsIcons.kt | 203 | `drawSettingsIcon` 24-37, `inkLine` 38-44, `outlineAndFill` 45-51, `drawSpeakerIcon` 52-79, `drawBuzzIcon` 80-101, `drawBulbIcon` 102-136, `drawGridIcon` 137-156, `drawRestartIcon` 157-178, `drawConfirmIcon` 179-186, `drawLockIcon` 187-203 |
 | SoundEngine.kt | 181 | `SoundEngine` 12-15, `waveSample` 16-22, `playConnectBlip` 23-28, `playPopClear` 29-33, `playBoop` 34-38, `playDropLand` 39-46, `playMilestone` 47-62, `playGiggle` 63-75, `playFriend` 76-87, `playShuffle` 88-95, `playTone` 96-99, `playToneBlocking` 100-110, `playSweep` 111-114, `playSweepBlocking` 115-128, `playPCM` 129-181 |
 | StickerArt.kt | 167 | `drawStickerArt` 12-45, `drawStickerGift` 46-99, `drawChainArt` 100-111, `drawBatchArt` 112-121, `drawCrown` 122-140, `drawMiniBoard` 141-153, `drawHeart` 154-167 |
@@ -206,6 +208,8 @@ so read just that range.
 | HitZoneInputTest.kt | 60 | `HitZoneInputTest` 10-13, `cellAt` 14-17, `cuttingTheCornerOfAWrongDonutJoinsTheDiagonalWithoutAShake` 18-29, `aWobblyStraightDragStillJoinsTheStraightCells` 30-41, `goingBackStillUndoesAndJitterDoesNotRedoIt` 42-53, `aFingerThatSkipsACellStillAddsNothing` 54-60 |
 | HitZoneTest.kt | 98 | `HitZoneTest` 7-11, `t` 12-15, `theFingerOnTheLastCellAimsAtItAndACentreAimsAtThatCell` 16-23, `withoutAnAimAStraightStepJoinsAtTheSharedEdgeAsBefore` 24-31, `theAimLeadsTheFingerIntoTheCellItIsHeadingFor` 32-38, `cuttingACornerReachesTheDiagonalNotTheStraightCellBesideIt` 39-48, `aWobblyStraightStepIsNotStolenByTheDiagonal` 49-58, `goingBackTowardThePreviousCellAimsAtIt` 59-65, `beyondTheThreeByThreeBlockAimsAtNothing` 66-72, `cellsOffTheBoardAreNeverAimedAt` 73-79, `eightByEightLeansHarderOnDiagonals` 80-89, `theAimChangesOnlyAfterAStepAndIsAUnitVector` 90-98 |
 | LayoutMathTest.kt | 98 | `LayoutMathTest` 7-98 |
+| LiftGraceInputTest.kt | 119 | `LiftGraceInputTest` 10-11, `raw` 12-17, `liftedTwo` 18-27, `aLiftedTwoWaitsAndTheFingerBackOnItsEndCarriesOn` 28-45, `aTouchOnTheNextDonutJoinsItStraightAway` 46-52, `whenTheWaitRunsOutTheTwoWobbleAsBefore` 53-63, `aChainThatPopsWaitsOnlyTheShortGrace` 64-73, `aTouchOutOfReachReleasesTheOldChainAndStartsANewOne` 74-82, `aStrayMoveWhileTheChainWaitsDoesNotGrowIt` 83-90, `aSingleTapIsAnsweredAtOnce` 91-99, `theStarButtonWhileAChainWaitsReleasesItAndOpensStickers` 100-109, `settlingTheBoardWhileAChainWaitsBanksItsDonuts` 110-119 |
+| LiftGraceTest.kt | 35 | `LiftGraceTest` 7-35 |
 | LoopRulesTest.kt | 32 | `LoopRulesTest` 7-32 |
 | ParentGateTest.kt | 71 | `ParentGateTest` 9-9, `gate` 10-71 |
 | PartyMeterTest.kt | 79 | `PartyMeterTest` 9-79 |
@@ -222,7 +226,7 @@ so read just that range.
 | ShowSomeoneTest.kt | 117 | `ShowSomeoneTest` 12-13, `boxFull` 14-23, `aFullBoxShowsTheCard` 24-33, `aBigStickerShowsTheCardOnlyAfterTheFlyEnds` 34-50, `aSmallStickerDoesNotShowTheCard` 51-63, `theCardWaitsWhileAPanelIsOpen` 64-76, `aTapClosesTheCardAndStartsNoChain` 77-95, `backClosesTheCardFirst` 96-105, `theCardDrawsForBothKindsAndHoldsTheHintBack` 106-117 |
 | StickerGiftTest.kt | 61 | `StickerGiftTest` 16-17, `near` 18-21, `shot` 22-28, `paper` 29-61 |
 | StickerRulesTest.kt | 115 | `StickerRulesTest` 8-11, `earned` 12-13, `edge` 14-110, `onlyTheTopOfEachLadderIsBig` 111-115 |
-| TestViews.kt | 85 | `TestViews` 17-17, `app` 18-20, `gameView` 21-34, `fixedRandom` 35-35, `nextBits` 36-36, `nextInt` 37-39, `canvas` 40-42, `now` 43-44, `advance` 45-47, `frames` 48-52, `cellCenter` 53-56, `touch` 57-63, `quietView` 64-70, `total` 71-73, `playHintChain` 74-85 |
+| TestViews.kt | 95 | `TestViews` 17-17, `app` 18-20, `gameView` 21-34, `fixedRandom` 35-35, `nextBits` 36-36, `nextInt` 37-39, `canvas` 40-42, `now` 43-44, `advance` 45-47, `frames` 48-52, `settleLift` 53-55, `cellCenter` 56-62, `touch` 63-66, `touchRaw` 67-73, `quietView` 74-80, `total` 81-83, `playHintChain` 84-95 |
 | TwoTapConfirmTest.kt | 85 | `TwoTapConfirmTest` 8-85 |
 | WindowThemeTest.kt | 60 | `WindowThemeTest` 20-21, `themeColor` 22-26, `themeFlag` 27-31, `checkWindow` 32-60 |
 <!-- doc-map:end -->

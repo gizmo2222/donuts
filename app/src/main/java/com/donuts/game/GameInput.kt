@@ -284,6 +284,48 @@ internal fun GameView.handleUp() {
     dragChain.clear(); chainPings.clear(); rejectedCell = null; chainLooped = false
 }
 
+/** The chain's finger lifted: release the chain now, or let it wait [LiftGrace] for the finger to come back. */
+internal fun GameView.beginLift() {
+    val pops = dragChain.size >= 3 && board.peekChainClear(dragChain.toList(), looped = chainLooped) != null
+    val grace = LiftGrace.graceMs(dragChain.size, chainLooped, pops)
+    if (grace == 0L) { handleUp(); return }
+    liftMs = SystemClock.elapsedRealtime(); liftGraceMs = grace
+}
+
+/** Releases a lifted chain that is still waiting (pops it or wobbles it, as [handleUp] does). */
+internal fun GameView.finishLift() {
+    if (liftMs < 0) return
+    liftMs = -1L
+    handleUp()
+}
+
+/** Each frame: a lifted chain whose wait is over is released. */
+internal fun GameView.advanceLift(now: Long) {
+    if (LiftGrace.expired(liftMs, liftGraceMs, now)) finishLift()
+}
+
+/**
+ * A finger came down while a lifted chain waits. Within reach of the chain's end (the [HitZone] block)
+ * it takes the chain back and carries on as a drag; anywhere else the chain is released first. True
+ * when the chain was taken back.
+ */
+internal fun GameView.resumeLift(x: Float, y: Float): Boolean {
+    if (liftMs < 0) return false
+    val end = dragChain.lastOrNull()
+    val u = cellU(x); val v = cellV(y)
+    val onBoard = inBounds(cellRow(y), cellCol(x))   // a button beside the board never takes the chain back
+    val cell = if (!onBoard) null else end?.let { HitZone.target(u, v, it.first, it.second, board.rows, board.cols, aimU, aimV,
+        HitZone.diagWeight(board.cols)) }
+    if (cell == null) { finishLift(); return false }
+    val now = SystemClock.elapsedRealtime()
+    liftMs = -1L
+    lastActionMs = now; centerPingMs = now          // the count badge pings: got it back
+    aimAnchorU = u; aimAnchorV = v                   // the jump back is not a drag direction
+    if (prefs.hapticEnabled) hapticEngine.tick()
+    handleMove(x, y)
+    return true
+}
+
 /** Every touch on the game screen: finger ownership, the open panel, the HUD buttons, a held finger, then the board. */
 internal fun GameView.handleTouch(event: MotionEvent): Boolean {
     val act = event.actionMasked
@@ -312,6 +354,9 @@ internal fun GameView.handleTouch(event: MotionEvent): Boolean {
     if (act == MotionEvent.ACTION_UP || act == MotionEvent.ACTION_CANCEL) chainPointer.reset()
 
     synchronized(holder) {
+        // A lifted chain still waiting: this finger may take it back (or it is released first)
+        if (action == MotionEvent.ACTION_DOWN && resumeLift(px, py)) return true
+
         // When settings or stickers is open or animating, consume touch
         if (settingsOpen || settingsAnim > 0f || stickersOpen || stickersAnim > 0f) {
             // Buttons press in on finger-down and act on finger-up over the same button,
@@ -356,6 +401,7 @@ internal fun GameView.handleTouch(event: MotionEvent): Boolean {
         when (action) {
             MotionEvent.ACTION_DOWN   -> handleDown(px, py)
             MotionEvent.ACTION_MOVE   -> {
+                if (liftMs >= 0) return true    // no finger owns a waiting chain; a stray move must not grow it
                 startHeldDrag()
                 // A fast swipe batches several samples into one event; feed the real ones in order.
                 if (act == MotionEvent.ACTION_MOVE) {
@@ -363,8 +409,8 @@ internal fun GameView.handleTouch(event: MotionEvent): Boolean {
                 }
                 handleMove(px, py)
             }
-            MotionEvent.ACTION_UP     -> { fingerHeld = false; handleUp() }
-            MotionEvent.ACTION_CANCEL -> { fingerHeld = false; dragChain.clear(); chainLooped = false }
+            MotionEvent.ACTION_UP     -> { fingerHeld = false; beginLift() }
+            MotionEvent.ACTION_CANCEL -> { fingerHeld = false; liftMs = -1L; dragChain.clear(); chainLooped = false }
         }
     }
     return true

@@ -49,12 +49,22 @@ internal object TestViews {
         repeat(count) { advance(stepMs); v.drawFrame(c) }
     }
 
+    /** Lets a lifted chain's [LiftGrace] wait run out, so it is released as if no finger came back. */
+    fun settleLift(v: GameView) { if (v.liftMs >= 0) { advance(v.liftGraceMs); v.advanceLift(now()) } }
+
     /** Screen point at the centre of a board cell. */
     fun cellCenter(v: GameView, row: Int, col: Int): Pair<Float, Float> =
         (v.boardLeft + (col + 0.5f) * v.cellSize) to (v.boardTop + (row + 0.5f) * v.cellSize)
 
-    /** Sends one single-finger MotionEvent (ACTION_DOWN, ACTION_MOVE, ACTION_UP ...) to the view. */
-    fun touch(v: GameView, action: Int, x: Float, y: Float): Boolean {
+    /**
+     * Sends one single-finger MotionEvent (ACTION_DOWN, ACTION_MOVE, ACTION_UP ...) to the view; a chain
+     * lifted by it is released at once, as if its [LiftGrace] wait ran out. [touchRaw] keeps the wait.
+     */
+    fun touch(v: GameView, action: Int, x: Float, y: Float): Boolean =
+        touchRaw(v, action, x, y).also { settleLift(v) }
+
+    /** Like [touch], but a lifted chain keeps waiting for its finger. */
+    fun touchRaw(v: GameView, action: Int, x: Float, y: Float): Boolean {
         val t = now()
         val e = MotionEvent.obtain(t, t, action, x, y, 0)
         try { return v.onTouchEvent(e) } finally { e.recycle() }
