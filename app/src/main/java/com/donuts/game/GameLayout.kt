@@ -204,10 +204,8 @@ internal fun GameView.layoutStickersPanel(safeL: Float, safeT: Float, safeW: Flo
     }
     val boxTop = stickerRects[11].bottom + spPad * 2f
     donutBoxRect.set(spL + spPad, boxTop, spL + spW - spPad, boxTop + spBoxH)
-    // Two tabs share the title row (56dp): each 48dp tall, a 4dp margin above and below
-    val tabW = (spW - spPad * 2f - spPad) / 2f
-    stickersTabRect = RectF(spL + spPad, spT + 4f * u, spL + spPad + tabW, spT + 52f * u)
-    friendsTabRect  = RectF(spL + spW - spPad - tabW, spT + 4f * u, spL + spW - spPad, spT + 52f * u)
+    // The tabs share the title row (56dp): each 48dp tall, a 4dp margin above and below
+    placePanelTabs()
     val closeRowY = stickerPanelRect.bottom - spCloseH - spPad
     stickersCloseRect = RectF(spL + spPad, closeRowY, spL + spW - spPad, stickerPanelRect.bottom - spPad)
 }

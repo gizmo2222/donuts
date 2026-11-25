@@ -15,7 +15,7 @@ private const val FRIEND_POP  = 0.25f      // share of the stay spent popping in
  * tutorial. One friend per reveal; a player far past several slots meets them one after another.
  */
 internal fun GameView.checkFriends(now: Long) {
-    if (friendFlyMs >= 0 || stickerFlyMs >= 0 || showSomeoneMs >= 0 || showSomeonePending != SHOW_NONE) return
+    if (friendFlyMs >= 0 || toppingFlyMs >= 0 || stickerFlyMs >= 0 || showSomeoneMs >= 0 || showSomeonePending != SHOW_NONE) return
     if (panelBusy() || tutorialActive) return
     val idx = FriendRules.next(displayedLifetime(), prefs.friendsMet, DRAWN) ?: return
     prefs.friendsMet = idx + 1
@@ -82,14 +82,6 @@ private val FRIEND_TILE_COLORS = intArrayOf(
     Color.rgb(60, 140, 240), Color.rgb(30, 180, 190), Color.rgb(255, 130, 40), Color.rgb(50, 90, 200)
 )
 private const val FRIEND_TAP_MS = 500L
-
-/** The two chunky page tabs that replace the "My Stickers" title once a friend is met; the current one is bright. */
-internal fun GameView.drawPanelTabs(canvas: Canvas, now: Long) {
-    val onFriends = stickersPage == 1
-    val bright = Color.rgb(255, 150, 30); val dim = Color.rgb(140, 100, 60)
-    drawPrettyButton(canvas, stickersTabRect, if (onFriends) dim else bright, "Stickers", 22f * u, pressScaleFor(stickersTabRect, now))
-    drawPrettyButton(canvas, friendsTabRect, if (onFriends) bright else dim, "Friends", 22f * u, pressScaleFor(friendsTabRect, now))
-}
 
 /** The friends page: the met friends (up to [DRAWN]) on the first sticker tiles, each with its name. Nothing for the rest. */
 internal fun GameView.drawFriendsPage(canvas: Canvas, now: Long) {

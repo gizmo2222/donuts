@@ -38,13 +38,17 @@ internal fun GameView.settingsHit(x: Float, y: Float): Int {
 
 // Stickers panel hit ids: 7 Done, 8 outside, 12 Stickers tab, 13 Friends tab, 20+i a met friend's tile, -1 the panel itself
 internal fun GameView.stickersHit(x: Float, y: Float): Int {
-    val tabs = prefs.friendsMet > 0
+    placePanelTabs()
+    val tabs = panelTabPages().size > 1
+    val page = panelPageNow()
     return when {
         stickersCloseRect.contains(x, y) -> 7
         !stickerPanelRect.contains(x, y) -> 8
         tabs && stickersTabRect.contains(x, y) -> 12
-        tabs && friendsTabRect.contains(x, y) -> 13
-        tabs && stickersPage == 1 -> (0 until min(prefs.friendsMet, DRAWN)).firstOrNull { stickerRects[it].contains(x, y) }
+        tabs && prefs.friendsMet > 0 && friendsTabRect.contains(x, y) -> 13
+        tabs && toppingsTabRect.contains(x, y) && 2 in panelTabPages() -> 16
+        tabs && page == 2 -> toppingTiles().indices.firstOrNull { stickerRects[it].contains(x, y) }?.let { 60 + it } ?: -1
+        tabs && page == 1 -> (0 until min(prefs.friendsMet, DRAWN)).firstOrNull { stickerRects[it].contains(x, y) }
             ?.let { 20 + it } ?: -1
         else -> -1
     }
@@ -56,6 +60,8 @@ internal fun GameView.handleStickersTap(hit: Int) {
         hit == 7 || hit == 8 -> stickersOpen = false
         hit == 12 -> stickersPage = 0
         hit == 13 -> stickersPage = 1
+        hit == 16 -> stickersPage = 2
+        hit >= 60 -> tapToppingTile(hit - 60)
         hit >= 20 -> {
             friendTapIdx = hit - 20; friendTapMs = SystemClock.elapsedRealtime()
             if (prefs.soundEnabled) soundEngine.playFriend(hit - 20)
@@ -71,7 +77,7 @@ internal fun GameView.panelHitRect(hit: Int): RectF? {
         4 -> gridRects[0];  5 -> gridRects[1];  6 -> settingsResetRect
         9 -> settingsStickersRect; 10 -> buzzRects[0]; 11 -> buzzRects[1]
         7 -> if (inSettings) settingsCloseRect else stickersCloseRect
-        12 -> stickersTabRect; 13 -> friendsTabRect
+        12 -> stickersTabRect; 13 -> friendsTabRect; 16 -> toppingsTabRect
         14 -> settingsGrownRect; 15 -> settingsCloseRect
         in 30..39 -> gateKeyRects[hit - 30]
         else -> null

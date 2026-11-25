@@ -149,6 +149,11 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var friendsTabRect    = RectF()
     internal var friendTapIdx      = -1      // the friend doing its happy hop on the friends page
     internal var friendTapMs       = -1L
+    internal var toppingsTabRect   = RectF()
+    internal var toppingTapIdx     = -1      // the picker tile doing its hop
+    internal var toppingTapMs      = -1L
+    // The topping on every donut, from the saved choice (PLAIN if unknown or not earned)
+    internal var topping: Topping  = ToppingRules.chosen(prefs.topping, prefs.toppingsEarned)
 
     // Donut box: one slot fills every StickerRules.BOX_SLOT_DONUTS donuts popped, ever; a full box
     // is banked and a fresh one starts. It never runs out, so there is always something filling up.
@@ -297,6 +302,11 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var friendFlyMs    = -1L
     internal var friendFlyIdx   = -1
     internal val FRIEND_FLY_MS  = 1600L
+
+    // A topping earned at a lifetime threshold: a big strawberry in it pops up on the board, then flies into the star
+    internal var toppingFlyMs   = -1L
+    internal var toppingFlyTop  = Topping.PLAIN
+    internal val TOPPING_FLY_MS = 1500L
 
     // Press feedback on panel buttons (settings options, New game, Done)
     internal var optPressRect: RectF? = null
@@ -481,8 +491,10 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
         checkStickers(now)
         advanceShowSomeone(now)
         checkFriends(now)
+        checkToppings(now)
         if (stickerFlyMs >= 0) drawStickerFly(canvas, now)
         if (friendFlyMs >= 0) drawFriendFly(canvas, now)
+        if (toppingFlyMs >= 0) drawToppingFly(canvas, now)
         if (settingsAnim > 0f) drawSettings(canvas, now)
         if (stickersAnim > 0f) drawStickersPanel(canvas, now)
         drawChainFlash(canvas, now)
