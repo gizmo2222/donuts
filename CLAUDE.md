@@ -75,7 +75,8 @@ All sources are in `app\src\main\java\com\donuts\game`. No main source is over a
 | `BoardDraw.kt` | The board: background, cells, chain string, hint ring, flashes, the reduced-motion refused-donut ring |
 | `DonutArt.kt` | The six donuts and the ball: vector art and the sprite cache |
 | `HudDraw.kt` | Backdrop, icon buttons (star, gear), pretty buttons, the counter, box strip, text helpers |
-| `EffectsDraw.kt` | Float labels, pings, confetti and banners, sticker fly, tutorial, no-moves warning, power-up effects |
+| `EffectsDraw.kt` | Float labels, pings, sticker fly, tutorial, no-moves warning, power-up effects |
+| `CelebrationDraw.kt` | The milestone celebration: confetti in its look's style, the banner in its colour, golden sparkles |
 | `PanelsDraw.kt` | The stickers panel (with the donut box) and the settings panel |
 | `SettingsIcons.kt` | The settings pictures (speaker, buzzing phone, bulb, donut grid) that show each row's choice, and the icons on New game and Reset stickers |
 | `StickerArt.kt` | The twelve sticker pictures, and the wrapped present a sticker shows until it is earned |
@@ -120,6 +121,7 @@ so read just that range.
 |---|---|---|
 | BannerQueue.kt | 31 | `BannerQueue` 10-14, `offer` 15-21, `poll` 22-27, `clear` 28-29, `canStart` 30-31 |
 | BoardDraw.kt | 392 | `drawResetFlash` 12-25, `drawChainFlash` 26-38, `drawBoardBackground` 39-69, `drawChainLine` 70-98, `drawCells` 99-109, `drawRefusedCue` 110-123, `drawHintRing` 124-133, `nearMissOffset` 134-151, `drawCellsInner` 152-292, `drawGoldenOverlay` 293-325, `drawPoppingCells` 326-392 |
+| CelebrationDraw.kt | 112 | `drawCelebration` 9-93, `drawBannerSparkles` 94-112 |
 | CelebrationMix.kt | 38 | `ConfettiStyle` 6-11, `CelebrationLook` 12-18, `CelebrationMix` 19-25, `next` 26-36, `giggle` 37-38 |
 | ChainBadge.kt | 21 | `ChainBadge` 5-10, `spot` 11-21 |
 | ChainPointer.kt | 21 | `ChainPointer` 4-8, `onDown` 9-11, `onPointerUp` 12-17, `reset` 18-21 |
@@ -127,7 +129,7 @@ so read just that range.
 | ChainRules.kt | 21 | `ChainRules` 4-9, `accepts` 10-21 |
 | DonutArt.kt | 312 | `buildSprites` 9-33, `blit` 34-47, `drawPiece` 48-56, `drawBall` 57-62, `drawPieceVector` 63-77, `ringBase` 78-91, `drawHole` 92-102, `drawDrippyRing` 103-129, `drawStripedRing` 130-147, `drawJellyBun` 148-162, `buildScallop` 163-173, `drawFlowerRing` 174-198, `drawHalfDipRing` 199-228, `drawSquareDonut` 229-258, `drawBallVector` 259-274, `drawPentagon` 275-293, `addSheen` 294-312 |
 | DonutType.kt | 18 | `DonutType` 7-18 |
-| EffectsDraw.kt | 554 | `fitText` 13-17, `drawBannerLine` 18-24, `drawFloatLabels` 25-68, `drawCenterPing` 69-94, `drawCelebration` 95-179, `drawBannerSparkles` 180-199, `drawStickerFly` 200-247, `drawTutorial` 248-314, `chainOrder` 315-317, `adj` 318-327, `drawFinger` 328-348, `drawNoMovesWarning` 349-425, `drawPowerUpFx` 426-438, `ring` 439-504, `drawShowSomeone` 505-554 |
+| EffectsDraw.kt | 446 | `fitText` 13-17, `drawBannerLine` 18-24, `drawFloatLabels` 25-68, `drawCenterPing` 69-91, `drawStickerFly` 92-139, `drawTutorial` 140-206, `chainOrder` 207-209, `adj` 210-219, `drawFinger` 220-240, `drawNoMovesWarning` 241-317, `drawPowerUpFx` 318-330, `ring` 331-396, `drawShowSomeone` 397-446 |
 | FlashGate.kt | 19 | `FlashGate` 10-14, `allows` 15-17, `saturatedRed` 18-19 |
 | FriendArt.kt | 235 | `drawFriend` 22-51, `drawSprinkleFriend` 52-83, `drawJellyFriend` 84-114, `drawBouncyFriend` 115-137, `drawSwirlFriend` 138-173, `friendEye` 174-188, `friendWink` 189-194, `friendCheeks` 195-202, `friendGrin` 203-221, `friendTongueOut` 222-235 |
 | FriendArt2.kt | 316 | `glazeTop` 17-26, `drawChocoFriend` 27-62, `drawKickyFriend` 63-100, `drawBerryFriend` 101-156, `drawGloopFriend` 157-185, `drawZoomyFriend` 186-223, `drawPuffFriend` 224-261, `drawFizzFriend` 262-284, `drawCaptainFriend` 285-316 |
