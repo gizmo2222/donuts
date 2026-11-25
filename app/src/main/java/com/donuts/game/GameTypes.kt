@@ -24,7 +24,8 @@ internal class Particle(
     var x: Float, var y: Float,
     var vx: Float, var vy: Float,
     val color: Int, val radius: Float,
-    val rotSpeed: Float, val ring: Boolean = false, var rot: Float = 0f
+    val rotSpeed: Float, val ring: Boolean = false, var rot: Float = 0f,
+    val fall: Float = 0f     // RAIN confetti: the most it falls per frame, so it flutters; 0 is free fall
 )
 
 internal data class FloatLabel(

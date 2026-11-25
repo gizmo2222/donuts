@@ -241,11 +241,14 @@ internal fun GameView.handleUp() {
         }
     } else if (chain.isNotEmpty()) {
         // Too short to pop: the donuts wobble with a "boop" and a tick, so a tap is never dead.
-        // Two in a row also get a "3!" so the rule is taught by the board itself.
+        // Two in a row also get a "3!" so the rule is taught by the board itself. Now and then a lone tap
+        // giggles instead: a bigger wiggle, "HEE HEE!" and a giggle sound.
         val now = SystemClock.elapsedRealtime()
         wobbleCells = chain; wobbleMs = now
+        wobbleGiggle = chain.size == 1 && CelebrationMix.giggle(fxRandom)
         if (chain.size == 2) addFloatLabelAt(chain, "3!", Color.WHITE, now)
-        if (prefs.soundEnabled)  soundEngine.playBoop()
+        if (wobbleGiggle) addFloatLabelAt(chain, Praise.GIGGLE, Color.WHITE, now)
+        if (prefs.soundEnabled) { if (wobbleGiggle) soundEngine.playGiggle() else soundEngine.playBoop() }
         if (prefs.hapticEnabled) hapticEngine.tick()
     }
     dragChain.clear(); chainPings.clear(); rejectedCell = null; chainLooped = false

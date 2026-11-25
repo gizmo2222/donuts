@@ -64,10 +64,30 @@ class GameInputTest : GameInputTestBase() {
     @Test
     fun singleTapWobblesWithoutALabel() {
         val v = planted()
+        v.fxRandom = TestViews.fixedRandom(1)      // not the rare giggle
         drag(v, 2 to 2)
         assertEquals(AnimPhase.IDLE, v.animPhase)
         assertEquals(listOf(2 to 2), v.wobbleCells)
+        assertFalse(v.wobbleGiggle)
         assertTrue(synchronized(v.floatLabels) { v.floatLabels.isEmpty() })
+    }
+
+    @Test
+    fun aRareSingleTapGigglesWithAWordButTwoCellsNeverDo() {
+        val v = planted()
+        v.fxRandom = TestViews.fixedRandom(0)      // the giggle's one-in-twelve comes up
+        drag(v, 2 to 2)
+        assertTrue(v.wobbleGiggle)
+        assertEquals(listOf(Praise.GIGGLE), synchronized(v.floatLabels) { v.floatLabels.map { it.text } })
+        // The giggle wiggles twice as long as the plain wobble, then stops
+        assertNotEquals(0f, v.nearMissOffset(2, 2, v.wobbleMs + v.WOBBLE_MS + 20))
+        v.nearMissOffset(2, 2, v.wobbleMs + v.WOBBLE_MS * 2)
+        assertEquals(-1L, v.wobbleMs)
+        // A two-cell chain teaches "3!" and never giggles, whatever the dice say
+        synchronized(v.floatLabels) { v.floatLabels.clear() }
+        drag(v, 0 to 0, 0 to 1)
+        assertFalse(v.wobbleGiggle)
+        assertEquals(listOf("3!"), synchronized(v.floatLabels) { v.floatLabels.map { it.text } })
     }
 
     @Test

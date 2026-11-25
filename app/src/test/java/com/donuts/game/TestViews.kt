@@ -25,9 +25,16 @@ internal object TestViews {
         prefs.gridSize = grid
         prefs.tutorialSeen = tutorialSeen
         val v = GameView(app(), GameBoard(grid, grid, Random(seed)), prefs)
+        v.fxRandom = Random(seed)          // confetti, looks and giggles repeat run to run
         v.surfaceW = w; v.surfaceH = h
         v.computeLayout()
         return v
+    }
+
+    /** A Random whose every `nextInt(until)` is [n] (capped below until), for forcing a rare surprise on or off. */
+    fun fixedRandom(n: Int): Random = object : Random() {
+        override fun nextBits(bitCount: Int) = 0
+        override fun nextInt(until: Int) = n.coerceIn(0, until - 1)
     }
 
     fun canvas(v: GameView): Canvas =

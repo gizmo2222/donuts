@@ -3,19 +3,19 @@ package com.donuts.game
 import android.graphics.*
 import kotlin.math.*
 
-// Overlays: float labels, pings, confetti and banners, sticker fly, tutorial, no-moves.
+// Overlays: float labels, pings (celebrations are in CelebrationDraw.kt), sticker fly, tutorial, no-moves.
 // Part of GameView: these are extension functions on it, split out of GameView.kt.
 
 // -----------------------------------------------------------------------
 // Floating labels (NICE!, AMAZING!, etc.)
 // -----------------------------------------------------------------------
 // Shrinks textPaint until [text] fits [maxW], down to a floor that keeps it readable
-private fun GameView.fitText(text: String, maxW: Float) {
+internal fun GameView.fitText(text: String, maxW: Float) {
     while (textPaint.textSize > 10f * u && textPaint.measureText(text) > maxW) textPaint.textSize *= 0.92f
 }
 
 // One banner line: a soft shadow, then the warm brown text
-private fun GameView.drawBannerLine(canvas: Canvas, text: String, cx: Float, ty: Float, alpha: Int) {
+internal fun GameView.drawBannerLine(canvas: Canvas, text: String, cx: Float, ty: Float, alpha: Int) {
     textPaint.color = Color.argb((alpha * 0.5f).toInt(), 0, 0, 0)
     canvas.drawText(text, cx + 2f * u, ty + 2f * u, textPaint)
     textPaint.color = Color.argb(alpha, 90, 40, 0)
@@ -87,86 +87,6 @@ internal fun GameView.drawCenterPing(canvas: Canvas, now: Long) {
     canvas.drawText("${dragChain.size}", cx, cy + sz * 0.36f, textOutlinePaint)
     textPaint.color = if (big) Color.rgb(255, 215, 50) else Color.WHITE
     canvas.drawText("${dragChain.size}", cx, cy + sz * 0.36f, textPaint)
-}
-
-// -----------------------------------------------------------------------
-// Milestone celebration
-// -----------------------------------------------------------------------
-internal fun GameView.drawCelebration(canvas: Canvas, now: Long) {
-    val elapsed = (now - celebrateMs).toFloat()
-    if (elapsed > CELEBRATE_MS) { celebrateMs = -1L; particles.clear(); return }
-
-    // Confetti physics, in place and time-based: correct at any frame rate, no allocations
-    val k       = ((now - physicsMs).coerceIn(0L, 100L)) / 16.667f     // frames' worth of time since last step
-    physicsMs   = now
-    val gravity = cellSize * 0.005f                                       // per frame-equivalent
-    val alpha   = ((1f - (elapsed / CELEBRATE_MS)) * 255).toInt().coerceIn(0, 255)
-    val iter = particles.iterator()
-    while (iter.hasNext()) {
-        val p = iter.next()
-        p.vy  += gravity * k
-        p.x   += p.vx * k
-        p.y   += p.vy * k
-        p.rot += p.rotSpeed * k
-        if (p.y >= surfaceH + cellSize) { iter.remove(); continue }
-        canvas.save()
-        canvas.translate(p.x, p.y)
-        canvas.rotate(p.rot)
-        if (p.ring) {
-            strokePaint.color = (p.color and 0x00FFFFFF) or (alpha shl 24)
-            strokePaint.strokeWidth = p.radius * 0.55f
-            canvas.drawCircle(0f, 0f, p.radius * 0.8f, strokePaint)
-        } else {
-            fillPaint.color = (p.color and 0x00FFFFFF) or (alpha shl 24)
-            scratchRectF.set(-p.radius, -p.radius * 0.45f, p.radius, p.radius * 0.45f)
-            canvas.drawRoundRect(scratchRectF, p.radius * 0.4f, p.radius * 0.4f, fillPaint)
-        }
-        canvas.restore()
-    }
-    fillPaint.alpha = 255; strokePaint.alpha = 255
-
-    // Banner: pops in with a little overshoot, holds, fades
-    val SLIDE_MS = 320f; val FADE_MS = 400f
-    val bannerAlpha = when {
-        elapsed < SLIDE_MS               -> ((elapsed / SLIDE_MS) * 255).toInt()
-        elapsed < CELEBRATE_MS - FADE_MS -> 255
-        else -> (((CELEBRATE_MS - elapsed) / FADE_MS) * 255).toInt()
-    }.coerceIn(0, 255)
-    val t  = (elapsed / SLIDE_MS).coerceIn(0f, 1f)
-    val sc = if (reducedMotion) 1f else 0.5f + 0.5f * easeOutBack(t)
-    val bw = min(board.cols * cellSize * 0.92f, 340f * u)
-    val cheer = celebrateCheer
-    val bh = (if (cheer.isEmpty()) 72f else 108f) * u
-    val bx = boardLeft + board.cols * cellSize / 2f - bw / 2f
-    val by = boardTop + board.rows * cellSize * 0.5f - bh / 2f
-    canvas.save()
-    canvas.scale(sc, sc, bx + bw / 2f, by + bh / 2f)
-    fillPaint.color = Color.argb((bannerAlpha * 0.35f).toInt(), 0, 0, 0)
-    canvas.drawRoundRect(scratchRectF.apply { set(bx + 3f * u, by + 6f * u, bx + bw + 3f * u, by + bh + 6f * u) }, 18f * u, 18f * u, fillPaint)
-    fillPaint.color = Color.argb(bannerAlpha, 28, 12, 0)
-    canvas.drawRoundRect(scratchRectF.apply { set(bx - 4f * u, by - 4f * u, bx + bw + 4f * u, by + bh + 4f * u) }, 20f * u, 20f * u, fillPaint)
-    fillPaint.color = Color.argb(bannerAlpha, 255, 210, 50)
-    canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + bw, by + bh) }, 16f * u, 16f * u, fillPaint)
-    canvas.save()
-    canvas.clipRect(bx, by, bx + bw, by + bh * 0.45f)
-    fillPaint.color = Color.argb((bannerAlpha * 0.35f).toInt(), 255, 255, 255)
-    canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + bw, by + bh) }, 16f * u, 16f * u, fillPaint)
-    canvas.restore()
-    textPaint.textAlign = Paint.Align.CENTER
-    textPaint.textSize  = 28f * u
-    textPaint.letterSpacing = 0.05f
-    val maxW = bw - 24f * u
-    fitText(celebrateLabel, maxW)
-    // One line sits in the middle; with a cheer the main line rides higher and the cheer sits under it
-    val ty = (if (cheer.isEmpty()) by + bh / 2f else by + bh * 0.38f) + textPaint.textSize * 0.36f
-    drawBannerLine(canvas, celebrateLabel, bx + bw / 2f, ty, bannerAlpha)
-    if (cheer.isNotEmpty()) {
-        textPaint.textSize = 21f * u
-        fitText(cheer, maxW)
-        drawBannerLine(canvas, cheer, bx + bw / 2f, by + bh * 0.74f + textPaint.textSize * 0.36f, bannerAlpha)
-    }
-    textPaint.letterSpacing = 0f
-    canvas.restore()
 }
 
 internal fun GameView.drawStickerFly(canvas: Canvas, now: Long) {

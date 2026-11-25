@@ -34,7 +34,7 @@ class PraiseTest {
     @Test
     fun floatWordsStayShortEnoughForAnEightByEightCell() {
         val words = listOf(PowerUp.COLOR_BURST, PowerUp.ROW_BLAST, PowerUp.BOMB, PowerUp.NONE)
-            .flatMap { p -> listOf(true, false).mapNotNull { Praise.chainLabel(p, 4, it) } }
+            .flatMap { p -> listOf(true, false).mapNotNull { Praise.chainLabel(p, 4, it) } } + Praise.GIGGLE
         assertTrue(words.all { it.length <= 8 })
     }
 }

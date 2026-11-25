@@ -135,9 +135,11 @@ internal fun GameView.nearMissOffset(r: Int, c: Int, now: Long): Float {
     if (reducedMotion) return 0f
     var off = 0f
     if (wobbleMs >= 0) {
-        val t = (now - wobbleMs).toFloat() / WOBBLE_MS
+        // The rare giggle wiggles longer, faster and wider than the plain wobble
+        val t = (now - wobbleMs).toFloat() / (if (wobbleGiggle) WOBBLE_MS * 2 else WOBBLE_MS)
         if (t >= 1f) wobbleMs = -1L
-        else if (wobbleCells.any { it.first == r && it.second == c }) off += sin(t * PI.toFloat() * 5f) * (1f - t) * cellSize * 0.08f
+        else if (wobbleCells.any { it.first == r && it.second == c })
+            off += sin(t * PI.toFloat() * (if (wobbleGiggle) 9f else 5f)) * (1f - t) * cellSize * (if (wobbleGiggle) 0.13f else 0.08f)
     }
     if (shakeMs >= 0) {
         val t = (now - shakeMs).toFloat() / SHAKE_MS
