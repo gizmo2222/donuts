@@ -168,7 +168,8 @@ donuts/
 │   │   └── drawable/        — Adaptive launcher icon (vector)
 │   └── AndroidManifest.xml
 ├── .claude/settings.json.disabled — the old auto-push hook, kept for reference
-├── docs/              — overhaul state, findings, research and summary
+├── docs/              — overhaul state, findings, research, summary, backlog, and the privacy policy
+│                        and parent promise (privacy-policy.md, parent-promise.md)
 ├── tools/             — PowerShell helpers (check, coverage, mutate, emu, gallery, balance, code-map,
 │                        bump-version); see tools/README.md
 ├── release.ps1        — builds the signed release bundle

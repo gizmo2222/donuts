@@ -257,8 +257,8 @@ Then search the merged release manifest:
 Get-ChildItem app\build\intermediates -Recurse -Filter AndroidManifest.xml | Where-Object { $_.FullName -match 'merged_manifest.*release' } | Select-String -Pattern 'uses-permission'
 ```
 
-- [ ] Fill in the Data safety form as "no data collected or shared". Prefs stay on the device [F5].
-- [ ] Write and host a one-page privacy policy saying that nothing is collected or sent, and link it in the listing. The FTC recommends one even when no data is collected [F5][F6].
+- [ ] Fill in the Data safety form as "no data collected or shared". Prefs stay on the device [F5]. The answers are in `docs/parent-promise.md`.
+- [ ] Write and host a one-page privacy policy saying that nothing is collected or sent, and link it in the listing. The FTC recommends one even when no data is collected [F5][F6]. The text is ready in `docs/privacy-policy.md` (B13).
 - [ ] Complete the IARC content rating honestly: no violence, chat, purchases or ads [F2].
 - [ ] Declare "Contains ads: No" [F1].
 - [ ] Decide deliberately before adding anything that sends data off the device, such as cloud save, crash reports or analytics. That would bring in the amended COPPA rule's duties [F7][F8]. The guard script in #26 would enforce this.
