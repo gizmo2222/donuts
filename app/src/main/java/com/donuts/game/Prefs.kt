@@ -82,6 +82,11 @@ class Prefs(context: Context) {
         get()  = p.getString("play_tally", null)
         set(v) { p.edit().putString("play_tally", v).apply() }
 
+    // The picture prompt (PicturePrompts text form): what it asks for, how far along, how many were finished
+    var picturePrompt: String?
+        get()  = p.getString("picture_prompt", null)
+        set(v) { p.edit().putString("picture_prompt", v).apply() }
+
     // The board and counter as left by the last pause (see SavedBoard); null = none
     var savedBoard: String?
         get()  = p.getString("saved_board", null)

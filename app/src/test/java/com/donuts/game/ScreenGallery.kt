@@ -196,6 +196,15 @@ class ScreenGallery {
         run {
             val v = game(size) { it.friendsMet = 0; it.lifetimeDonuts = 10 }
             shoot(v, size, "22-friend", warm = 30)
+        }
+        run {
+            // The picture prompt part done, and a finished one wearing its star
+            val v = game(size) { it.picturePrompt = PicturePrompts.encode(Prompt(0, 5, 2), 1) }
+            shoot(v, size, "27-prompt")
+        }
+        run {
+            val v = game(size) { it.picturePrompt = PicturePrompts.encode(Prompt(2, 4, 4), 1) }
+            shoot(v, size, "28-prompt-done", warm = 20)
         }    }
 
     @Test fun phone() { assumeTrue(outDir != null); render(sizes[0]) }

@@ -84,6 +84,13 @@ class SoundEngine {
         }.start()
     }
 
+    /** A quick rising do-mi-sol-do when a picture prompt is finished. */
+    fun playPromptDone() {
+        Thread {
+            for (f in floatArrayOf(784f, 988f, 1175f, 1568f)) { playToneBlocking(f, 0.09f, 0.34f); Thread.sleep(15) }
+        }.start()
+    }
+
     /** Downward whoosh when the board shuffles. */
     fun playShuffle() {
         playSweep(900f, 280f, 0.28f, 0.38f)
