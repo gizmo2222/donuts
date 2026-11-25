@@ -64,10 +64,12 @@ class FriendRulesTest {
     }
 
     @Test fun nextStopsAtTheFriendsThatAreDrawn() {
-        assertEquals(4, DRAWN)
-        assertEquals(3, FriendRules.next(10_000, 3, DRAWN))
-        assertNull(FriendRules.next(10_000, 4, DRAWN))
-        assertNull(FriendRules.next(10_000, 11, DRAWN))
+        assertEquals(12, DRAWN)                         // every friend has art
+        assertEquals(11, FriendRules.next(10_000, 11, DRAWN))
+        assertNull(FriendRules.next(10_000, 12, DRAWN))
+        assertEquals(3, FriendRules.next(10_000, 3, 4))   // a lower cap still stops the reveals
+        assertNull(FriendRules.next(10_000, 4, 4))
+        assertNull(FriendRules.next(10_000, 11, 4))
         assertEquals(0, FriendRules.next(10, 0, DRAWN))
         assertNull(FriendRules.next(10, 1, DRAWN))      // the cap never reveals a friend that is not due
         assertNull(FriendRules.next(10_000, 0, 0))
