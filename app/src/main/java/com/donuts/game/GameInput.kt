@@ -276,6 +276,7 @@ internal fun GameView.handleUp() {
             val labelColor = if (label == "GOLDEN!") GameTheme.goldenLabel else result.chainType.labelColor
             label?.let { addFloatLabelAt(allPop, it, labelColor, now) }
             tallyChain(chainLen, result.powerUp, hasGolden)
+            palReact(PalMotion.reactionFor(chainLen, result.powerUp), now)
         }
     } else if (chain.isNotEmpty()) {
         // Too short to pop: the donuts wobble with a "boop" and a tick, so a tap is never dead.

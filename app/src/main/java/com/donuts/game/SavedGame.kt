@@ -132,4 +132,5 @@ internal fun GameView.clearMotion() {
     cascadeCount = 0; isCascade = false
     dragChain.clear(); chainLooped = false; fingerHeld = false; liftMs = -1L
     hintCells = emptyList()
+    palReaction = PalReaction.NONE; palReactMs = -1L
 }

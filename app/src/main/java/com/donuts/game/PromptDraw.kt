@@ -37,6 +37,7 @@ internal fun GameView.advancePrompt(now: Long) {
             p = next; prompt = next; promptPopMs = now
             if (next.complete) {
                 promptsFinished++; promptDoneMs = now
+                palReact(PalReaction.CHEER, now)
                 if (prefs.soundEnabled)  soundEngine.playPromptDone()
                 if (prefs.hapticEnabled) hapticEngine.milestone()
                 if (!promptRect.isEmpty) synchronized(floatLabels) {

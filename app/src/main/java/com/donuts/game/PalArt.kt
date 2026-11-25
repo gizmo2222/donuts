@@ -39,7 +39,7 @@ internal fun GameView.drawPal(canvas: Canvas, cx: Float, footY: Float, r: Float,
     canvas.translate(0f, -pose.bob * r)
     val cy = footY - r * 1.12f
 
-    // Sneakers, then the waving arms, both tucked behind the body
+    // Sneakers, then the arms, both tucked behind the body
     for (side in intArrayOf(-1, 1)) {
         val fx = cx + side * r * 0.42f
         val rect = scratchRectF.apply { set(fx - r * 0.34f, footY - r * 0.30f, fx + r * 0.34f, footY) }
@@ -48,11 +48,16 @@ internal fun GameView.drawPal(canvas: Canvas, cx: Float, footY: Float, r: Float,
         outlinePaint.color = PAL_INK; outlinePaint.strokeWidth = max(2f, r * 0.10f)
         canvas.drawRoundRect(rect, r * 0.16f, r * 0.16f, outlinePaint)
     }
+    // A happy shimmy turns the pal about its middle; the sneakers stay planted
+    if (pose.tilt != 0f) canvas.rotate(pose.tilt, cx, cy)
+    // Arms: resting out to the side, or thrown up over the head in a cheer ([PalPose.arms] blends the two)
+    val up = pose.arms.coerceIn(0f, 1f)
     for (side in intArrayOf(-1, 1)) {
-        val ax = cx + side * r * 0.94f; val ay = cy + r * 0.05f
+        val ax = cx + side * r * (0.94f - 0.10f * up); val ay = cy + r * (0.05f - 0.25f * up)
+        val len = r * (0.42f + 0.13f * up)
         canvas.save()
-        canvas.rotate(side * 35f, ax, ay)
-        val rect = scratchRectF.apply { set(ax - r * 0.15f, ay - r * 0.42f, ax + r * 0.15f, ay + r * 0.12f) }
+        canvas.rotate(side * (35f - 15f * up), ax, ay)
+        val rect = scratchRectF.apply { set(ax - r * 0.15f, ay - len, ax + r * 0.15f, ay + r * 0.12f) }
         fillPaint.color = PAL_DOUGH
         canvas.drawRoundRect(rect, r * 0.15f, r * 0.15f, fillPaint)
         outlinePaint.color = PAL_INK; outlinePaint.strokeWidth = max(2f, r * 0.10f)
@@ -82,18 +87,27 @@ internal fun GameView.drawPal(canvas: Canvas, cx: Float, footY: Float, r: Float,
     }
     drawHole(canvas, cx, cy - r * 0.52f, r * 0.19f, 255)
 
-    // Face: big eyes that glance about and blink, rosy cheeks, an open grin
+    // Face: big eyes that glance about and blink (squeezed into happy arcs when it is thrilled),
+    // rosy cheeks, and a grin that opens wider the happier it is
     val ey = cy + r * 0.02f; val er = r * 0.21f
     val lookX = 0.12f * pose.look
+    val joy = pose.joy.coerceIn(0f, 1f)
     for (side in intArrayOf(-1, 1)) {
         val ex = cx + side * r * 0.34f
+        if (joy > PalMotion.HAPPY_EYES) { friendWink(canvas, ex, ey, er); continue }
         canvas.save()
         canvas.scale(1f, 1f - 0.9f * pose.blink, ex, ey)
         friendEye(canvas, ex, ey, er, lookX, 0.08f)
         canvas.restore()
     }
     friendCheeks(canvas, cx, cy + r * 0.30f, r)
-    friendGrin(canvas, cx, cy + r * 0.38f, r * 0.28f, r * 0.22f, tongueIn = true)
+    friendGrin(canvas, cx, cy + r * 0.38f, r * 0.28f * (1f + 0.35f * joy), r * 0.22f * (1f + 0.6f * joy), tongueIn = true)
     canvas.restore()
     fillPaint.alpha = 255; outlinePaint.alpha = 255
+}
+
+/** Starts the pal's [reaction] at [now], unless a stronger one is still playing (see [PalMotion.replaces]). */
+internal fun GameView.palReact(reaction: PalReaction, now: Long) {
+    if (!PalMotion.replaces(palReaction, palReactMs, reaction, now)) return
+    palReaction = reaction; palReactMs = now
 }
