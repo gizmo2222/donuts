@@ -408,9 +408,10 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // Frame
     // -----------------------------------------------------------------------
     fun drawFrame(canvas: Canvas) {
+        // Frames posted before surfaceChanged lays the board out are cream, never an empty black buffer
+        canvas.drawColor(theme.bg)
         if (cellSize == 0f) return
         val now = SystemClock.elapsedRealtime()
-        canvas.drawColor(theme.bg)
         drawBackdrop(canvas)
         advanceAnimation(now)
         updateHint(now)

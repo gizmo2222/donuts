@@ -3,9 +3,9 @@ package com.donuts.game
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
 
-class GameActivity : AppCompatActivity() {
+class GameActivity : ComponentActivity() {
 
     private lateinit var gameView: GameView
 

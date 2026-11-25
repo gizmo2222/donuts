@@ -1,13 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Backgrounds -->
+    <!-- The window background; GameTheme.bg in code is the same cream -->
     <color name="cream">#FFF0DC</color>
-
-    <!-- Text -->
-    <color name="white">#FFFFFF</color>
-
-    <!-- Donut flavour palette -->
-    <color name="pink">#FF6987</color>
-    <color name="matcha">#3C8C3C</color>
-    <color name="caramel">#B47820</color>
 </resources>
