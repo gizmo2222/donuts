@@ -48,6 +48,7 @@ main checkout's `local.properties` when working in a git worktree.
 | Tap, drag a chain, or plant a saved board (`-Board 'v1;...'`) on the emulator | `.\tools\emu.ps1 Drag -Path '100,900 200,900 300,900'` |
 | Render every screen state at five sizes, no emulator (`build\shots\gallery`) | `.\tools\gallery.ps1 -Quiet` |
 | Run the balance simulation, 250 scripted games (`build\balance`) | `.\tools\balance.ps1 -Quiet` |
+| Colour-blind check of the donut colours and the gallery shots (`build\shots\colorblind`) | `.\tools\colorblind.ps1 -Quiet` |
 | Stop the emulator and the adb server | `.\tools\emu.ps1 Stop` |
 | Raise the version for a Play upload | `.\tools\bump-version.ps1 -Name 2.0.5` |
 | Build the signed release bundle | `.\release.ps1` |
@@ -168,6 +169,7 @@ so read just that range.
 | ChainBadgeTest.kt | 76 | `ChainBadgeTest` 8-76 |
 | ChainPointerTest.kt | 31 | `ChainPointerTest` 8-31 |
 | ChainRulesTest.kt | 47 | `ChainRulesTest` 9-47 |
+| ColorBlindPaletteTest.kt | 70 | `ColorBlindPaletteTest` 18-25, `lin` 26-30, `f` 31-32, `lab` 33-44, `deltaE` 45-70 |
 | DrawSmokeTest.kt | 416 | `DrawSmokeTest` 23-24, `Scene` 25-27, `frames` 28-30, `scene` 31-33, `distinctColors` 34-39, `assertPainted` 40-43, `snake` 44-50, `dragSnake` 51-58, `release` 59-100, `powerUpCase` 101-126, `strip` 127-226, `painted` 227-249, `tap` 250-416 |
 | EnginesTest.kt | 88 | `EnginesTest` 12-15, `waveSample` 16-22, `waveSampleIsASineAtQuarterPoints` 23-31, `waveSampleStaysInRangeOverManyPhases` 32-36, `everySoundMethodRunsWithoutThrowing` 37-44, `playingWithSoundAndHapticsOffAndOnWorks` 45-61, `hapticMethodsDoNotThrow` 62-69, `renderThreadStartsAndStopsWithoutAValidSurface` 70-80, `renderThreadStoppedBeforeItRunsExitsAtOnce` 81-88 |
 | FriendRevealTest.kt | 148 | `FriendRevealTest` 15-16, `distinctColors` 17-148 |
