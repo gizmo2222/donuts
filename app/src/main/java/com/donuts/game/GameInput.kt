@@ -23,10 +23,31 @@ internal fun GameView.settingsHit(x: Float, y: Float): Int {
     }
 }
 
-internal fun GameView.stickersHit(x: Float, y: Float): Int = when {
-    stickersCloseRect.contains(x, y) -> 7
-    !stickerPanelRect.contains(x, y) -> 8
-    else -> -1
+// Stickers panel hit ids: 7 Done, 8 outside, 12 Stickers tab, 13 Friends tab, 20+i a met friend's tile, -1 the panel itself
+internal fun GameView.stickersHit(x: Float, y: Float): Int {
+    val tabs = prefs.friendsMet > 0
+    return when {
+        stickersCloseRect.contains(x, y) -> 7
+        !stickerPanelRect.contains(x, y) -> 8
+        tabs && stickersTabRect.contains(x, y) -> 12
+        tabs && friendsTabRect.contains(x, y) -> 13
+        tabs && stickersPage == 1 -> (0 until min(prefs.friendsMet, DRAWN)).firstOrNull { stickerRects[it].contains(x, y) }
+            ?.let { 20 + it } ?: -1
+        else -> -1
+    }
+}
+
+/** A release over a stickers-panel button: close, switch page, or tap a friend (a happy hop and a blip). */
+internal fun GameView.handleStickersTap(hit: Int) {
+    when {
+        hit == 7 || hit == 8 -> stickersOpen = false
+        hit == 12 -> stickersPage = 0
+        hit == 13 -> stickersPage = 1
+        hit >= 20 -> {
+            friendTapIdx = hit - 20; friendTapMs = SystemClock.elapsedRealtime()
+            if (prefs.soundEnabled) soundEngine.playConnectBlip(3 + hit - 20)
+        }
+    }
 }
 
 /** The button a hit id refers to in whichever panel is open, for press feedback. */
@@ -37,6 +58,7 @@ internal fun GameView.panelHitRect(hit: Int): RectF? {
         4 -> gridRects[0];  5 -> gridRects[1];  6 -> settingsResetRect
         9 -> settingsStickersRect; 10 -> buzzRects[0]; 11 -> buzzRects[1]
         7 -> if (inSettings) settingsCloseRect else stickersCloseRect
+        12 -> stickersTabRect; 13 -> friendsTabRect
         else -> null
     }
 }
@@ -266,7 +288,7 @@ internal fun GameView.handleTouch(event: MotionEvent): Boolean {
                 }
                 MotionEvent.ACTION_UP -> {
                     if (hit != -1 && hit == panelDownHit) {
-                        if (inSettings) handleSettingsTap(hit) else { stickersOpen = false }
+                        if (inSettings) handleSettingsTap(hit) else handleStickersTap(hit)
                     }
                     panelDownHit = -2
                 }

@@ -73,3 +73,52 @@ internal fun GameView.drawFriendFly(canvas: Canvas, now: Long) {
         drawOutlinedText(canvas, name, bx, by + big * 1.45f + sz * 0.6f, sz, Color.WHITE)
     }
 }
+
+private val FRIEND_TILE_COLORS = intArrayOf(
+    Color.rgb(255, 120, 170), Color.rgb(80, 190, 255), Color.rgb(255, 170, 40), Color.rgb(170, 110, 255)
+)
+private const val FRIEND_TAP_MS = 500L
+
+/** The two chunky page tabs that replace the "My Stickers" title once a friend is met; the current one is bright. */
+internal fun GameView.drawPanelTabs(canvas: Canvas, now: Long) {
+    val onFriends = stickersPage == 1
+    val bright = Color.rgb(255, 150, 30); val dim = Color.rgb(140, 100, 60)
+    drawPrettyButton(canvas, stickersTabRect, if (onFriends) dim else bright, "Stickers", 22f * u, pressScaleFor(stickersTabRect, now))
+    drawPrettyButton(canvas, friendsTabRect, if (onFriends) bright else dim, "Friends", 22f * u, pressScaleFor(friendsTabRect, now))
+}
+
+/** The friends page: the met friends (up to [DRAWN]) on the first sticker tiles, each with its name. Nothing for the rest. */
+internal fun GameView.drawFriendsPage(canvas: Canvas, now: Long) {
+    val met = min(prefs.friendsMet, DRAWN)
+    for (i in 0 until met) {
+        val rect = stickerRects[i]
+        val rr = 10f * u; val g = 2.5f * u
+        fillPaint.color = Color.argb(220, 28, 12, 0)
+        canvas.drawRoundRect(scratchRectF.apply { set(rect.left - g, rect.top - g, rect.right + g, rect.bottom + g) }, rr + g, rr + g, fillPaint)
+        fillPaint.color = FRIEND_TILE_COLORS[i % FRIEND_TILE_COLORS.size]; fillPaint.alpha = 255
+        canvas.drawRoundRect(rect, rr, rr, fillPaint)
+        canvas.save()
+        canvas.clipRect(rect.left, rect.top, rect.right, rect.centerY())
+        fillPaint.color = Color.argb(70, 255, 255, 255)
+        canvas.drawRoundRect(rect, rr, rr, fillPaint)
+        canvas.restore()
+        val side = rect.width()
+        var cy = rect.centerY() - side * 0.08f
+        var sx = 1f; var sy = 1f
+        val t = if (i == friendTapIdx) (now - friendTapMs).toFloat() / FRIEND_TAP_MS else 2f
+        if (t in 0f..1f && !reducedMotion) {
+            val h = sin(t * PI.toFloat())                    // one hop up and down
+            cy -= h * side * 0.14f
+            val land = (1f - h).pow(4) * min(1f, min(t, 1f - t) / 0.12f)
+            sx = 1f + 0.12f * land - 0.05f * h; sy = 1f - 0.12f * land + 0.06f * h
+        }
+        val r = side * 0.27f
+        canvas.save()
+        canvas.scale(sx, sy, rect.centerX(), cy + r * 1.18f)
+        drawFriend(canvas, i, rect.centerX(), cy, r)
+        canvas.restore()
+        fillPaint.alpha = 255; strokePaint.alpha = 255
+        val name = FriendRules.FRIENDS.getOrNull(i)?.name ?: continue
+        drawLabel(canvas, name, rect.centerX(), rect.bottom - side * 0.09f, side * 0.15f, side - 14f * u, Color.WHITE, outlined = true)
+    }
+}
