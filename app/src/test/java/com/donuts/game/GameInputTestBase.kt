@@ -93,5 +93,5 @@ abstract class GameInputTestBase {
         return MotionEvent.obtain(t, t, a, pts.size, props, coords, 0, 0, 1f, 1f, 0, 0, 0, 0)
     }
 
-    protected fun send(v: GameView, e: MotionEvent) { try { v.onTouchEvent(e) } finally { e.recycle() } }
+    protected fun send(v: GameView, e: MotionEvent) { try { v.onTouchEvent(e) } finally { e.recycle() }; TestViews.settleLift(v) }
 }

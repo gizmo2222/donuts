@@ -234,6 +234,10 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var heldX = 0f
     internal var heldY = 0f
 
+    // A chain whose finger lifted and may still come back (see LiftGrace): when it lifted (-1 none) and how long it waits
+    internal var liftMs = -1L
+    internal var liftGraceMs = 0L
+
     // Milestone celebration
     internal val MILESTONES = intArrayOf(10, 25, 50, 100, 200, 500)
     internal var lastMilestone   = 0
@@ -438,6 +442,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
         if (cellSize == 0f) return
         val now = SystemClock.elapsedRealtime()
         drawBackdrop(canvas)
+        advanceLift(now)
         advanceAnimation(now)
         updateHint(now)
         advanceSettingsAnim(now)

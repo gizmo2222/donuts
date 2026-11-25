@@ -17,6 +17,7 @@ private const val KEY_SAVED   = "board.sessionSaved"
  * donut of the chain is counted. Animation state itself is never saved.
  */
 internal fun GameView.settleBoard() {
+    finishLift()       // a lifted chain still waiting for its finger is released, so its donuts count
     pendingResult?.let { res ->
         if ((res.chainCells + res.bonusCells).any { (r, c) -> board.grid[r][c].isGolden }) prefs.goldenPopped = true
         board.clearChain(res)
@@ -128,6 +129,6 @@ internal fun GameView.clearMotion() {
     animPhase = AnimPhase.IDLE
     popCells.clear(); dropCells.clear(); dropColMask.clear(); powerFx = null
     cascadeCount = 0; isCascade = false
-    dragChain.clear(); chainLooped = false; fingerHeld = false
+    dragChain.clear(); chainLooped = false; fingerHeld = false; liftMs = -1L
     hintCells = emptyList()
 }
