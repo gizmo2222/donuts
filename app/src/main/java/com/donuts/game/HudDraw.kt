@@ -159,7 +159,7 @@ internal fun GameView.drawCounter(canvas: Canvas, now: Long) {
     val footY = midY + ph * 0.30f
     palRect.set(left, footY - palR * PAL_TALL, left + palW, footY)
     counterDigits.set(left + palW + iconGap, midY - digitSz * 0.5f, left + totalW, midY + digitSz * 0.5f)
-    drawPal(canvas, left + palW / 2f, footY, palR, PalMotion.at(now, reducedMotion))
+    drawPal(canvas, left + palW / 2f, footY, palR, PalMotion.at(now, reducedMotion, palReaction, palReactMs))
 
     textOutlinePaint.textSize    = digitSz
     textOutlinePaint.textAlign   = Paint.Align.CENTER

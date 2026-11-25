@@ -265,6 +265,7 @@ internal fun GameView.startCelebration(now: Long, label: String,
     celebrateCheer = label.substringAfter(Praise.LINE_BREAK, "")
     celebrateLook  = look
     spawnParticles(look)
+    palReact(PalReaction.PARTY, now)
     if (prefs.soundEnabled)  soundEngine.playMilestone(look.style.ordinal, look.golden)
     if (prefs.hapticEnabled) hapticEngine.milestone()
 }

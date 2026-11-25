@@ -206,6 +206,8 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // The donut pal beside the counter (PalArt.kt); both rects laid out each frame by drawCounter
     internal val palRect       = RectF()    // the pal standing still, arms and feet included
     internal val counterDigits = RectF()    // the counter's figures, right of the pal
+    internal var palReaction   = PalReaction.NONE   // what the pal is cheering about (PalMotion)
+    internal var palReactMs    = -1L                // when that reaction started
 
     // Big-chain color flash overlay (chain ≥ 6)
     internal var chainFlashMs     = -1L

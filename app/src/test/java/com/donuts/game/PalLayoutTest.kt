@@ -35,9 +35,9 @@ class PalLayoutTest {
             assertTrue(tag, pal.right <= digits.left)
             if (!v.promptRect.isEmpty) assertFalse(tag, RectF.intersects(pal, v.promptRect))
             assertTrue(tag, pal.height() >= 40f * v.u)            // a face Steven can read at a glance
-            // The highest hop, stretched, still stays under the board
+            // The highest hop of any reaction, stretched, still stays under the board
             val r = pal.height() / PAL_TALL
-            val hopTop = pal.bottom - pal.height() * (1f + PalMotion.SQUASH * 0.5f) - PalMotion.BOB_HEIGHT * r
+            val hopTop = pal.bottom - (pal.height() + PalMotion.MAX_LIFT * r) * PalMotion.MAX_STRETCH
             assertTrue(tag, hopTop >= boardBottom)
         }
     }
