@@ -63,6 +63,7 @@ internal fun GameView.advanceAnimation(now: Long) {
 
             // A sprinkle party refills with more golden donuts; then the cleared donuts pour into the meter
             board.goldenChance = PartyMeter.goldenChance(party)
+            board.nudge = DroughtAssist.nudge(droughtDry)
             pourParty(clearedSet.size, playerClear = !isCascade, now = now)
 
             if (isCascade) {
@@ -137,6 +138,8 @@ internal fun GameView.advanceAnimation(now: Long) {
                 cascadeCount   = 0
                 isCascade      = false
                 animPhase      = AnimPhase.IDLE
+                // The board is still: could Steven drag a long chain now? If not for a while, nudge the refill
+                droughtDry = DroughtAssist.after(droughtDry, board.hasChainOf(DroughtAssist.LONG))
                 if (!board.hasValidMoves()) noMovesWarningMs = now
                 else startHeldDrag()
             }

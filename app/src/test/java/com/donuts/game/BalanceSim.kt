@@ -19,7 +19,7 @@ class BalanceSim {
     /** Slip chance per extra cell for the kidLearner strategies. */
     private val learnerBase = mapOf("kidLearner56" to 0.15, "kidLearner78" to 0.08)
     /** Variants: base runs every strategy on both grids; the others run only the kidLearners on 6x6. */
-    private val variants = listOf("base", "types5", "golden08")
+    private val variants = listOf("base", "types5", "golden08", "drought")
     private val grids = listOf(6, 8)
     private val seeds = 0..24
     private val movesPerScenario = 150
@@ -206,7 +206,7 @@ class BalanceSim {
             typeCount = if (variant == "types5") 5 else DonutType.values().size)
         val rng = Random(seed.toLong() * 104729L + sIdx + 1)
         val geo = Geometry(n); val dfs = Dfs(geo)
-        var bestChain = 0; var goldenPoppedFlag = false; var dry = 0
+        var bestChain = 0; var goldenPoppedFlag = false; var dry = 0; var droughtDry = 0
         fun fail(move: Int, msg: String) { bad.add("$strategy/$variant grid=$n seed=$seed move=$move: $msg") }
 
         for (m in 1..movesPerScenario) {
@@ -226,6 +226,7 @@ class BalanceSim {
                 val before = board.totalCleared
                 val res = board.peekChainClear(chain)!!
                 val goldenIn = (res.chainCells + res.bonusCells).any { (r, c) -> board.grid[r][c].isGolden }
+                if (variant == "drought") board.nudge = DroughtAssist.nudge(droughtDry)
                 board.clearChain(res)
                 var passes = 0; var cascade = 0
                 while (passes < 100) { val k = board.resolveOnce(); if (k == 0) break; passes++; cascade += k }
@@ -233,6 +234,8 @@ class BalanceSim {
                 val cleared = res.chainCells.size + res.bonusCells.size + cascade
                 if (board.totalCleared - before != cleared) fail(m, "counter delta ${board.totalCleared - before} != $cleared")
                 if (board.findMatches().isNotEmpty()) fail(m, "matches left after cascades")
+                // As the game does once the board is still: could a long chain be dragged now?
+                if (variant == "drought") droughtDry = DroughtAssist.after(droughtDry, board.hasChainOf(DroughtAssist.LONG))
                 var shuffled = false
                 if (!board.hasValidMoves()) {
                     board.shuffle(); shuffled = true; sc.shuffles++
@@ -318,14 +321,14 @@ class BalanceSim {
         sb.appendLine()
         sb.appendLine("Per 100 moves unless stated; 5+ and 7+ are shares of moves; row blast % is the share of scenarios with at least one.")
         sb.appendLine()
-        sb.appendLine("| variant | strategy | 5+ % | 7+ % | bombs | row blasts | colour bursts | scenarios with row blast % | shuffles |")
-        sb.appendLine("|---|---|---|---|---|---|---|---|---|")
+        sb.appendLine("| variant | strategy | 5+ % | 7+ % | best <= 4 % | bombs | row blasts | colour bursts | scenarios with row blast % | shuffles |")
+        sb.appendLine("|---|---|---|---|---|---|---|---|---|---|")
         for (v in variants) for (st in learnerBase.keys) {
             val g = scs.filter { it.strategy == st && it.grid == 6 && it.variant == v }
             if (g.isEmpty()) continue
             val mv = moves.filter { it.strategy == st && it.grid == 6 && it.variant == v }
             val played = g.sumOf { it.movesPlayed }.coerceAtLeast(1)
-            sb.appendLine("| $v | $st | ${f1(mv.count { it.chainLen >= 5 } * 100.0 / played)} | ${f1(mv.count { it.chainLen >= 7 } * 100.0 / played)} | " +
+            sb.appendLine("| $v | $st | ${f1(mv.count { it.chainLen >= 5 } * 100.0 / played)} | ${f1(mv.count { it.chainLen >= 7 } * 100.0 / played)} | ${f1(mv.count { it.bestPossible <= 4 } * 100.0 / played)} | " +
                 "${f1(g.sumOf { it.tiers[1] } * 100.0 / played)} | ${f1(g.sumOf { it.tiers[2] } * 100.0 / played)} | ${f1(g.sumOf { it.tiers[3] } * 100.0 / played)} | " +
                 "${f1(g.count { it.tiers[2] > 0 } * 100.0 / g.size)} | ${f1(g.sumOf { it.shuffles } * 100.0 / played)} |")
         }
