@@ -51,6 +51,21 @@ class SoundEngine {
         }.start()
     }
 
+    /**
+     * A short jingle of its own for donut friend [idx] (0..11), played when he is met and when his tile is
+     * tapped. Each note is (start Hz, end Hz, seconds); a note whose ends differ slides between them.
+     */
+    fun playFriend(idx: Int) {
+        val tune = FRIEND_TUNES[Math.floorMod(idx, FRIEND_TUNES.size)]
+        Thread {
+            for (n in tune.indices step 3) {
+                if (tune[n] == tune[n + 1]) playToneBlocking(tune[n], tune[n + 2], 0.40f)
+                else playSweepBlocking(tune[n], tune[n + 1], tune[n + 2], 0.38f)
+                Thread.sleep(30)
+            }
+        }.start()
+    }
+
     /** Downward whoosh when the board shuffles. */
     fun playShuffle() {
         playSweep(900f, 280f, 0.28f, 0.38f)
@@ -76,19 +91,21 @@ class SoundEngine {
     }
 
     private fun playSweep(freqStart: Float, freqEnd: Float, durationSec: Float, volume: Float) {
-        Thread {
-            val numSamples = (sampleRate * durationSec).toInt()
-            val buf  = ShortArray(numSamples)
-            var phase = 0.0
-            for (i in 0 until numSamples) {
-                val t    = i.toFloat() / numSamples
-                val freq = freqStart + (freqEnd - freqStart) * t
-                phase   += 2.0 * PI * freq / sampleRate
-                val env  = (1f - t * 0.7f)
-                buf[i] = (waveSample(phase) * env * volume * Short.MAX_VALUE).toInt().toShort()
-            }
-            playPCM(buf)
-        }.start()
+        Thread { playSweepBlocking(freqStart, freqEnd, durationSec, volume) }.start()
+    }
+
+    private fun playSweepBlocking(freqStart: Float, freqEnd: Float, durationSec: Float, volume: Float) {
+        val numSamples = (sampleRate * durationSec).toInt()
+        val buf  = ShortArray(numSamples)
+        var phase = 0.0
+        for (i in 0 until numSamples) {
+            val t    = i.toFloat() / numSamples
+            val freq = freqStart + (freqEnd - freqStart) * t
+            phase   += 2.0 * PI * freq / sampleRate
+            val env  = (1f - t * 0.7f)
+            buf[i] = (waveSample(phase) * env * volume * Short.MAX_VALUE).toInt().toShort()
+        }
+        playPCM(buf)
     }
 
     private fun playPCM(samples: ShortArray) {
@@ -123,3 +140,18 @@ class SoundEngine {
         }
     }
 }
+
+private val FRIEND_TUNES: Array<FloatArray> = arrayOf(
+    floatArrayOf(1047f, 1047f, 0.06f, 1319f, 1319f, 0.06f, 1568f, 1568f, 0.10f),                     // Sprinkle: sparkly up
+    floatArrayOf(420f, 620f, 0.09f, 620f, 420f, 0.09f, 784f, 784f, 0.12f),                           // Jelly: a wobble
+    floatArrayOf(300f, 700f, 0.10f, 350f, 800f, 0.08f, 880f, 880f, 0.10f),                           // Bouncy: boing boing
+    floatArrayOf(900f, 520f, 0.10f, 520f, 1040f, 0.14f),                                             // Swirl: down and round
+    floatArrayOf(392f, 392f, 0.08f, 392f, 392f, 0.08f, 523f, 523f, 0.16f),                           // Choco: ta-ta-daa
+    floatArrayOf(220f, 900f, 0.08f, 784f, 784f, 0.07f, 1047f, 1047f, 0.12f),                         // Kicky: a kick, then goal
+    floatArrayOf(659f, 659f, 0.07f, 784f, 784f, 0.07f, 659f, 659f, 0.07f, 1047f, 1047f, 0.12f),      // Berry: a skip
+    floatArrayOf(520f, 260f, 0.09f, 460f, 230f, 0.09f, 300f, 720f, 0.10f),                           // Gloop: blub blub bloop
+    floatArrayOf(300f, 1600f, 0.18f, 1319f, 1319f, 0.08f),                                           // Zoomy: zoom
+    floatArrayOf(523f, 523f, 0.05f, 523f, 523f, 0.05f, 400f, 820f, 0.14f),                           // Puff: puff puff whoosh
+    floatArrayOf(1200f, 1200f, 0.04f, 1500f, 1500f, 0.04f, 1350f, 1350f, 0.04f, 1760f, 1760f, 0.06f), // Fizz: bubbles
+    floatArrayOf(392f, 392f, 0.08f, 523f, 523f, 0.08f, 659f, 659f, 0.08f, 784f, 784f, 0.18f)         // Captain Glaze: fanfare
+)

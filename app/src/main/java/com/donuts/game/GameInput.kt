@@ -45,7 +45,7 @@ internal fun GameView.handleStickersTap(hit: Int) {
         hit == 13 -> stickersPage = 1
         hit >= 20 -> {
             friendTapIdx = hit - 20; friendTapMs = SystemClock.elapsedRealtime()
-            if (prefs.soundEnabled) soundEngine.playConnectBlip(3 + hit - 20)
+            if (prefs.soundEnabled) soundEngine.playFriend(hit - 20)
         }
     }
 }

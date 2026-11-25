@@ -108,6 +108,10 @@ class ScreenGallery {
             val v = game(size) { it.friendsMet = 4; it.lifetimeDonuts = 75 }
             shoot(v, size, "23-friends-page", warm = 30, step = 20L) { v.stickersPage = 1; v.stickersOpen = true }
         }
+        run {
+            val v = game(size) { it.friendsMet = FriendRules.FRIEND_COUNT; it.lifetimeDonuts = 500 }
+            shoot(v, size, "24-all-friends", warm = 30, step = 20L) { v.stickersPage = 1; v.stickersOpen = true }
+        }
         if (!size.allStates) return
         run {
             val v = game(size)

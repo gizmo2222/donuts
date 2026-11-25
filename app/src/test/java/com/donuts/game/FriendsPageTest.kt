@@ -83,13 +83,13 @@ class FriendsPageTest : GameInputTestBase() {
     }
 
     @Test
-    fun twelveMetFriendsPaintOnlyTheDrawnOnesWithoutCrashing() {
+    fun twelveMetFriendsAllPaintAndEveryTileHops() {
         val v = openWith(12)
         tap(v, v.friendsTabRect)
-        tap(v, v.stickerRects[DRAWN])
-        assertEquals(-1, v.friendTapIdx)
-        tap(v, v.stickerRects[DRAWN - 1])
-        assertEquals(DRAWN - 1, v.friendTapIdx)
+        for (i in 0 until FriendRules.FRIEND_COUNT) {
+            tap(v, v.stickerRects[i])
+            assertEquals(i, v.friendTapIdx)
+        }
         paint(v)
     }
 

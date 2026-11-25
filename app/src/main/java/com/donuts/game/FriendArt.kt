@@ -7,7 +7,7 @@ import kotlin.math.*
 // Part of GameView: these are extension functions on it, split out of GameView.kt.
 
 /** Friends that have art. FriendRules.next is passed this so no friend without a picture is revealed. */
-const val DRAWN = 4
+const val DRAWN = 12
 
 private val INK = Color.rgb(28, 12, 0)
 private val DOUGH = Color.rgb(240, 170, 85)
@@ -26,6 +26,14 @@ internal fun GameView.drawFriend(canvas: Canvas, idx: Int, cx: Float, cy: Float,
         1 -> drawJellyFriend(canvas, cx, cy, r)
         2 -> drawBouncyFriend(canvas, cx, cy, r)
         3 -> drawSwirlFriend(canvas, cx, cy, r)
+        4 -> drawChocoFriend(canvas, cx, cy, r)
+        5 -> drawKickyFriend(canvas, cx, cy, r)
+        6 -> drawBerryFriend(canvas, cx, cy, r)
+        7 -> drawGloopFriend(canvas, cx, cy, r)
+        8 -> drawZoomyFriend(canvas, cx, cy, r)
+        9 -> drawPuffFriend(canvas, cx, cy, r)
+        10 -> drawFizzFriend(canvas, cx, cy, r)
+        11 -> drawCaptainFriend(canvas, cx, cy, r)
     }
     fillPaint.alpha = 255; strokePaint.alpha = 255; outlinePaint.alpha = 255
 }
@@ -159,11 +167,11 @@ private fun GameView.drawSwirlFriend(canvas: Canvas, cx: Float, cy: Float, r: Fl
 }
 
 // -----------------------------------------------------------------------
-// Face parts shared by every friend
+// Face parts shared by every friend (FriendArt2.kt uses them too)
 // -----------------------------------------------------------------------
 
 // A big round eye: ink rim, white, a pupil looking toward ([lookX], [lookY]) and two shines
-private fun GameView.friendEye(canvas: Canvas, x: Float, y: Float, er: Float, lookX: Float, lookY: Float) {
+internal fun GameView.friendEye(canvas: Canvas, x: Float, y: Float, er: Float, lookX: Float, lookY: Float) {
     val ew = er; val eh = er * 1.12f
     fillPaint.color = INK
     canvas.drawOval(scratchRectF.apply { set(x - ew * 1.2f, y - eh * 1.18f, x + ew * 1.2f, y + eh * 1.18f) }, fillPaint)
@@ -178,13 +186,13 @@ private fun GameView.friendEye(canvas: Canvas, x: Float, y: Float, er: Float, lo
 }
 
 // A closed happy eye, curved up like a rainbow
-private fun GameView.friendWink(canvas: Canvas, x: Float, y: Float, er: Float) {
+internal fun GameView.friendWink(canvas: Canvas, x: Float, y: Float, er: Float) {
     outlinePaint.color = INK; outlinePaint.strokeWidth = er * 0.42f
     canvas.drawArc(scratchRectF.apply { set(x - er * 0.95f, y - er * 0.55f, x + er * 0.95f, y + er * 0.95f) }, 200f, 140f, false, outlinePaint)
 }
 
 // Two soft pink cheeks either side of the mouth, [cy] at their centre
-private fun GameView.friendCheeks(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+internal fun GameView.friendCheeks(canvas: Canvas, cx: Float, cy: Float, r: Float) {
     fillPaint.color = Color.argb(170, 255, 90, 120)
     canvas.drawOval(scratchRectF.apply { set(cx - r * 0.70f, cy - r * 0.08f, cx - r * 0.42f, cy + r * 0.08f) }, fillPaint)
     canvas.drawOval(scratchRectF.apply { set(cx + r * 0.42f, cy - r * 0.08f, cx + r * 0.70f, cy + r * 0.08f) }, fillPaint)
@@ -192,7 +200,7 @@ private fun GameView.friendCheeks(canvas: Canvas, cx: Float, cy: Float, r: Float
 }
 
 // An open grin: a smile-curved top and a round bottom, [w] and [h] its half width and depth
-private fun GameView.friendGrin(canvas: Canvas, mx: Float, my: Float, w: Float, h: Float, tongueIn: Boolean) {
+internal fun GameView.friendGrin(canvas: Canvas, mx: Float, my: Float, w: Float, h: Float, tongueIn: Boolean) {
     scratchPath.rewind()
     scratchPath.moveTo(mx - w, my)
     scratchPath.quadTo(mx, my + h * 0.3f, mx + w, my)
@@ -211,7 +219,7 @@ private fun GameView.friendGrin(canvas: Canvas, mx: Float, my: Float, w: Float, 
 }
 
 // A tongue poking out over the bottom lip of the grin at ([mx], [my])
-private fun GameView.friendTongueOut(canvas: Canvas, mx: Float, my: Float, w: Float, h: Float) {
+internal fun GameView.friendTongueOut(canvas: Canvas, mx: Float, my: Float, w: Float, h: Float) {
     val tw = w * 0.42f; val top = my + h * 0.45f; val bottom = my + h * 1.75f
     scratchPath.rewind()
     scratchPath.moveTo(mx - tw, top)

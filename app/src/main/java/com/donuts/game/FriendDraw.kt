@@ -21,7 +21,7 @@ internal fun GameView.checkFriends(now: Long) {
     prefs.friendsMet = idx + 1
     friendFlyIdx = idx; friendFlyMs = now
     hintCells = emptyList()
-    if (prefs.soundEnabled)  soundEngine.playMilestone()
+    if (prefs.soundEnabled)  soundEngine.playFriend(idx)
     if (prefs.hapticEnabled) hapticEngine.milestone()
 }
 
@@ -74,8 +74,12 @@ internal fun GameView.drawFriendFly(canvas: Canvas, now: Long) {
     }
 }
 
+// One tile colour per friend, each setting him off: 4 Choco mint, 5 Kicky grass, 6 Berry sun, 7 Gloop magenta,
+// 8 Zoomy sky, 9 Puff teal, 10 Fizz orange, 11 Captain Glaze sea blue
 private val FRIEND_TILE_COLORS = intArrayOf(
-    Color.rgb(255, 120, 170), Color.rgb(80, 190, 255), Color.rgb(255, 170, 40), Color.rgb(170, 110, 255)
+    Color.rgb(255, 120, 170), Color.rgb(80, 190, 255), Color.rgb(255, 170, 40), Color.rgb(170, 110, 255),
+    Color.rgb(70, 200, 140), Color.rgb(60, 170, 60), Color.rgb(255, 200, 40), Color.rgb(230, 60, 160),
+    Color.rgb(60, 140, 240), Color.rgb(30, 180, 190), Color.rgb(255, 130, 40), Color.rgb(50, 90, 200)
 )
 private const val FRIEND_TAP_MS = 500L
 

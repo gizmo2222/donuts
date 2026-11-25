@@ -116,4 +116,33 @@ class FriendRevealTest {
         v.drawFriend(Canvas(blank), DRAWN, 25f, 25f, 20f)
         assertEquals(1, distinctColors(blank))    // a friend without art paints nothing
     }
+
+    @Test fun everyFriendPaintsWithSeveralColoursAndNoTwoLookTheSame() {
+        val v = TestViews.quietView()
+        val seen = HashSet<List<Int>>()
+        for (i in 0 until FriendRules.FRIEND_COUNT) {
+            val bmp = Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888)
+            v.drawFriend(Canvas(bmp), i, 100f, 100f, 60f)
+            assertTrue("friend $i looks blank", distinctColors(bmp) > 8)
+            val px = IntArray(200 * 200); bmp.getPixels(px, 0, 200, 0, 0, 200, 200)
+            assertTrue("friend $i paints too little", px.count { it != 0 } > 200 * 200 / 5)
+            assertTrue("friend $i paints the same as another", seen.add(px.toList()))
+        }
+    }
+
+    @Test fun theFriendsAfterTheFirstFourAreMetInOrder() {
+        val v = TestViews.quietView()
+        val now = TestViews.now()
+        v.prefs.friendsMet = 4
+        v.prefs.lifetimeDonuts = 10_000
+        for (i in 4 until FriendRules.FRIEND_COUNT) {
+            v.checkFriends(now + i * 100L)
+            assertEquals(i, v.friendFlyIdx)
+            assertEquals(i + 1, v.prefs.friendsMet)
+            v.friendFlyMs = -1L
+        }
+        v.checkFriends(now + 10_000)
+        assertEquals(-1L, v.friendFlyMs)
+        assertEquals(FriendRules.FRIEND_COUNT, v.prefs.friendsMet)
+    }
 }
