@@ -267,6 +267,17 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var partyPopMs     = -1L       // the meter's bounce when donuts pour in or a party starts
     internal val PARTY_POP_MS   = 320L
 
+    // Picture prompt (PicturePrompts): a soft goal, a donut and a number beside the counter; kept in Prefs
+    internal var promptRandom: kotlin.random.Random = kotlin.random.Random.Default   // tests and the gallery seed it
+    internal var prompt: Prompt? = null     // null until the first frame restores or picks one
+    internal var promptsFinished = 0
+    internal var promptSeen   = -1          // the board's cleared count of the prompt's type when last looked; -1 = look again
+    internal var promptDoneMs = -1L         // when the current prompt was finished; the next one follows PROMPT_NEXT_MS later
+    internal var promptPopMs  = -1L         // the chip's bounce when it counts down or a new prompt arrives
+    internal val promptRect   = RectF()     // the chip, laid out each frame by layoutCounterRow; empty = hidden
+    internal val PROMPT_NEXT_MS = 1800L
+    internal val PROMPT_POP_MS  = 320L
+
     // Landing squish: the whole column squashes for a beat when a drop lands
     internal var landMs = -1L
     internal val LAND_MS = 220L
@@ -458,7 +469,9 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
         drawChainLine(canvas)
         drawPowerUpFx(canvas, now); drawCenterPing(canvas, now)
         drawFloatLabels(canvas, now)
+        advancePrompt(now)
         drawCounter(canvas, now)
+        drawPromptChip(canvas, now)
         advanceBoxStrip(now); drawBoxStrip(canvas, now)
         drawNoMovesWarning(canvas, now)
         if (celebrateMs >= 0) drawCelebration(canvas, now)

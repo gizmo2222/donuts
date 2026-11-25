@@ -130,7 +130,16 @@ internal fun GameView.drawCounter(canvas: Canvas, now: Long) {
     val bottom = stripY + counterH
     val midY   = (top + bottom) / 2f
     val ph     = bottom - top
-    val cx     = boardLeft + board.cols * cellSize / 2f
+
+    // One big figure; a small donut beside it says what it counts without a word
+    val digitSz = ph * 0.72f
+    textPaint.textSize = digitSz
+    val cellW   = textPaint.measureText("0") * 1.08f
+    val numStr  = displayedCount.toString()
+    val iconR   = ph * 0.22f
+    val iconGap = ph * 0.18f
+    val totalW  = iconR * 2.4f + iconGap + numStr.length * cellW
+    val cx      = layoutCounterRow(totalW, top, bottom)   // shares the row with the picture prompt
 
     // Heartbeat: quick scale-pulse when the number increments
     val beat = if (counterPulseMs >= 0) {
@@ -141,14 +150,7 @@ internal fun GameView.drawCounter(canvas: Canvas, now: Long) {
     canvas.save()
     canvas.scale(beat, beat, cx, midY)
 
-    // One big figure; a small donut beside it says what it counts without a word
-    val digitSz = ph * 0.72f
     textPaint.textSize = digitSz
-    val cellW   = textPaint.measureText("0") * 1.08f
-    val numStr  = displayedCount.toString()
-    val iconR   = ph * 0.22f
-    val iconGap = ph * 0.18f
-    val totalW  = iconR * 2.4f + iconGap + numStr.length * cellW
     val left    = cx - totalW / 2f
     val startX  = left + iconR * 2.4f + iconGap + cellW / 2f
     val baseY   = midY + digitSz * 0.36f

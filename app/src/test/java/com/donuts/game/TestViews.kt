@@ -26,6 +26,7 @@ internal object TestViews {
         prefs.tutorialSeen = tutorialSeen
         val v = GameView(app(), GameBoard(grid, grid, Random(seed)), prefs)
         v.fxRandom = Random(seed)          // confetti, looks and giggles repeat run to run
+        v.promptRandom = Random(seed)      // and so do the picture prompts
         v.surfaceW = w; v.surfaceH = h
         v.computeLayout()
         return v
