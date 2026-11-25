@@ -82,7 +82,7 @@ class GameInputPanelsTest : GameInputTestBase() {
     @Test
     fun settingsGridButtonRebuildsTheBoard() {
         val v = planted()
-        openSettings(v)
+        openGrownUps(v)
         tap(v, v.gridRects[1])
         assertEquals(8, v.prefs.gridSize)
         assertEquals(8, v.board.rows)
@@ -95,7 +95,7 @@ class GameInputPanelsTest : GameInputTestBase() {
     @Test
     fun settingsGridSameSizeKeepsTheBoard() {
         val v = planted()
-        openSettings(v)
+        openGrownUps(v)
         val board = v.board
         tap(v, v.gridRects[0])
         assertSame(board, v.board)
@@ -139,7 +139,7 @@ class GameInputPanelsTest : GameInputTestBase() {
         val v = TestViews.gameView()
         v.board.donutsCleared[DonutType.STRAWBERRY] = 5
         v.displayedCount = 5
-        openSettings(v)
+        openGrownUps(v)
         tap(v, v.settingsResetRect)
         assertTrue(v.settingsOpen)
         assertEquals(5, TestViews.total(v))
@@ -157,7 +157,7 @@ class GameInputPanelsTest : GameInputTestBase() {
     fun newGameConfirmTimesOut() {
         val v = planted()
         v.board.donutsCleared[DonutType.CHOCOLATE] = 4
-        openSettings(v)
+        openGrownUps(v)
         tap(v, v.settingsResetRect)
         TestViews.advance(2000)
         tap(v, v.settingsResetRect)               // only re-arms
@@ -169,7 +169,7 @@ class GameInputPanelsTest : GameInputTestBase() {
     fun tappingResetStickersDisarmsNewGame() {
         val v = planted()
         v.board.donutsCleared[DonutType.CHOCOLATE] = 4
-        openSettings(v)
+        openGrownUps(v)
         tap(v, v.settingsResetRect)
         tap(v, v.settingsStickersRect)            // cancels the new-game arm
         tap(v, v.settingsResetRect)               // so this only arms again
@@ -180,7 +180,7 @@ class GameInputPanelsTest : GameInputTestBase() {
     @Test
     fun resetStickersNeedsTwoTapsAndZeroesProgress() {
         val v = planted()
-        openSettings(v)
+        openGrownUps(v)
         v.prefs.lifetimeDonuts = 50; v.prefs.highScore6x6 = 20; v.prefs.highScore8x8 = 9
         v.prefs.bestChainLength = 7; v.prefs.sessionCount = 3; v.prefs.goldenPopped = true
         tap(v, v.settingsStickersRect)
@@ -199,10 +199,74 @@ class GameInputPanelsTest : GameInputTestBase() {
     @Test
     fun closingSettingsDisarmsBothConfirms() {
         val v = planted()
-        openSettings(v)
+        openGrownUps(v)
         tap(v, v.settingsResetRect)
         tap(v, v.settingsCloseRect)
         assertFalse(v.newGameConfirm.isArmed(TestViews.now()))
         assertFalse(v.stickersConfirm.isArmed(TestViews.now()))
+    }
+
+    @Test
+    fun grownUpButtonsAreNotOnStevensPage() {
+        val v = planted()
+        openSettings(v)
+        assertEquals(SETTINGS_KID, v.settingsPage)
+        val board = v.board
+        tap(v, v.gridRects[1])                    // stale rect of the hidden page: not a button here
+        assertSame(board, v.board)
+        assertEquals(6, v.prefs.gridSize)
+        assertTrue(v.settingsOpen)
+    }
+
+    @Test
+    fun aWrongAnswerAsksANewQuestionAndStaysOnTheGate() {
+        val v = planted()
+        openSettings(v)
+        tap(v, v.settingsGrownRect)
+        assertEquals(SETTINGS_GATE, v.settingsPage)
+        val q = v.parentGate.question
+        val ans = v.parentGate.answer
+        val wrong = if (ans % 10 == 9) 8 else ans % 10 + 1
+        tap(v, v.gateKeyRects[ans / 10])
+        tap(v, v.gateKeyRects[wrong])
+        assertEquals(SETTINGS_GATE, v.settingsPage)
+        assertTrue(v.gateWrongMs >= 0L)
+        assertTrue(q != v.parentGate.question)
+        assertTrue(v.settingsOpen)
+    }
+
+    @Test
+    fun backOnTheGateReturnsToStevensPage() {
+        val v = planted()
+        openSettings(v)
+        tap(v, v.settingsGrownRect)
+        tap(v, v.settingsCloseRect)               // Back
+        assertEquals(SETTINGS_KID, v.settingsPage)
+        assertTrue(v.settingsOpen)
+        tap(v, v.settingsCloseRect)               // Done
+        assertFalse(v.settingsOpen)
+    }
+
+    @Test
+    fun settingsReopensOnStevensPage() {
+        val v = planted()
+        openGrownUps(v)
+        tap(v, v.settingsCloseRect)
+        assertFalse(v.settingsOpen)
+        slidePanels(v)
+        openSettings(v)
+        assertEquals(SETTINGS_KID, v.settingsPage)
+    }
+
+    @Test
+    fun theGateGetsAFreshQuestionEachVisit() {
+        val v = planted()
+        openSettings(v)
+        tap(v, v.settingsGrownRect)
+        val q = v.parentGate.question
+        tap(v, v.settingsCloseRect)
+        tap(v, v.settingsGrownRect)
+        assertTrue(q != v.parentGate.question)
+        assertEquals("", v.parentGate.entry)
     }
 }

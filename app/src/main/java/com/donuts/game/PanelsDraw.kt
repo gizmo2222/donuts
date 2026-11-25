@@ -265,6 +265,9 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
 
     canvas.save()
     canvas.translate(0f, slideY)
+    // Turning a page pops the new one in from a little smaller (not under reduced motion)
+    val pageT = if (settingsPageMs < 0 || reducedMotion) 1f else ((now - settingsPageMs) / PAGE_POP_MS.toFloat()).coerceIn(0f, 1f)
+    if (pageT < 1f) { val s = 0.92f + 0.08f * easeOutBack(pageT); canvas.scale(s, s, panelRect.centerX(), panelRect.centerY()) }
 
     val k  = u * settingsSc      // everything inside the panel scales with the fit factor
     val pr = 22f * k
@@ -281,34 +284,47 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
     val pl = panelRect.left; val pw = panelRect.width(); val pt = panelRect.top
 
     // Title
+    val title = when (settingsPage) { SETTINGS_KID -> "Settings"; SETTINGS_GATE -> "Grown-ups only"; else -> "Grown-ups" }
     val titleX = pl + pw / 2f; val titleY = pt + 48f * k; val titleSz = 30f * k
-    drawOutlinedText(canvas, "Settings", titleX, titleY - titleSz * 0.36f, titleSz, Color.WHITE)
+    drawOutlinedText(canvas, title, titleX, titleY - titleSz * 0.36f, titleSz, Color.WHITE)
 
-    // Each row: a picture showing the current choice, its word under it, then the choices
-    drawSettingsIcon(canvas, settingsIconRects[ICON_SOUND], ICON_SOUND, prefs.soundEnabled, "Sound")
-    drawSettingsBtn(canvas, now, soundRects[0], onOffLabels[0], prefs.soundEnabled)
-    drawSettingsBtn(canvas, now, soundRects[1], onOffLabels[1], !prefs.soundEnabled)
+    when (settingsPage) {
+        SETTINGS_KID -> {
+            // Each row: a picture showing the current choice, its word under it, then the choices
+            drawSettingsIcon(canvas, settingsIconRects[ICON_SOUND], ICON_SOUND, prefs.soundEnabled, "Sound")
+            drawSettingsBtn(canvas, now, soundRects[0], onOffLabels[0], prefs.soundEnabled)
+            drawSettingsBtn(canvas, now, soundRects[1], onOffLabels[1], !prefs.soundEnabled)
 
-    drawSettingsIcon(canvas, settingsIconRects[ICON_BUZZ], ICON_BUZZ, prefs.hapticEnabled, "Buzz")
-    drawSettingsBtn(canvas, now, buzzRects[0], onOffLabels[0], prefs.hapticEnabled)
-    drawSettingsBtn(canvas, now, buzzRects[1], onOffLabels[1], !prefs.hapticEnabled)
+            drawSettingsIcon(canvas, settingsIconRects[ICON_BUZZ], ICON_BUZZ, prefs.hapticEnabled, "Buzz")
+            drawSettingsBtn(canvas, now, buzzRects[0], onOffLabels[0], prefs.hapticEnabled)
+            drawSettingsBtn(canvas, now, buzzRects[1], onOffLabels[1], !prefs.hapticEnabled)
 
-    val hintsOn = prefs.hintDelayMs != 0L
-    drawSettingsIcon(canvas, settingsIconRects[ICON_HINTS], ICON_HINTS, hintsOn, "Hints")
-    drawSettingsBtn(canvas, now, hintRects[0], onOffLabels[0], hintsOn)
-    drawSettingsBtn(canvas, now, hintRects[1], onOffLabels[1], !hintsOn)
+            val hintsOn = prefs.hintDelayMs != 0L
+            drawSettingsIcon(canvas, settingsIconRects[ICON_HINTS], ICON_HINTS, hintsOn, "Hints")
+            drawSettingsBtn(canvas, now, hintRects[0], onOffLabels[0], hintsOn)
+            drawSettingsBtn(canvas, now, hintRects[1], onOffLabels[1], !hintsOn)
 
-    drawSettingsIcon(canvas, settingsIconRects[ICON_GRID], ICON_GRID, prefs.gridSize == gridOptions[0], "Size")
-    for (i in gridOptions.indices) drawSettingsBtn(canvas, now, gridRects[i], gridLabels[i], gridOptions[i] == prefs.gridSize)
+            drawGrownUpsButton(canvas, now)
+        }
+        SETTINGS_GATE -> drawGatePage(canvas, now)
+        else -> {
+            drawSettingsIcon(canvas, settingsIconRects[ICON_GRID], ICON_GRID, prefs.gridSize == gridOptions[0], "Size")
+            for (i in gridOptions.indices) drawSettingsBtn(canvas, now, gridRects[i], gridLabels[i], gridOptions[i] == prefs.gridSize)
 
-    // Two-tap confirm buttons so a stray tap cannot wipe the board or the stickers
-    drawConfirmButton(canvas, now, settingsResetRect, newGameConfirm, "New game", "New game?", Color.rgb(200, 70, 50), restart = true)
-    drawConfirmButton(canvas, now, settingsStickersRect, stickersConfirm, "Reset stickers", "Clear all?", Color.rgb(150, 70, 170), restart = false)
+            // Two-tap confirm buttons so a stray tap cannot wipe the board or the stickers
+            drawConfirmButton(canvas, now, settingsResetRect, newGameConfirm, "New game", "New game?", Color.rgb(200, 70, 50), restart = true)
+            drawConfirmButton(canvas, now, settingsStickersRect, stickersConfirm, "Reset stickers", "Clear all?", Color.rgb(150, 70, 170), restart = false)
+            drawPromise(canvas)
+        }
+    }
 
-    drawPrettyButton(canvas, settingsCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 18f * k, pressScaleFor(settingsCloseRect, now))
+    if (settingsPage == SETTINGS_GATE)
+        drawPrettyButton(canvas, settingsCloseRect, Color.rgb(120, 110, 100), "\u2190  Back", 18f * k, pressScaleFor(settingsCloseRect, now))
+    else
+        drawPrettyButton(canvas, settingsCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 18f * k, pressScaleFor(settingsCloseRect, now))
 
     // Version: small and muted, not a button
-    if (appVersion.isNotEmpty()) {
+    if (appVersion.isNotEmpty() && settingsPage != SETTINGS_GATE) {
         textPaint.textSize = 13f * k; textPaint.textAlign = Paint.Align.CENTER
         textPaint.color = Color.argb(110, 60, 30, 0)
         canvas.drawText("v$appVersion", panelRect.centerX(), panelRect.bottom - 14f * k, textPaint)
@@ -359,7 +375,7 @@ internal fun GameView.drawCheckBadge(canvas: Canvas, bx: Float, by: Float, br: F
     canvas.drawText("\u2713", bx, by + br * 0.42f, textPaint)
 }
 
-internal fun GameView.drawSettingsBtn(canvas: Canvas, now: Long, rect: RectF, label: String, selected: Boolean) {
+internal fun GameView.drawSettingsBtn(canvas: Canvas, now: Long, rect: RectF, label: String, selected: Boolean, textSp: Float = 18f) {
     val k = u * settingsSc
     val pressScale = pressScaleFor(rect, now)
     canvas.save(); canvas.scale(pressScale, pressScale, rect.centerX(), rect.centerY())
@@ -396,7 +412,7 @@ internal fun GameView.drawSettingsBtn(canvas: Canvas, now: Long, rect: RectF, la
     canvas.restore()
     // Label: outlined white on the chosen option, dark brown on the tan ones (white on tan
     // was too faint to read). Shrinks to fit so long words never spill past the button.
-    drawLabel(canvas, label, rect.centerX(), rect.centerY() + 18f * k * 0.36f, 18f * k,
+    drawLabel(canvas, label, rect.centerX(), rect.centerY() + textSp * k * 0.36f, textSp * k,
         rect.width() - 12f * k, if (selected) Color.WHITE else theme.textPrimary, outlined = selected)
     // Checkmark badge on selected
     if (selected) drawCheckBadge(canvas, rect.right - 1f, rect.top + 1f, 9f * k)

@@ -53,6 +53,20 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
 
     internal var settingsSc = 1f     // < 1 only when the full-size settings panel cannot fit the screen
 
+    // The settings panel has three pages: Steven's (sound, buzz, hints), the grown-ups gate, and
+    // the grown-ups corner (size, New game, Reset stickers). panelRect, settingsSc and
+    // settingsCloseRect always hold the shown page's values; showSettingsPage copies them in.
+    internal var settingsPage      = SETTINGS_KID
+    internal val settingsPageRects = Array(3) { RectF() }
+    internal val settingsPageSc    = FloatArray(3) { 1f }
+    internal val settingsPageClose = Array(3) { RectF() }
+    internal var settingsPageMs    = -1L                  // when the page last changed, for its pop
+    internal var settingsGrownRect = RectF()              // Steven's page: the locked Grown-ups button
+    internal val gateKeyRects      = Array(10) { RectF() } // the gate keypad, by digit
+    internal var gateAnswerRect    = RectF()
+    internal var gateWrongMs       = -1L                  // a wrong answer shakes the answer box
+    internal var parentGate        = ParentGate()
+
     internal val onOffLabels = arrayOf("On", "Off")
     internal val hintOptions = longArrayOf(5_000L, 0L)
     internal val gridOptions = Prefs.GRID_SIZES

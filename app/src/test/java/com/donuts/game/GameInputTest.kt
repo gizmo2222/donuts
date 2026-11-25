@@ -284,7 +284,7 @@ class GameInputTest : GameInputTestBase() {
     fun backClosesAnOpenPanelFirstThenFallsThrough() {
         val v = planted()
         assertFalse(v.onBackPressed())
-        openSettings(v)
+        openGrownUps(v)
         tap(v, v.settingsResetRect)
         assertTrue(v.onBackPressed())
         assertFalse(v.settingsOpen)
