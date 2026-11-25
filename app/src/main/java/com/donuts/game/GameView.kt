@@ -183,6 +183,9 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal val SHUFFLE_ANIM_MS  = 360L
     internal val SHUFFLE_MAX_DELAY = 300L   // max stagger across all cells
 
+    // When the last full-screen flash (reset or big chain) started; FlashGate keeps them a third of a second apart
+    internal var lastFullFlashMs = -1L
+
     // Reset flash overlay
     internal var resetFlashMs    = -1L       // time of last reset
     internal val FLASH_MS        = 350L

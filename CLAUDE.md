@@ -86,6 +86,7 @@ All sources are in `app\src\main\java\com\donuts\game`. No main source is over a
 | `RenderThread.kt` | The render thread: lock a canvas, draw a frame, post it, pace to 60 fps |
 | `TwoTapConfirm.kt` | The tap-twice confirm for New game and Reset stickers (pure, tested) |
 | `BannerQueue.kt` | Celebration banners wait their turn: a new one starts once the current one has shown its first part (pure, unit tested) |
+| `FlashGate.kt` | `FlashGate.allows`: full-screen flashes (New game, big chain) start at least a third of a second apart, three a second at most; `saturatedRed` (pure, unit tested) |
 | `PopTiming.kt` | When each cell of a power-up clear starts to pop (pure, unit tested) |
 | `ChainRules.kt` | `ChainRules.accepts`: which cell may join a drag chain, golden wild rules (pure, unit tested) |
 | `LoopRules.kt` | `LoopRules.closes`: when a drag chain closes into a ring (`MIN_LOOP` cells, back on its first cell) and clears as RING (pure, unit tested) |
@@ -125,6 +126,7 @@ so read just that range.
 | DonutArt.kt | 312 | `buildSprites` 9-33, `blit` 34-47, `drawPiece` 48-56, `drawBall` 57-62, `drawPieceVector` 63-77, `ringBase` 78-91, `drawHole` 92-102, `drawDrippyRing` 103-129, `drawStripedRing` 130-147, `drawJellyBun` 148-162, `buildScallop` 163-173, `drawFlowerRing` 174-198, `drawHalfDipRing` 199-228, `drawSquareDonut` 229-258, `drawBallVector` 259-274, `drawPentagon` 275-293, `addSheen` 294-312 |
 | DonutType.kt | 18 | `DonutType` 7-18 |
 | EffectsDraw.kt | 526 | `fitText` 13-17, `drawBannerLine` 18-24, `drawFloatLabels` 25-68, `drawCenterPing` 69-94, `drawCelebration` 95-171, `drawStickerFly` 172-219, `drawTutorial` 220-286, `chainOrder` 287-289, `adj` 290-299, `drawFinger` 300-320, `drawNoMovesWarning` 321-397, `drawPowerUpFx` 398-410, `ring` 411-476, `drawShowSomeone` 477-526 |
+| FlashGate.kt | 19 | `FlashGate` 10-14, `allows` 15-17, `saturatedRed` 18-19 |
 | FriendArt.kt | 235 | `drawFriend` 22-51, `drawSprinkleFriend` 52-83, `drawJellyFriend` 84-114, `drawBouncyFriend` 115-137, `drawSwirlFriend` 138-173, `friendEye` 174-188, `friendWink` 189-194, `friendCheeks` 195-202, `friendGrin` 203-221, `friendTongueOut` 222-235 |
 | FriendArt2.kt | 316 | `glazeTop` 17-26, `drawChocoFriend` 27-62, `drawKickyFriend` 63-100, `drawBerryFriend` 101-156, `drawGloopFriend` 157-185, `drawZoomyFriend` 186-223, `drawPuffFriend` 224-261, `drawFizzFriend` 262-284, `drawCaptainFriend` 285-316 |
 | FriendDraw.kt | 128 | `checkFriends` 17-28, `drawFriendFly` 29-86, `drawPanelTabs` 87-94, `drawFriendsPage` 95-128 |
@@ -137,7 +139,7 @@ so read just that range.
 | GameLayout.kt | 169 | `computeLayout` 10-61, `layoutSettingsPanel` 62-72, `placeSettings` 73-89, `row` 90-114, `layoutStickersPanel` 115-123, `sideFor` 124-160, `excludeBackSwipe` 161-169 |
 | GameTheme.kt | 17 | `GameTheme` 6-17 |
 | GameTypes.kt | 46 | `AnimPhase` 7-8, `AnimCell` 9-15, `PowerUpFx` 16-20, `DigitFlip` 21-22, `Particle` 23-29, `FloatLabel` 30-35, `BoxStrip` 36-46 |
-| GameView.kt | 454 | `GameView` 14-377, `surfaceCreated` 378-382, `surfaceChanged` 383-386, `surfaceDestroyed` 387-406, `drawFrame` 407-452, `onTouchEvent` 453-454 |
+| GameView.kt | 457 | `GameView` 14-380, `surfaceCreated` 381-385, `surfaceChanged` 386-389, `surfaceDestroyed` 390-409, `drawFrame` 410-455, `onTouchEvent` 456-457 |
 | HapticEngine.kt | 34 | `HapticEngine` 10-21, `tick` 22-24, `pop` 25-27, `milestone` 28-31, `shuffle` 32-34 |
 | HitZone.kt | 62 | `HitZone` 16-25, `diagWeight` 26-32, `target` 33-56, `aim` 57-62 |
 | HudDraw.kt | 225 | `drawHUD` 12-16, `drawBackdrop` 17-30, `drawIconButton` 31-38, `drawStarIcon` 39-55, `drawGearIcon` 56-73, `pressScaleFor` 74-77, `buttonPressScale` 78-84, `drawPrettyButton` 85-126, `drawCounter` 127-194, `drawLabel` 195-210, `drawOutlinedText` 211-221, `drawBoxStrip` 222-225 |
@@ -174,6 +176,8 @@ so read just that range.
 | ColorBlindPaletteTest.kt | 70 | `ColorBlindPaletteTest` 18-25, `lin` 26-30, `f` 31-32, `lab` 33-44, `deltaE` 45-70 |
 | DrawSmokeTest.kt | 416 | `DrawSmokeTest` 23-24, `Scene` 25-27, `frames` 28-30, `scene` 31-33, `distinctColors` 34-39, `assertPainted` 40-43, `snake` 44-50, `dragSnake` 51-58, `release` 59-100, `powerUpCase` 101-126, `strip` 127-226, `painted` 227-249, `tap` 250-416 |
 | EnginesTest.kt | 88 | `EnginesTest` 12-15, `waveSample` 16-22, `waveSampleIsASineAtQuarterPoints` 23-31, `waveSampleStaysInRangeOverManyPhases` 32-36, `everySoundMethodRunsWithoutThrowing` 37-44, `playingWithSoundAndHapticsOffAndOnWorks` 45-61, `hapticMethodsDoNotThrow` 62-69, `renderThreadStartsAndStopsWithoutAValidSurface` 70-80, `renderThreadStoppedBeforeItRunsExitsAtOnce` 81-88 |
+| FlashGateTest.kt | 50 | `FlashGateTest` 7-9, `starts` 10-16, `mostInOneSecond` 17-50 |
+| FlashTimingTest.kt | 54 | `FlashTimingTest` 10-13, `plantSix` 14-17, `clearSix` 18-54 |
 | FriendRevealTest.kt | 148 | `FriendRevealTest` 15-16, `distinctColors` 17-148 |
 | FriendRulesTest.kt | 89 | `FriendRulesTest` 9-89 |
 | FriendsPageTest.kt | 106 | `FriendsPageTest` 10-11, `openWith` 12-18, `paint` 19-21, `noTabsAndATitleTapDoNothingWithNoFriends` 22-30, `theFriendsTabSwitchesPageAndBack` 31-41, `aTabActsOnReleaseOverTheSameButtonOnly` 42-53, `thePageSurvivesClosingAndReopening` 54-64, `tappingAMetFriendHopsAndAnEmptyTileDoesNothing` 65-78, `aTileTapOnTheStickersPageStartsNoHop` 79-85, `twelveMetFriendsAllPaintAndEveryTileHops` 86-96, `theFriendsPagePaintsMoreThanTheBareBoard` 97-106 |
