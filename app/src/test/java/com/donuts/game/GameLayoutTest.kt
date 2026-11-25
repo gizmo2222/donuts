@@ -52,6 +52,15 @@ class GameLayoutTest {
         assertTrue("$n: board inside surface", inside(surfaceRect(v), boardRect(v)))
     }
 
+    @Test fun partyMeterSitsBetweenTheButtonsInsideTheSurface() = forAll { n, v ->
+        val m = v.partyMeterRect
+        assertTrue("$n: meter shown", !m.isEmpty)
+        assertTrue("$n: meter inside surface", inside(surfaceRect(v), m))
+        assertTrue("$n: right of the star", m.left > v.stickersBtnRect.right)
+        assertTrue("$n: left of the gear", m.right < v.settingsBtnRect.left)
+        assertTrue("$n: above the board", m.bottom <= v.boardTop)
+    }
+
     @Test fun boardIsCentredHorizontally() = forAll { n, v ->
         val b = boardRect(v)
         assertEquals("$n: centred", v.surfaceW / 2f, (b.left + b.right) / 2f, 1f)

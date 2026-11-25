@@ -95,6 +95,7 @@ internal fun GameView.resetStickers() {
     prefs.bestChainLength = 0; prefs.sessionCount = 0; prefs.goldenPopped = false
     sessionSaved = 0; earnedMask = 0; prefs.stickersAnnounced = 0; boxesSeen = -1; allStickersParty = false
     showSomeonePending = SHOW_NONE; showSomeoneKind = SHOW_NONE; showSomeoneMs = -1L
+    setParty(PartyState()); partyShownFill = -1f
     closeSettings()
 }
 

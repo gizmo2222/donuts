@@ -223,3 +223,66 @@ internal fun GameView.drawBoxStrip(canvas: Canvas, now: Long) {
     if (boxStrip.shownLifetime < 0 || boxStrip.rect.isEmpty) return
     drawDonutBox(canvas, boxStrip.rect, now, boxStrip)
 }
+
+// The sprinkle party meter between the star and the gear: a chunky pill that fills with pink glaze and
+// sprinkles as donuts pour in. During a party the glaze turns rainbow and drains one step per chain.
+internal fun GameView.drawPartyMeter(canvas: Canvas, now: Long) {
+    val r = partyMeterRect
+    if (r.isEmpty || partyShownFill < 0f) return
+    val h = r.height(); val rad = h / 2f
+    val cx = r.centerX(); val cy = r.centerY()
+
+    val bounce = if (partyPopMs >= 0 && !reducedMotion) {
+        val t = ((now - partyPopMs).toFloat() / PARTY_POP_MS).coerceIn(0f, 1f)
+        if (t >= 1f) { partyPopMs = -1L; 1f } else 1f + sin(t * PI.toFloat()) * (if (party.partyOn) 0.14f else 0.07f)
+    } else { partyPopMs = -1L; 1f }
+    canvas.save(); canvas.scale(bounce, bounce, cx, cy)
+
+    // Thick cartoon outline round a cream track
+    val ow = max(3f * u, h * 0.14f)
+    fillPaint.color = Color.argb(235, 28, 12, 0)
+    canvas.drawRoundRect(scratchRectF.apply { set(r.left - ow, r.top - ow, r.right + ow, r.bottom + ow) }, rad + ow, rad + ow, fillPaint)
+    fillPaint.color = Color.rgb(255, 244, 222)
+    canvas.drawRoundRect(r, rad, rad, fillPaint)
+
+    // The glaze: pink while filling, a rolling rainbow during the party
+    val fillW = r.width() * partyShownFill.coerceIn(0f, 1f)
+    if (fillW > 1f) {
+        val glaze = if (party.partyOn) {
+            val colors = GameTheme.bannerColors
+            val phase = if (reducedMotion) 0f else (now % 1200L) / 1200f * colors.size
+            val i = phase.toInt() % colors.size
+            blendColor(colors[i], colors[(i + 1) % colors.size], phase - phase.toInt())
+        } else DonutType.STRAWBERRY.glazeColor
+        fillPaint.color = glaze
+        val fr = min(rad, fillW / 2f)
+        canvas.drawRoundRect(scratchRectF.apply { set(r.left, r.top, r.left + fillW, r.bottom) }, fr, fr, fillPaint)
+
+        // Sprinkles on the glaze, in a fixed scatter so they never jitter
+        canvas.save(); canvas.clipRect(r.left, r.top, r.left + fillW, r.bottom)
+        val sw = h * 0.30f; val sh = max(2f * u, h * 0.11f)
+        val n = (r.width() / (h * 0.42f)).toInt()
+        val sprinkleColors = intArrayOf(Color.WHITE, GameTheme.bannerColors[0], GameTheme.bannerColors[3], GameTheme.bannerColors[2])
+        for (k in 0 until n) {
+            val x = r.left + rad * 0.7f + k * (r.width() - rad * 1.4f) / max(1, n - 1)
+            if (x > r.left + fillW - sw * 0.3f) break
+            val y = cy + (if (k % 2 == 0) -0.17f else 0.17f) * h
+            canvas.save(); canvas.rotate(((k * 53) % 120 - 60).toFloat(), x, y)
+            fillPaint.color = sprinkleColors[k % sprinkleColors.size]
+            canvas.drawRoundRect(scratchRectF.apply { set(x - sw / 2f, y - sh / 2f, x + sw / 2f, y + sh / 2f) }, sh / 2f, sh / 2f, fillPaint)
+            canvas.restore()
+        }
+        canvas.restore()
+    }
+
+    // A soft sheen along the top makes it read as a glossy tube
+    fillPaint.color = Color.argb(70, 255, 255, 255)
+    canvas.drawRoundRect(scratchRectF.apply { set(r.left + rad * 0.6f, r.top + h * 0.12f, r.right - rad * 0.6f, r.top + h * 0.32f) }, h * 0.1f, h * 0.1f, fillPaint)
+    canvas.restore()
+}
+
+/** [a] blended toward [b] by [t] (0..1), channel by channel. */
+internal fun blendColor(a: Int, b: Int, t: Float): Int {
+    fun ch(x: Int, y: Int) = (x + (y - x) * t).roundToInt().coerceIn(0, 255)
+    return Color.rgb(ch(Color.red(a), Color.red(b)), ch(Color.green(a), Color.green(b)), ch(Color.blue(a), Color.blue(b)))
+}

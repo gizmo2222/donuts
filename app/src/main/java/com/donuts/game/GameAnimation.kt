@@ -61,6 +61,10 @@ internal fun GameView.advanceAnimation(now: Long) {
                 if (res != null) (res.chainCells + res.bonusCells).toSet() else emptySet()
             }
 
+            // A sprinkle party refills with more golden donuts; then the cleared donuts pour into the meter
+            board.goldenChance = PartyMeter.goldenChance(party)
+            pourParty(clearedSet.size, playerClear = !isCascade, now = now)
+
             if (isCascade) {
                 // Auto-resolve one cascade pass (findMatches → clear → gravity).
                 board.resolveOnce()
@@ -248,7 +252,8 @@ internal fun GameView.praise(now: Long, label: String) {
 }
 
 internal fun GameView.startCelebration(now: Long, label: String,
-                                      look: CelebrationLook = CelebrationMix.next(fxRandom, celebrateLook)) {
+                                      look: CelebrationLook = if (label == PartyMeter.LABEL) PartyMeter.LOOK
+                                                              else CelebrationMix.next(fxRandom, celebrateLook)) {
     celebrateMs    = now
     physicsMs      = now
     celebrateLabel = label.substringBefore(Praise.LINE_BREAK)
@@ -372,4 +377,27 @@ internal fun GameView.advanceBoxStrip(now: Long) {
         if (prefs.hapticEnabled) hapticEngine.tick()
     }
     if (StickerRules.boxJustFilled(before, seen)) boxStrip.boxPopMs = now
+}
+
+/** Pours [cleared] donuts into the sprinkle party meter, saves it, and starts the party when it fills. */
+internal fun GameView.pourParty(cleared: Int, playerClear: Boolean, now: Long) {
+    val before = party
+    setParty(PartyMeter.after(before, cleared, playerClear))
+    if (party != before) partyPopMs = now
+    if (PartyMeter.started(before, party)) celebrate(now, PartyMeter.LABEL)
+}
+
+/** Sets the party state and keeps it in [Prefs]. */
+internal fun GameView.setParty(s: PartyState) {
+    if (s.meter != party.meter) prefs.partyMeter = s.meter
+    if (s.left != party.left) prefs.partyLeft = s.left
+    party = s
+}
+
+/** Eases the drawn fill toward the real one: up quickly, down as the party drains. */
+internal fun GameView.advancePartyMeter() {
+    val target = PartyMeter.fill(party)
+    partyShownFill = if (partyShownFill < 0f || reducedMotion) target
+                     else partyShownFill + (target - partyShownFill) * 0.12f
+    if (abs(target - partyShownFill) < 0.002f) partyShownFill = target
 }

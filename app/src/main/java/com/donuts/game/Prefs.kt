@@ -27,6 +27,15 @@ class Prefs(context: Context) {
         get()  = p.getBoolean("haptic_enabled", true)
         set(v) { p.edit().putBoolean("haptic_enabled", v).apply() }
 
+    // The sprinkle party meter (see PartyMeter): donuts poured in, and party chains still to play
+    var partyMeter: Int
+        get()  = p.getInt("party_meter", 0)
+        set(v) { p.edit().putInt("party_meter", v).apply() }
+
+    var partyLeft: Int
+        get()  = p.getInt("party_left", 0)
+        set(v) { p.edit().putInt("party_left", v).apply() }
+
     var lifetimeDonuts: Int
         get()  = p.getInt("lifetime_donuts", 0)
         set(v) { p.edit().putInt("lifetime_donuts", v).apply() }
