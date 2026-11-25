@@ -77,6 +77,16 @@ class Prefs(context: Context) {
         get()  = p.getInt("friends_met", 0).coerceIn(0, FriendRules.FRIEND_COUNT)
         set(v) { p.edit().putInt("friends_met", v).apply() }
 
+    // Toppings earned so far (0..ToppingRules.EARNABLE, PLAIN not counted). Kept forever like friendsMet.
+    var toppingsEarned: Int
+        get()  = p.getInt("toppings_earned", 0).coerceIn(0, ToppingRules.EARNABLE)
+        set(v) { p.edit().putInt("toppings_earned", v).apply() }
+
+    // The topping Steven picked (Topping.key); ToppingRules.chosen falls back to PLAIN if it is unknown or not earned
+    var topping: String?
+        get()  = p.getString("topping", null)
+        set(v) { p.edit().putString("topping", v).apply() }
+
     // How Steven plays (PlayTally text form): chain lengths and power-ups. Stays on the phone; no reset clears it.
     var playTally: String?
         get()  = p.getString("play_tally", null)
