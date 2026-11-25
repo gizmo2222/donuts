@@ -76,7 +76,9 @@ class ScreenGallery {
         if (release) TestViews.touch(v, MotionEvent.ACTION_UP, pts.last().first, pts.last().second)
     }
 
-    private fun home(size: Size) {
+    private fun home(size: Size, shop: Int = 0, name: String = "01-home") {
+        clearPrefs()
+        Prefs(TestViews.app()).shopEarned = shop
         val mv = MainView(TestViews.app()) {}
         mv.measure(View.MeasureSpec.makeMeasureSpec(size.w, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(size.h, View.MeasureSpec.EXACTLY))
@@ -84,12 +86,13 @@ class ScreenGallery {
         val bmp = Bitmap.createBitmap(size.w, size.h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         repeat(5) { TestViews.advance(100); mv.draw(c) }
-        save(bmp, size, "01-home")
+        save(bmp, size, name)
     }
 
     private fun render(size: Size) {
         RuntimeEnvironment.setQualifiers(size.qualifiers)
         home(size)
+        home(size, ShopRules.COUNT, "01b-home-shop-full")
         shoot(game(size), size, "02-board")
         shoot(game(size, tutorialSeen = false), size, "03-tutorial", warm = 40, step = 40L)
         shoot(game(size).also { drag(it, 6, release = false) }, size, "04-drag")

@@ -21,7 +21,12 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
     private var logoCX  = 0f
     private var logoCY  = 0f
     private var logoR   = 0f
-    private var playRect = RectF()
+    internal var playRect = RectF()
+
+    // Steven's donut shop at the bottom of the screen (see ShopRules, ShopScene); empty when there is no room
+    internal val shopRect = RectF()
+    internal var shopEarned = 0
+    private val shop = ShopScene(boldTypeface)
 
     // Density-independent unit (see UiScale) and window insets
     private val uiScale = UiScale(context)
@@ -54,6 +59,7 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
     private val scratchRect = RectF()
 
     init {
+        refreshShop()
         postInvalidateOnAnimation()
         ViewCompat.setOnApplyWindowInsetsListener(this) { _, insets ->
             val bars = insets.getInsets(
@@ -88,8 +94,27 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         logoCY = groupTop + logoR
         val btnY = (logoCY + logoR * (1.82f + 0.60f + 0.72f)).coerceAtMost(safeT + safeH - btnH - 80f * u)
         playRect = RectF(logoCX - btnW / 2f, btnY, logoCX + btnW / 2f, btnY + btnH)
+        layoutShop(safeL, safeW, safeT + safeH)
 
         bgPaint.shader = LinearGradient(0f, 0f, 0f, h, bgTop, bgBot, Shader.TileMode.CLAMP)
+    }
+
+    /** The shop sits under PLAY, bottom-anchored, 2.5 times as wide as tall, at most 200dp tall; none under 48dp. */
+    private fun layoutShop(safeL: Float, safeW: Float, safeB: Float) {
+        val bottom = safeB - 8f * u
+        val room = bottom - (playRect.bottom + 14f * u)
+        val tall = minOf(room, 200f * u, (safeW - 16f * u) / SHOP_ASPECT)
+        if (tall < 48f * u) { shopRect.setEmpty(); return }
+        val cx = safeL + safeW / 2f
+        shopRect.set(cx - tall * SHOP_ASPECT / 2f, bottom - tall, cx + tall * SHOP_ASPECT / 2f, bottom)
+    }
+
+    /** Reads lifetime donuts and keeps every shop piece already built (saved, so Reset stickers cannot take one away). */
+    fun refreshShop() {
+        val prefs = Prefs(context)
+        shopEarned = ShopRules.kept(prefs.lifetimeDonuts, prefs.shopEarned)
+        if (shopEarned > prefs.shopEarned) prefs.shopEarned = shopEarned
+        invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -107,6 +132,7 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         // Gentle breathing invites the tap
         val breathe = if (reducedMotion) 1f else 1f + 0.025f * sin(elapsed * 2.6f)
         drawPlayButton(canvas, buttonPressScale(now) * breathe)
+        if (!shopRect.isEmpty) shop.draw(canvas, shopRect, shopEarned, elapsed, reducedMotion)
 
         postInvalidateOnAnimation()
     }
@@ -369,4 +395,10 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         }
         return true
     }
+
+    companion object {
+        /** The shop scene's width over its height. */
+        const val SHOP_ASPECT = 2.5f
+    }
+
 }
