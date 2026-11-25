@@ -238,6 +238,11 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal val STICKER_FLY_MS = 1200L
     internal var starPulseMs    = -1L
 
+    // A donut friend met on a box slot fill: it pops up on the board, then flies into the star button
+    internal var friendFlyMs    = -1L
+    internal var friendFlyIdx   = -1
+    internal val FRIEND_FLY_MS  = 1600L
+
     // Press feedback on panel buttons (settings options, New game, Done)
     internal var optPressRect: RectF? = null
     internal var optPressMs = -1L
@@ -415,7 +420,9 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
         if (celebrateMs >= 0) drawCelebration(canvas, now)
         checkStickers(now)
         advanceShowSomeone(now)
+        checkFriends(now)
         if (stickerFlyMs >= 0) drawStickerFly(canvas, now)
+        if (friendFlyMs >= 0) drawFriendFly(canvas, now)
         if (settingsAnim > 0f) drawSettings(canvas, now)
         if (stickersAnim > 0f) drawStickersPanel(canvas, now)
         drawChainFlash(canvas, now)
