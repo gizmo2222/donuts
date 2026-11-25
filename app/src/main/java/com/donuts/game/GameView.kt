@@ -66,6 +66,10 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var gateAnswerRect    = RectF()
     internal var gateWrongMs       = -1L                  // a wrong answer shakes the answer box
     internal var parentGate        = ParentGate()
+    internal var settingsTallyRect = RectF()              // Grown-ups page: the play tally lines
+    // How Steven plays (PlayTally), kept in Prefs; tallyLines is what the Grown-ups page draws
+    internal val playTally         = PlayTally.decode(prefs.playTally)
+    @Volatile internal var tallyLines: List<String> = playTally.lines()
 
     internal val onOffLabels = arrayOf("On", "Off")
     internal val hintOptions = longArrayOf(5_000L, 0L)

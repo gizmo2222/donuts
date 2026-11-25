@@ -4,7 +4,8 @@ import android.graphics.*
 import kotlin.math.*
 
 // The grown-ups corner of the settings panel: the locked Grown-ups button on Steven's page,
-// the parent gate (a times-table question in words and a keypad), and the promise to parents.
+// the parent gate (a times-table question in words and a keypad), the promise to parents and
+// the play tally (how Steven really plays, kept on the phone).
 // Part of GameView: these are extension functions on it.
 
 /** How long a settings page takes to pop in after a turn. */
@@ -71,4 +72,19 @@ internal fun GameView.drawPromise(canvas: Canvas) {
     val col = Color.argb(200, 60, 30, 0)
     drawLabel(canvas, "No ads. No purchases. No timers.", cx, y0, 14f * k, w, col, outlined = false)
     drawLabel(canvas, "Nothing leaves this phone.", cx, y0 + 20f * k, 14f * k, w, col, outlined = false)
+}
+
+/** The Grown-ups page: the play tally ([PlayTally.lines]) on a soft card, heading first. */
+internal fun GameView.drawTally(canvas: Canvas) {
+    val k = u * settingsSc
+    val r = settingsTallyRect
+    fillPaint.color = Color.argb(40, 120, 60, 0)
+    canvas.drawRoundRect(r, 14f * k, 14f * k, fillPaint)
+    val lines = tallyLines
+    val w = r.width() - 20f * k
+    val col = Color.argb(215, 60, 30, 0)
+    for (i in lines.indices) {
+        val size = if (i == 0) 14f * k else 13f * k
+        drawLabel(canvas, lines[i], r.centerX(), r.top + 22f * k + i * 20f * k, size, w, col, outlined = false)
+    }
 }

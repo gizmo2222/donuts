@@ -268,6 +268,7 @@ internal fun GameView.handleUp() {
             val label = Praise.chainLabel(result.powerUp, chainLen, hasGolden)
             val labelColor = if (label == "GOLDEN!") GameTheme.goldenLabel else result.chainType.labelColor
             label?.let { addFloatLabelAt(allPop, it, labelColor, now) }
+            tallyChain(chainLen, result.powerUp, hasGolden)
         }
     } else if (chain.isNotEmpty()) {
         // Too short to pop: the donuts wobble with a "boop" and a tick, so a tap is never dead.
@@ -280,8 +281,16 @@ internal fun GameView.handleUp() {
         if (wobbleGiggle) addFloatLabelAt(chain, Praise.GIGGLE, Color.WHITE, now)
         if (prefs.soundEnabled) { if (wobbleGiggle) soundEngine.playGiggle() else soundEngine.playBoop() }
         if (prefs.hapticEnabled) hapticEngine.tick()
+        tallyChain(chain.size)
     }
     dragChain.clear(); chainPings.clear(); rejectedCell = null; chainLooped = false
+}
+
+/** Counts a released chain in [PlayTally] and saves it to Prefs (on this phone only). */
+internal fun GameView.tallyChain(length: Int, powerUp: PowerUp = PowerUp.NONE, hadGolden: Boolean = false) {
+    playTally.record(length, powerUp, hadGolden)
+    prefs.playTally = playTally.encode()
+    tallyLines = playTally.lines()
 }
 
 /** The chain's finger lifted: release the chain now, or let it wait [LiftGrace] for the finger to come back. */

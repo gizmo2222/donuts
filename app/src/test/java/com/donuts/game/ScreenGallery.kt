@@ -116,7 +116,7 @@ class ScreenGallery {
             }
         }
         run {
-            val v = game(size)
+            val v = game(size) { it.playTally = "t1;40,25,120,60,22,9,3,1,0,0,0,0;0,31,4,0,2;12" }
             shoot(v, size, "26-settings-grown", warm = 30, step = 20L) { v.settingsOpen = true; v.showSettingsPage(SETTINGS_GROWN) }
         }
         run {
