@@ -111,7 +111,7 @@ internal fun GameView.startOver() {
         prefs.savedBoard = null
         board.reset()
         resetPlayState()
-        resetFlashMs     = now
+        if (FlashGate.allows(lastFullFlashMs, now)) { resetFlashMs = now; lastFullFlashMs = now }
         lastActionMs     = now
         boardEntryMs     = now
     }
@@ -226,8 +226,8 @@ internal fun GameView.handleUp() {
 
             val chainLen = result.chainCells.size
             if (chainLen > prefs.bestChainLength) prefs.bestChainLength = chainLen
-            if (chainLen >= 6) {
-                chainFlashMs    = now
+            if (chainLen >= 6 && FlashGate.allows(lastFullFlashMs, now)) {
+                chainFlashMs    = now; lastFullFlashMs = now
                 chainFlashColor = result.chainType.bodyColor
             }
             if (prefs.soundEnabled)  soundEngine.playPopClear()
