@@ -82,6 +82,11 @@ class Prefs(context: Context) {
         get()  = p.getInt("toppings_earned", 0).coerceIn(0, ToppingRules.EARNABLE)
         set(v) { p.edit().putInt("toppings_earned", v).apply() }
 
+    // Shop pieces built on the home screen (0..ShopRules.COUNT, see ShopRules.kept). Kept forever like friendsMet.
+    var shopEarned: Int
+        get()  = p.getInt("shop_earned", 0).coerceIn(0, ShopRules.COUNT)
+        set(v) { p.edit().putInt("shop_earned", v).apply() }
+
     // The topping Steven picked (Topping.key); ToppingRules.chosen falls back to PLAIN if it is unknown or not earned
     var topping: String?
         get()  = p.getString("topping", null)
