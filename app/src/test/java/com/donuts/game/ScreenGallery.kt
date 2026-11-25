@@ -50,6 +50,7 @@ class ScreenGallery {
         p.soundEnabled = false; p.hapticEnabled = false
         p.stickersAnnounced = 0xFFF          // no sticker fly unless a state asks for one
         p.friendsMet = FriendRules.FRIEND_COUNT          // nor a friend reveal
+        p.toppingsEarned = ToppingRules.EARNABLE         // nor a topping reveal
         setup(p)
         return TestViews.gameView(w = size.w, h = size.h, grid = grid, seed = 3, tutorialSeen = tutorialSeen)
     }
@@ -126,6 +127,14 @@ class ScreenGallery {
         run {
             val v = game(size) { it.friendsMet = FriendRules.FRIEND_COUNT; it.lifetimeDonuts = 500 }
             shoot(v, size, "24-all-friends", warm = 30, step = 20L) { v.stickersPage = 1; v.stickersOpen = true }
+        }
+        run {
+            val v = game(size) { it.friendsMet = 4; it.toppingsEarned = 4; it.topping = "stars"; it.lifetimeDonuts = 400 }
+            shoot(v, size, "29-toppings-page", warm = 30, step = 20L) { v.stickersPage = 2; v.stickersOpen = true }
+        }
+        run {
+            val v = game(size) { it.toppingsEarned = 1; it.topping = "sprinkles"; it.lifetimeDonuts = 60 }
+            shoot(v, size, "30-board-sprinkles")
         }
         if (!size.allStates) return
         run {

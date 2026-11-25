@@ -54,8 +54,10 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
     // ---- Title ----
     val titleX = stickerPanelRect.centerX()
     val titleY = stickerPanelRect.top + 36f * u
-    val onFriends = prefs.friendsMet > 0 && stickersPage == 1
-    if (prefs.friendsMet > 0) drawPanelTabs(canvas, now)
+    placePanelTabs()
+    val onFriends = panelPageNow() == 1
+    val onToppings = panelPageNow() == 2
+    if (panelTabPages().size > 1) drawPanelTabs(canvas, now)
     else drawOutlinedText(canvas, "My Stickers", titleX, titleY - 28f * u * 0.36f, 28f * u, Color.WHITE)
 
     val earnedMask  = StickerRules.earnedMask(stickerStats())
@@ -64,7 +66,8 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
     // ---- Sticker tiles ----
     val spinMs = 3200L   // shimmer ring rotation period
     if (onFriends) drawFriendsPage(canvas, now)
-    for (i in 0 until (if (onFriends) 0 else 12)) {
+    if (onToppings) drawToppingsPage(canvas, now)
+    for (i in 0 until (if (onFriends || onToppings) 0 else 12)) {
         val rect    = stickerRects[i]
         val earned = earnedMask and (1 shl i) != 0
         val color   = STICKER_COLORS[i]
