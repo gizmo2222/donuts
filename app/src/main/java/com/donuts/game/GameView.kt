@@ -80,6 +80,11 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     /** The drag chain has closed into a ring on its first cell (see [LoopRules]); it clears as RING. */
     internal var chainLooped = false
     internal val chainPointer = ChainPointer()
+    /** Drag direction for [HitZone] (unit vector in cell units, zero before the finger moves) and where it was last set. */
+    internal var aimU = 0f
+    internal var aimV = 0f
+    internal var aimAnchorU = 0f
+    internal var aimAnchorV = 0f
 
     // -----------------------------------------------------------------------
     // Game animation
