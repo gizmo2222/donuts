@@ -74,7 +74,7 @@ All sources are in `app\src\main\java\com\donuts\game`. No main source is over a
 | `GameInput.kt` | Touch: the touch dispatcher (`handleTouch`), panel hits, dragging and releasing a chain, New game |
 | `BoardDraw.kt` | The board: background, cells, chain string, hint ring, flashes, the reduced-motion refused-donut ring |
 | `DonutArt.kt` | The six donuts and the ball: vector art and the sprite cache |
-| `HudDraw.kt` | Backdrop, icon buttons (star, gear), pretty buttons, the counter, box strip, the sprinkle party meter, text helpers |
+| `HudDraw.kt` | Backdrop, icon buttons (star, gear), pretty buttons, the counter (with the donut pal in front of its figures), box strip, the sprinkle party meter, text helpers |
 | `EffectsDraw.kt` | Float labels, pings, sticker fly, tutorial, no-moves warning, power-up effects |
 | `CelebrationDraw.kt` | The milestone celebration: confetti in its look's style, the banner in its colour, golden sparkles |
 | `PanelsDraw.kt` | The stickers panel (with the donut box) and the settings panel (three pages: Steven's, the gate, grown-ups) |
@@ -111,6 +111,8 @@ All sources are in `app\src\main\java\com\donuts\game`. No main source is over a
 | `PlayTally.kt` | `PlayTally`: the local tally of chain lengths, power-ups and golden chains, its text form for `Prefs` and the Grown-ups page lines (pure, unit tested) |
 | `PicturePrompt.kt` | `Prompt` and `PicturePrompts`: the soft picture goal ("pop 3 pink"), never the same donut twice in a row, its text form for `Prefs` (pure, unit tested) |
 | `PromptDraw.kt` | The picture prompt chip beside the counter: `advancePrompt` counts pops and finishes it, `layoutCounterRow` places chip and counter, `drawPromptChip` |
+| `PalArt.kt` | `drawPal`: the donut pal beside the counter (tangerine-glazed ring, red sneakers, waving arms, blinking eyes); `PAL_HALF_W`, `PAL_TALL` give its box |
+| `PalMotion.kt` | `PalPose` and `PalMotion`: the pal's idle bob, landing squash, blink and glance from the clock, still under reduced motion (pure, unit tested) |
 | `GameBoard.kt`, `GameCell.kt`, `ChainResult.kt`, `PowerUp.kt`, `DonutType.kt` | Game rules, no drawing |
 | `MainView.kt`, `MainActivity.kt`, `GameActivity.kt` | Home screen and the two activities |
 | `Prefs.kt`, `UiScale.kt`, `GameTheme.kt`, `SoundEngine.kt`, `HapticEngine.kt` | Saved data, dp sizing, palette, sound, haptics |
@@ -156,16 +158,18 @@ so read just that range.
 | GameLayout.kt | 222 | `computeLayout` 10-67, `layoutSettingsPanel` 68-83, `showSettingsPage` 84-91, `placeSettings` 92-117, `row` 118-169, `layoutStickersPanel` 170-178, `sideFor` 179-213, `excludeBackSwipe` 214-222 |
 | GameTheme.kt | 23 | `GameTheme` 6-23 |
 | GameTypes.kt | 52 | `AnimPhase` 7-13, `AnimCell` 14-20, `PowerUpFx` 21-25, `DigitFlip` 26-27, `Particle` 28-35, `FloatLabel` 36-41, `BoxStrip` 42-52 |
-| GameView.kt | 530 | `GameView` 14-445, `surfaceCreated` 446-450, `surfaceChanged` 451-454, `surfaceDestroyed` 455-474, `drawFrame` 475-528, `onTouchEvent` 529-530 |
+| GameView.kt | 534 | `GameView` 14-449, `surfaceCreated` 450-454, `surfaceChanged` 455-458, `surfaceDestroyed` 459-478, `drawFrame` 479-532, `onTouchEvent` 533-534 |
 | GateDraw.kt | 90 | `drawGrownUpsButton` 17-35, `drawGatePage` 36-67, `drawPromise` 68-77, `drawTally` 78-90 |
 | HapticEngine.kt | 34 | `HapticEngine` 10-21, `tick` 22-24, `pop` 25-27, `milestone` 28-31, `shuffle` 32-34 |
 | HitZone.kt | 62 | `HitZone` 16-25, `diagWeight` 26-32, `target` 33-56, `aim` 57-62 |
-| HudDraw.kt | 290 | `drawHUD` 12-16, `drawBackdrop` 17-30, `drawIconButton` 31-38, `drawStarIcon` 39-55, `drawGearIcon` 56-73, `pressScaleFor` 74-77, `buttonPressScale` 78-84, `drawPrettyButton` 85-126, `drawCounter` 127-196, `drawLabel` 197-212, `drawOutlinedText` 213-223, `drawBoxStrip` 224-230, `drawPartyMeter` 231-286, `blendColor` 287-287, `ch` 288-290 |
+| HudDraw.kt | 294 | `drawHUD` 12-16, `drawBackdrop` 17-30, `drawIconButton` 31-38, `drawStarIcon` 39-55, `drawGearIcon` 56-73, `pressScaleFor` 74-77, `buttonPressScale` 78-84, `drawPrettyButton` 85-126, `drawCounter` 127-200, `drawLabel` 201-216, `drawOutlinedText` 217-227, `drawBoxStrip` 228-234, `drawPartyMeter` 235-290, `blendColor` 291-291, `ch` 292-294 |
 | LayoutMath.kt | 36 | `LayoutMath` 7-8, `spareShare` 9-12, `gutter` 13-15, `cellIndex` 16-19, `boardSide` 20-22, `panelLocalY` 23-25, `fitSide` 26-33, `clampCenter` 34-36 |
 | LiftGrace.kt | 24 | `LiftGrace` 9-15, `graceMs` 16-22, `expired` 23-24 |
 | LoopRules.kt | 22 | `LoopRules` 9-15, `closes` 16-22 |
 | MainActivity.kt | 28 | `MainActivity` 8-12, `onResume` 13-17, `onCreate` 18-28 |
 | MainView.kt | 372 | `MainView` 13-66, `onSizeChanged` 67-72, `relayout` 73-94, `onDraw` 95-116, `drawDotGrid` 117-131, `drawLogo` 132-150, `drawDonut` 151-192, `drawSoccerBall` 193-235, `regularPolygon` 236-250, `addSheen` 251-267, `drawTitle` 268-308, `buttonPressScale` 309-315, `drawPlayButton` 316-356, `onTouchEvent` 357-372 |
+| PalArt.kt | 99 | `drawPal` 30-99 |
+| PalMotion.kt | 40 | `PalPose` 12-14, `PalMotion` 15-25, `at` 26-40 |
 | PanelsDraw.kt | 424 | `stickerStats` 13-21, `drawStickersPanel` 22-168, `drawDonutBox` 169-236, `popScale` 237-241, `drawClosedBox` 242-261, `drawSettings` 262-343, `drawConfirmButton` 344-371, `drawCheckBadge` 372-381, `drawSettingsBtn` 382-424 |
 | ParentGate.kt | 49 | `ParentGate` 11-22, `next` 23-32, `press` 33-49 |
 | PartyMeter.kt | 50 | `PartyState` 7-17, `PartyMeter` 18-30, `after` 31-37, `started` 38-40, `goldenChance` 41-43, `fill` 44-47, `restore` 48-50 |
@@ -229,6 +233,8 @@ so read just that range.
 | LiftGraceInputTest.kt | 119 | `LiftGraceInputTest` 10-11, `raw` 12-17, `liftedTwo` 18-27, `aLiftedTwoWaitsAndTheFingerBackOnItsEndCarriesOn` 28-45, `aTouchOnTheNextDonutJoinsItStraightAway` 46-52, `whenTheWaitRunsOutTheTwoWobbleAsBefore` 53-63, `aChainThatPopsWaitsOnlyTheShortGrace` 64-73, `aTouchOutOfReachReleasesTheOldChainAndStartsANewOne` 74-82, `aStrayMoveWhileTheChainWaitsDoesNotGrowIt` 83-90, `aSingleTapIsAnsweredAtOnce` 91-99, `theStarButtonWhileAChainWaitsReleasesItAndOpensStickers` 100-109, `settlingTheBoardWhileAChainWaitsBanksItsDonuts` 110-119 |
 | LiftGraceTest.kt | 35 | `LiftGraceTest` 7-35 |
 | LoopRulesTest.kt | 32 | `LoopRulesTest` 7-32 |
+| PalLayoutTest.kt | 76 | `PalLayoutTest` 16-19, `check` 20-47, `thePalFitsOnARealDensityPhone` 48-50, `thePalFitsOnASmallPhone` 51-76 |
+| PalMotionTest.kt | 52 | `PalMotionTest` 7-52 |
 | ParentGateTest.kt | 71 | `ParentGateTest` 9-9, `gate` 10-71 |
 | PartyMeterTest.kt | 79 | `PartyMeterTest` 9-79 |
 | PartyMeterViewTest.kt | 85 | `PartyMeterViewTest` 12-13, `settle` 14-85 |

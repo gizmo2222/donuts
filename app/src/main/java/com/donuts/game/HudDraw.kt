@@ -131,14 +131,15 @@ internal fun GameView.drawCounter(canvas: Canvas, now: Long) {
     val midY   = (top + bottom) / 2f
     val ph     = bottom - top
 
-    // One big figure; a small donut beside it says what it counts without a word
+    // One big figure; the donut pal beside it says what it counts without a word
     val digitSz = ph * 0.72f
     textPaint.textSize = digitSz
     val cellW   = textPaint.measureText("0") * 1.08f
     val numStr  = displayedCount.toString()
-    val iconR   = ph * 0.22f
+    val palR    = ph * 0.25f
+    val palW    = palR * PAL_HALF_W * 2f
     val iconGap = ph * 0.18f
-    val totalW  = iconR * 2.4f + iconGap + numStr.length * cellW
+    val totalW  = palW + iconGap + numStr.length * cellW
     val cx      = layoutCounterRow(totalW, top, bottom)   // shares the row with the picture prompt
 
     // Heartbeat: quick scale-pulse when the number increments
@@ -152,10 +153,13 @@ internal fun GameView.drawCounter(canvas: Canvas, now: Long) {
 
     textPaint.textSize = digitSz
     val left    = cx - totalW / 2f
-    val startX  = left + iconR * 2.4f + iconGap + cellW / 2f
+    val startX  = left + palW + iconGap + cellW / 2f
     val baseY   = midY + digitSz * 0.36f
 
-    drawPiece(canvas, left + iconR * 1.2f, midY, iconR, DonutType.STRAWBERRY, false)
+    val footY = midY + ph * 0.30f
+    palRect.set(left, footY - palR * PAL_TALL, left + palW, footY)
+    counterDigits.set(left + palW + iconGap, midY - digitSz * 0.5f, left + totalW, midY + digitSz * 0.5f)
+    drawPal(canvas, left + palW / 2f, footY, palR, PalMotion.at(now, reducedMotion))
 
     textOutlinePaint.textSize    = digitSz
     textOutlinePaint.textAlign   = Paint.Align.CENTER

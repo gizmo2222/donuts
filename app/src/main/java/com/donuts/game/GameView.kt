@@ -203,6 +203,10 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var counterPulseMs   = -1L
     internal val COUNTER_PULSE_MS = 240L
 
+    // The donut pal beside the counter (PalArt.kt); both rects laid out each frame by drawCounter
+    internal val palRect       = RectF()    // the pal standing still, arms and feet included
+    internal val counterDigits = RectF()    // the counter's figures, right of the pal
+
     // Big-chain color flash overlay (chain ≥ 6)
     internal var chainFlashMs     = -1L
     internal var chainFlashColor  = 0
