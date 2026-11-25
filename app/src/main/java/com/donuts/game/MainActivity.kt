@@ -3,9 +3,9 @@ package com.donuts.game
 import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
 
     // Set on the first PLAY tap so a second quick tap cannot open a second game; cleared when we come back
     private var launching = false

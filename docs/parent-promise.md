@@ -54,5 +54,5 @@ fail until it is updated:
   access);
 - a link out of the app, or anything that opens a browser or the Play Store.
 
-Dropping a dependency (backlog row B14 drops appcompat and material) needs no policy change; remove it from
-the allow list in the test too.
+Dropping a dependency needs no policy change; remove it from the allow list in the test too. Backlog row B14
+dropped appcompat and material and named `androidx.activity`, which they had pulled in and which sends nothing.

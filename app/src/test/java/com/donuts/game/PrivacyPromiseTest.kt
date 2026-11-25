@@ -50,8 +50,7 @@ class PrivacyPromiseTest {
             .findAll(gradle).map { it.groupValues[1] }.toSet()
         val allowed = setOf(
             "androidx.core:core-ktx",
-            "androidx.appcompat:appcompat",
-            "com.google.android.material:material",
+            "androidx.activity:activity",
         )
         assertTrue("found the app's dependencies", "androidx.core:core-ktx" in deps)
         assertEquals("new libraries need the privacy policy reviewed", emptySet<String>(), deps - allowed)

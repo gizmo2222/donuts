@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Donuts" parent="Theme.MaterialComponents.Light.NoActionBar">
-        <item name="colorPrimary">@color/pink</item>
-        <item name="colorPrimaryVariant">@color/caramel</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSecondary">@color/matcha</item>
-        <item name="colorOnSecondary">@color/white</item>
+    <!-- The platform theme: both screens draw everything themselves, so no appcompat or Material.
+         The cream window background is what shows before the first frame and behind the splash. -->
+    <style name="Base.Theme.Donuts" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/cream</item>
+        <item name="android:colorBackground">@color/cream</item>
         <item name="android:statusBarColor">@color/cream</item>
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:windowBackground">@color/cream</item>
     </style>
+
+    <style name="Theme.Donuts" parent="Base.Theme.Donuts" />
 </resources>
