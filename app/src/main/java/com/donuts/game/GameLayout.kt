@@ -74,29 +74,33 @@ internal fun GameView.placeSettings(pw: Float, safeL: Float, safeT: Float, safeW
     val k      = u * settingsSc
     val pad    = 16f * k
     val titleH = 84f * k
-    val rowH   = 56f * k
-    val secGap = 40f * k      // room for a section label above each row
+    val secH   = 76f * k      // a settings row: the picture over its word, beside the two choices
+    val secGap = 12f * k
+    val btnH   = 60f * k      // the choice buttons, centred in the row
+    val iconW  = 88f * k      // the picture-and-word column on the left of each row
+    val rowH   = 56f * k      // New game / Reset stickers
+    val confGap = 24f * k
     val closeH = 56f * k
     val verH   = 24f * k      // the small version line under Done
-    val ph = titleH + rowH + (secGap + rowH) * 4f + secGap + closeH + pad + verH
+    val ph = titleH + secH * 4f + secGap * 3f + confGap + rowH + pad + closeH + pad + verH
     val pl = safeL + (safeW - pw) / 2f
     val pt = safeT + (safeH - ph) / 2f
     panelRect = RectF(pl, pt, pl + pw, pt + ph)
 
-    fun row(rects: Array<RectF>, top: Float) {
+    fun row(i: Int, rects: Array<RectF>) {
+        val top = pt + titleH + i * (secH + secGap)
+        settingsIconRects[i].set(pl + pad, top, pl + pad + iconW, top + secH)
         val n  = rects.size
-        val bw = (pw - pad * (n + 1)) / n
-        for (i in 0 until n) {
-            val x = pl + pad + i * (bw + pad)
-            rects[i].set(x, top, x + bw, top + rowH)
+        val x0 = pl + pad + iconW
+        val bw = (pl + pw - x0 - pad * (n + 1)) / n
+        val bTop = top + (secH - btnH) / 2f
+        for (j in 0 until n) {
+            val x = x0 + pad + j * (bw + pad)
+            rects[j].set(x, bTop, x + bw, bTop + btnH)
         }
     }
-    val sTop = pt + titleH
-    val bTop = sTop + rowH + secGap
-    val hTop = bTop + rowH + secGap
-    val gTop = hTop + rowH + secGap
-    val rTop = gTop + rowH + secGap
-    row(soundRects, sTop); row(buzzRects, bTop); row(hintRects, hTop); row(gridRects, gTop)
+    row(0, soundRects); row(1, buzzRects); row(2, hintRects); row(3, gridRects)
+    val rTop = pt + titleH + secH * 4f + secGap * 3f + confGap
     val rw = (pw - pad * 3f) / 2f
     settingsResetRect    = RectF(pl + pad, rTop, pl + pad + rw, rTop + rowH)
     settingsStickersRect = RectF(pl + pad * 2f + rw, rTop, pl + pw - pad, rTop + rowH)

@@ -311,31 +311,31 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
     canvas.drawRoundRect(panelRect, pr, pr, fillPaint)
 
     val pl = panelRect.left; val pw = panelRect.width(); val pt = panelRect.top
-    val pad = 16f * k
 
     // Title
     val titleX = pl + pw / 2f; val titleY = pt + 48f * k; val titleSz = 30f * k
     drawOutlinedText(canvas, "Settings", titleX, titleY - titleSz * 0.36f, titleSz, Color.WHITE)
 
-    drawSectionLabel(canvas, "Sound", pl + pad, soundRects[0].top - 8f * k)
+    // Each row: a picture showing the current choice, its word under it, then the choices
+    drawSettingsIcon(canvas, settingsIconRects[ICON_SOUND], ICON_SOUND, prefs.soundEnabled, "Sound")
     drawSettingsBtn(canvas, now, soundRects[0], onOffLabels[0], prefs.soundEnabled)
     drawSettingsBtn(canvas, now, soundRects[1], onOffLabels[1], !prefs.soundEnabled)
 
-    drawSectionLabel(canvas, "Buzz", pl + pad, buzzRects[0].top - 8f * k)
+    drawSettingsIcon(canvas, settingsIconRects[ICON_BUZZ], ICON_BUZZ, prefs.hapticEnabled, "Buzz")
     drawSettingsBtn(canvas, now, buzzRects[0], onOffLabels[0], prefs.hapticEnabled)
     drawSettingsBtn(canvas, now, buzzRects[1], onOffLabels[1], !prefs.hapticEnabled)
 
-    drawSectionLabel(canvas, "Hints", pl + pad, hintRects[0].top - 8f * k)
     val hintsOn = prefs.hintDelayMs != 0L
+    drawSettingsIcon(canvas, settingsIconRects[ICON_HINTS], ICON_HINTS, hintsOn, "Hints")
     drawSettingsBtn(canvas, now, hintRects[0], onOffLabels[0], hintsOn)
     drawSettingsBtn(canvas, now, hintRects[1], onOffLabels[1], !hintsOn)
 
-    drawSectionLabel(canvas, "Donut size", pl + pad, gridRects[0].top - 8f * k)
+    drawSettingsIcon(canvas, settingsIconRects[ICON_GRID], ICON_GRID, prefs.gridSize == gridOptions[0], "Size")
     for (i in gridOptions.indices) drawSettingsBtn(canvas, now, gridRects[i], gridLabels[i], gridOptions[i] == prefs.gridSize)
 
     // Two-tap confirm buttons so a stray tap cannot wipe the board or the stickers
-    drawConfirmButton(canvas, now, settingsResetRect, newGameConfirm, "New game", "New game?", Color.rgb(200, 70, 50))
-    drawConfirmButton(canvas, now, settingsStickersRect, stickersConfirm, "Reset stickers", "Clear all?", Color.rgb(150, 70, 170))
+    drawConfirmButton(canvas, now, settingsResetRect, newGameConfirm, "New game", "New game?", Color.rgb(200, 70, 50), restart = true)
+    drawConfirmButton(canvas, now, settingsStickersRect, stickersConfirm, "Reset stickers", "Clear all?", Color.rgb(150, 70, 170), restart = false)
 
     drawPrettyButton(canvas, settingsCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 18f * k, pressScaleFor(settingsCloseRect, now))
 
@@ -349,12 +349,23 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
     canvas.restore()
 }
 
-/** A pretty button that needs two taps within the window, with a draining bar while armed. */
-internal fun GameView.drawConfirmButton(canvas: Canvas, now: Long, rect: RectF, confirm: TwoTapConfirm, label: String, armedLabel: String, color: Int) {
+/**
+ * A pretty button that needs two taps within the window: an icon on its left (a round arrow
+ * when [restart], else a star) that pulses while armed, and a draining bar.
+ */
+internal fun GameView.drawConfirmButton(canvas: Canvas, now: Long, rect: RectF, confirm: TwoTapConfirm, label: String, armedLabel: String, color: Int, restart: Boolean) {
     val k = u * settingsSc
     val armed = confirm.isArmed(now)
-    drawPrettyButton(canvas, rect, if (armed) Color.rgb(220, 130, 30) else color,
-        if (armed) armedLabel else label, 16f * k, pressScaleFor(rect, now))
+    val press = pressScaleFor(rect, now)
+    drawPrettyButton(canvas, rect, if (armed) Color.rgb(220, 130, 30) else color, "", 16f * k, press)
+    canvas.save(); canvas.scale(press, press, rect.centerX(), rect.centerY())
+    val ir = 13f * k
+    val icx = rect.left + 10f * k + ir
+    drawConfirmIcon(canvas, now, icx, rect.centerY(), ir, restart, armed)
+    val textL = icx + ir + 6f * k; val textR = rect.right - 8f * k
+    drawLabel(canvas, if (armed) armedLabel else label, (textL + textR) / 2f, rect.centerY() + 16f * k * 0.36f,
+        16f * k, textR - textL, Color.WHITE, outlined = true)
+    canvas.restore()
     if (armed) {
         val progress = confirm.progress(now)
         val bx = rect.left + 10f * k
@@ -378,35 +389,6 @@ internal fun GameView.drawCheckBadge(canvas: Canvas, bx: Float, by: Float, br: F
     textPaint.textSize  = br * 1.3f; textPaint.textAlign = Paint.Align.CENTER
     textPaint.color     = Color.WHITE
     canvas.drawText("\u2713", bx, by + br * 0.42f, textPaint)
-}
-
-/** Draws a section label with a chunky left accent bar — bold and readable. */
-internal fun GameView.drawSectionLabel(canvas: Canvas, text: String, x: Float, baselineY: Float) {
-    val k        = u * settingsSc
-    val labelSz  = 17f * k
-    val barW     = 5f * k
-    val barPad   = 2f * k
-    val textX    = x + barW + 8f * k
-
-    textPaint.textSize  = labelSz
-    textPaint.textAlign = Paint.Align.LEFT
-
-    val barTop = baselineY - labelSz * 0.88f
-    val barBot = baselineY + labelSz * 0.18f
-
-    // Accent bar: dark border then theme color
-    fillPaint.color = Color.argb(200, 28, 12, 0)
-    canvas.drawRoundRect(scratchRectF.apply { set(x - barPad, barTop - barPad, x + barW + barPad, barBot + barPad) },
-        barW / 2f + barPad, barW / 2f + barPad, fillPaint)
-    fillPaint.color = theme.accent; fillPaint.alpha = 255
-    canvas.drawRoundRect(scratchRectF.apply { set(x, barTop, x + barW, barBot) },
-        barW / 2f, barW / 2f, fillPaint)
-    fillPaint.alpha = 255
-
-    textPaint.color = Color.argb(70, 0, 0, 0)
-    canvas.drawText(text, textX + 1f * k, baselineY + 1f * k, textPaint)
-    textPaint.color = theme.textPrimary
-    canvas.drawText(text, textX, baselineY, textPaint)
 }
 
 internal fun GameView.drawSettingsBtn(canvas: Canvas, now: Long, rect: RectF, label: String, selected: Boolean) {
