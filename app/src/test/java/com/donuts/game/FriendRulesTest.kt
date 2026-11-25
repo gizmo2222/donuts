@@ -63,6 +63,17 @@ class FriendRulesTest {
         assertNull(FriendRules.next(10_000, 99))
     }
 
+    @Test fun nextStopsAtTheFriendsThatAreDrawn() {
+        assertEquals(4, DRAWN)
+        assertEquals(3, FriendRules.next(10_000, 3, DRAWN))
+        assertNull(FriendRules.next(10_000, 4, DRAWN))
+        assertNull(FriendRules.next(10_000, 11, DRAWN))
+        assertEquals(0, FriendRules.next(10, 0, DRAWN))
+        assertNull(FriendRules.next(10, 1, DRAWN))      // the cap never reveals a friend that is not due
+        assertNull(FriendRules.next(10_000, 0, 0))
+        assertEquals(4, FriendRules.next(10_000, 4))   // the default is all twelve
+    }
+
     @Test fun friendsMetRoundTripsAndClamps() {
         val prefs = Prefs(TestViews.app())
         assertEquals(0, prefs.friendsMet)

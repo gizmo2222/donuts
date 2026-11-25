@@ -15,7 +15,7 @@ private val CASCADE_WORDS = listOf("Again!", "Wow!", "Hooray!", "Yippee!", "Amaz
 // -----------------------------------------------------------------------
 internal fun GameView.updateHint(now: Long) {
     val delay = prefs.hintDelayMs
-    if (tutorialActive || showSomeoneMs >= 0 || delay == 0L || animPhase != AnimPhase.IDLE || dragChain.isNotEmpty()) return
+    if (tutorialActive || showSomeoneMs >= 0 || friendFlyMs >= 0 || delay == 0L || animPhase != AnimPhase.IDLE || dragChain.isNotEmpty()) return
     if (now - lastActionMs >= delay) {
         if (hintCells.isEmpty()) { hintCells = board.findHint(); hintPulseMs = now }
     } else {
@@ -306,7 +306,7 @@ internal fun GameView.checkStickers(now: Long) {
         showSomeonePending = SHOW_BOX
         starPulseMs = now
     }
-    if (stickerFlyMs >= 0) return
+    if (stickerFlyMs >= 0 || friendFlyMs >= 0) return
     val fresh = StickerRules.toAnnounce(mask, earnedMask)
     if (fresh == 0) return
     val idx = Integer.numberOfTrailingZeros(fresh)
@@ -319,9 +319,9 @@ internal fun GameView.checkStickers(now: Long) {
     if (prefs.hapticEnabled) hapticEngine.milestone()
 }
 
-// A pending Show someone card appears once the sticker has landed and no panel is up
+// A pending Show someone card appears once the sticker (or friend) has landed and no panel is up
 internal fun GameView.advanceShowSomeone(now: Long) {
-    if (showSomeonePending == SHOW_NONE || showSomeoneMs >= 0 || stickerFlyMs >= 0 || panelBusy()) return
+    if (showSomeonePending == SHOW_NONE || showSomeoneMs >= 0 || stickerFlyMs >= 0 || friendFlyMs >= 0 || panelBusy()) return
     showSomeoneKind = showSomeonePending; showSomeonePending = SHOW_NONE
     showSomeoneMs = now
     hintCells = emptyList()

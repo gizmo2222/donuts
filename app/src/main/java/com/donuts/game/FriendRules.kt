@@ -28,9 +28,12 @@ object FriendRules {
         return REVEAL_AT.count { it <= slots }
     }
 
-    /** Index of the next friend to reveal when [met] is behind [due], else null. One at a time, in order. */
-    fun next(lifetime: Int, met: Int): Int? {
+    /**
+     * Index of the next friend to reveal when [met] is behind [due], else null. One at a time, in order.
+     * Only the first [drawn] friends have art, so none past them is revealed (the game passes DRAWN).
+     */
+    fun next(lifetime: Int, met: Int, drawn: Int = FRIEND_COUNT): Int? {
         val m = met.coerceIn(0, FRIEND_COUNT)
-        return if (m < due(lifetime)) m else null
+        return if (m < due(lifetime) && m < drawn) m else null
     }
 }

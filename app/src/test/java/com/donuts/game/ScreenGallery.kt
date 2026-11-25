@@ -49,6 +49,7 @@ class ScreenGallery {
         val p = Prefs(TestViews.app())
         p.soundEnabled = false; p.hapticEnabled = false
         p.stickersAnnounced = 0xFFF          // no sticker fly unless a state asks for one
+        p.friendsMet = FriendRules.FRIEND_COUNT          // nor a friend reveal
         setup(p)
         return TestViews.gameView(w = size.w, h = size.h, grid = grid, seed = 3, tutorialSeen = tutorialSeen)
     }
@@ -168,6 +169,10 @@ class ScreenGallery {
             val a = TestViews.cellCenter(v, 0, 0)
             TestViews.touch(v, MotionEvent.ACTION_MOVE, a.first, a.second)
             shoot(v, size, "21-ring")
+        }
+        run {
+            val v = game(size) { it.friendsMet = 0; it.lifetimeDonuts = 10 }
+            shoot(v, size, "22-friend", warm = 30)
         }
     }
 
