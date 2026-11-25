@@ -13,8 +13,8 @@ class GameBoard(
     val rows: Int = 8,
     val cols: Int = 8,
     private val random: Random = Random.Default,
-    /** Chance that a refilled cell is golden. For the balance sim; the game uses the default. */
-    private val goldenChance: Double = GOLDEN_CHANCE,
+    /** Chance that a refilled cell is golden. The balance sim sets it; the game raises it during a sprinkle party. */
+    var goldenChance: Double = GOLDEN_CHANCE,
     /** How many donut types are drawn, the first [typeCount] of [DonutType]. For the balance sim; the game uses the default. */
     typeCount: Int = DonutType.values().size
 ) {

@@ -238,6 +238,13 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var fxRandom: kotlin.random.Random = kotlin.random.Random.Default
     internal var wobbleGiggle = false       // the current tap wobble is the rare giggle: bigger and longer
 
+    // Sprinkle party meter (PartyMeter): in the button row between the star and the gear; kept in Prefs
+    internal var party          = PartyMeter.restore(prefs.partyMeter, prefs.partyLeft)
+    internal val partyMeterRect = RectF()
+    internal var partyShownFill = -1f       // the fill as drawn, easing toward PartyMeter.fill; -1 until the first frame
+    internal var partyPopMs     = -1L       // the meter's bounce when donuts pour in or a party starts
+    internal val PARTY_POP_MS   = 320L
+
     // Landing squish: the whole column squashes for a beat when a drop lands
     internal var landMs = -1L
     internal val LAND_MS = 220L
@@ -422,6 +429,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
         advanceSettingsAnim(now)
         advanceCounter(now)
         drawHUD(canvas, now)
+        advancePartyMeter(); drawPartyMeter(canvas, now)
         drawBoardBackground(canvas)
         drawCells(canvas, now)
         drawChainLine(canvas)

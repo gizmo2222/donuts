@@ -46,6 +46,12 @@ internal fun GameView.computeLayout() {
     val btnY = boardTop - btnH - btnGap
     stickersBtnRect = RectF(boardLeft, btnY, boardLeft + btnH, btnY + btnH)
     settingsBtnRect = RectF(boardLeft + boardPx - btnH, btnY, boardLeft + boardPx, btnY + btnH)
+    // The party meter: a chunky pill centred between the two buttons
+    val meterGap = 14f * u; val meterH = btnH * 0.5f
+    val meterW = min(240f * u, settingsBtnRect.left - stickersBtnRect.right - meterGap * 2f)
+    val meterCx = boardLeft + boardPx / 2f; val meterCy = btnY + btnH / 2f
+    if (meterW > meterH * 2f) partyMeterRect.set(meterCx - meterW / 2f, meterCy - meterH / 2f, meterCx + meterW / 2f, meterCy + meterH / 2f)
+    else partyMeterRect.setEmpty()
 
     boxStrip.rect.set(boardLeft, boardTop + boardPx + counterH, boardLeft + boardPx, boardTop + boardPx + counterH + stripH)
 
