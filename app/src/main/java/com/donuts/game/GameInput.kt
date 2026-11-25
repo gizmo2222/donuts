@@ -128,6 +128,7 @@ internal fun GameView.startHeldDrag() {
 internal fun GameView.handleDown(x: Float, y: Float) {
     lastActionMs = SystemClock.elapsedRealtime(); hintCells = emptyList()
     dragChain.clear(); chainPings.clear(); chainLooped = false
+    aimU = 0f; aimV = 0f; aimAnchorU = cellU(x); aimAnchorV = cellV(y)
     val col = cellCol(x); val row = cellRow(y)
     if (inBounds(row, col)) {
         val now2 = SystemClock.elapsedRealtime()
@@ -138,9 +139,14 @@ internal fun GameView.handleDown(x: Float, y: Float) {
 }
 
 internal fun GameView.handleMove(x: Float, y: Float) {
-    val col = cellCol(x); val row = cellRow(y)
-    if (!inBounds(row, col)) return
-    val cell = Pair(row, col)
+    val u = cellU(x); val v = cellV(y)
+    val (au, av, moved) = HitZone.aim(u, v, aimAnchorU, aimAnchorV, aimU, aimV)
+    if (moved) { aimU = au; aimV = av; aimAnchorU = u; aimAnchorV = v }
+    val end = dragChain.lastOrNull() ?: return
+    // Forgiving zones: the cell aimed at from the chain's end, not just the square under the finger
+    val cell = HitZone.target(u, v, end.first, end.second, board.rows, board.cols, aimU, aimV,
+        HitZone.diagWeight(board.cols)) ?: return
+    val row = cell.first; val col = cell.second
     // A closed ring holds until the finger goes back onto the last cell, which opens it again
     if (chainLooped) {
         if (cell == dragChain.last()) { chainLooped = false; centerPingMs = SystemClock.elapsedRealtime() }
@@ -334,6 +340,11 @@ internal fun GameView.handleTouch(event: MotionEvent): Boolean {
 internal fun GameView.cellCol(x: Float) = LayoutMath.cellIndex(x, boardLeft, cellSize)
 
 internal fun GameView.cellRow(y: Float) = LayoutMath.cellIndex(y, boardTop, cellSize)
+
+/** The finger in cell units along the columns (u) and rows (v), for [HitZone]. */
+internal fun GameView.cellU(x: Float) = if (cellSize > 0f) (x - boardLeft) / cellSize else 0f
+
+internal fun GameView.cellV(y: Float) = if (cellSize > 0f) (y - boardTop) / cellSize else 0f
 
 internal fun GameView.inBounds(r: Int, c: Int) = r in 0 until board.rows && c in 0 until board.cols
 

@@ -89,6 +89,7 @@ All sources are in `app\src\main\java\com\donuts\game`. No main source is over a
 | `PopTiming.kt` | When each cell of a power-up clear starts to pop (pure, unit tested) |
 | `ChainRules.kt` | `ChainRules.accepts`: which cell may join a drag chain, golden wild rules (pure, unit tested) |
 | `LoopRules.kt` | `LoopRules.closes`: when a drag chain closes into a ring (`MIN_LOOP` cells, back on its first cell) and clears as RING (pure, unit tested) |
+| `HitZone.kt` | `HitZone.target`: which cell a drag aims at from the chain's end, nearest centre led along the drag, diagonals weighted (more on 8x8) (pure, unit tested) |
 | `ChainPointer.kt` | `ChainPointer`: which finger owns the current chain (pure, unit tested) |
 | `ChainBadge.kt` | Where the chain-count badge sits: a chain cell next to the last one (pure, unit tested) |
 | `LayoutMath.kt` | Pure layout arithmetic: `spareShare`, sticker tile `gutter` and `fitSide`, `cellIndex`, `boardSide`, `panelLocalY`, `clampCenter` (unit tested) |
@@ -132,12 +133,13 @@ so read just that range.
 | GameAnimation.kt | 355 | `cascadeWord` 10-15, `updateHint` 16-29, `advancePowerPops` 30-41, `advanceAnimation` 42-161, `addFloatLabelAt` 162-170, `advanceSettingsAnim` 171-179, `slideToward` 180-191, `easeOutQuint` 192-197, `settingsSlideY` 198-198, `stickersSlideY` 199-204, `panelBusy` 205-206, `advanceCounter` 207-240, `celebrate` 241-245, `praise` 246-249, `startCelebration` 250-259, `spawnParticles` 260-283, `easeOutBack` 284-289, `checkStickers` 290-322, `advanceShowSomeone` 323-331, `closeShowSomeone` 332-336, `starPulse` 337-344, `advanceBoxStrip` 345-355 |
 | GameBoard.kt | 359 | `GameBoard` 12-53, `refill` 54-72, `randomType` 73-75, `safeRandom` 76-97, `spawnCell` 98-105, `findMatches` 106-146, `resolveOnce` 147-162, `findHint` 163-181, `dragOrder` 182-186, `floodFill` 187-214, `chainTypeOf` 215-234, `peekChainClear` 235-275, `countCleared` 276-280, `collapse` 281-298, `clearChain` 299-306, `hasValidMoves` 307-313, `shuffle` 314-317, `reset` 318-327, `settle` 328-332, `cellCodes` 333-338, `clearedCounts` 339-344, `restore` 345-359 |
 | GameCell.kt | 18 | `GameCell` 13-18 |
-| GameInput.kt | 351 | `settingsHit` 13-26, `stickersHit` 27-40, `handleStickersTap` 41-53, `panelHitRect` 54-65, `handleSettingsTap` 66-90, `resetStickers` 91-101, `closeSettings` 102-104, `startOver` 105-120, `startHeldDrag` 121-127, `handleDown` 128-139, `handleMove` 140-191, `handleUp` 192-248, `handleTouch` 249-333, `cellCol` 334-335, `cellRow` 336-337, `inBounds` 338-339, `adjacent8` 340-343, `onBackPressed` 344-351 |
+| GameInput.kt | 362 | `settingsHit` 13-26, `stickersHit` 27-40, `handleStickersTap` 41-53, `panelHitRect` 54-65, `handleSettingsTap` 66-90, `resetStickers` 91-101, `closeSettings` 102-104, `startOver` 105-120, `startHeldDrag` 121-127, `handleDown` 128-140, `handleMove` 141-197, `handleUp` 198-254, `handleTouch` 255-339, `cellCol` 340-341, `cellRow` 342-344, `cellU` 345-346, `cellV` 347-348, `inBounds` 349-350, `adjacent8` 351-354, `onBackPressed` 355-362 |
 | GameLayout.kt | 169 | `computeLayout` 10-61, `layoutSettingsPanel` 62-72, `placeSettings` 73-89, `row` 90-114, `layoutStickersPanel` 115-123, `sideFor` 124-160, `excludeBackSwipe` 161-169 |
 | GameTheme.kt | 17 | `GameTheme` 6-17 |
 | GameTypes.kt | 46 | `AnimPhase` 7-8, `AnimCell` 9-15, `PowerUpFx` 16-20, `DigitFlip` 21-22, `Particle` 23-29, `FloatLabel` 30-35, `BoxStrip` 36-46 |
-| GameView.kt | 456 | `GameView` 14-379, `surfaceCreated` 380-384, `surfaceChanged` 385-388, `surfaceDestroyed` 389-408, `drawFrame` 409-454, `onTouchEvent` 455-456 |
+| GameView.kt | 461 | `GameView` 14-384, `surfaceCreated` 385-389, `surfaceChanged` 390-393, `surfaceDestroyed` 394-413, `drawFrame` 414-459, `onTouchEvent` 460-461 |
 | HapticEngine.kt | 34 | `HapticEngine` 10-21, `tick` 22-24, `pop` 25-27, `milestone` 28-31, `shuffle` 32-34 |
+| HitZone.kt | 62 | `HitZone` 16-25, `diagWeight` 26-32, `target` 33-56, `aim` 57-62 |
 | HudDraw.kt | 225 | `drawHUD` 12-16, `drawBackdrop` 17-30, `drawIconButton` 31-38, `drawStarIcon` 39-55, `drawGearIcon` 56-73, `pressScaleFor` 74-77, `buttonPressScale` 78-84, `drawPrettyButton` 85-126, `drawCounter` 127-194, `drawLabel` 195-210, `drawOutlinedText` 211-221, `drawBoxStrip` 222-225 |
 | LayoutMath.kt | 36 | `LayoutMath` 7-8, `spareShare` 9-12, `gutter` 13-15, `cellIndex` 16-19, `boardSide` 20-22, `panelLocalY` 23-25, `fitSide` 26-33, `clampCenter` 34-36 |
 | LoopRules.kt | 22 | `LoopRules` 9-15, `closes` 16-22 |
@@ -185,6 +187,8 @@ so read just that range.
 | GameInputTestBase.kt | 86 |  |
 | GameLayoutTest.kt | 301 | `GameLayoutTest` 14-24, `inside` 25-28, `surfaceRect` 29-29, `boardRect` 30-33, `overlap` 34-36, `forAll` 37-42, `assertNoOverlap` 43-179, `realDensityPhoneStaysInsideAndKeepsTouchTargets` 180-194, `shortLandscapeShrinksTheSettingsPanelToFit` 195-260, `backSwipeIsExcludedBesideTheBoardOnApi29` 261-263, `backSwipeIsExcludedBesideTheBoardOnApi34` 264-266, `backSwipeIsNotExcludedBelowApi29` 267-268, `checkExclusion` 269-291, `snapshot` 292-301 |
 | GameViewSmokeTest.kt | 22 | `GameViewSmokeTest` 10-11, `buildsLaysOutDrawsAndTakesATouch` 12-22 |
+| HitZoneInputTest.kt | 60 | `HitZoneInputTest` 10-13, `cellAt` 14-17, `cuttingTheCornerOfAWrongDonutJoinsTheDiagonalWithoutAShake` 18-29, `aWobblyStraightDragStillJoinsTheStraightCells` 30-41, `goingBackStillUndoesAndJitterDoesNotRedoIt` 42-53, `aFingerThatSkipsACellStillAddsNothing` 54-60 |
+| HitZoneTest.kt | 98 | `HitZoneTest` 7-11, `t` 12-15, `theFingerOnTheLastCellAimsAtItAndACentreAimsAtThatCell` 16-23, `withoutAnAimAStraightStepJoinsAtTheSharedEdgeAsBefore` 24-31, `theAimLeadsTheFingerIntoTheCellItIsHeadingFor` 32-38, `cuttingACornerReachesTheDiagonalNotTheStraightCellBesideIt` 39-48, `aWobblyStraightStepIsNotStolenByTheDiagonal` 49-58, `goingBackTowardThePreviousCellAimsAtIt` 59-65, `beyondTheThreeByThreeBlockAimsAtNothing` 66-72, `cellsOffTheBoardAreNeverAimedAt` 73-79, `eightByEightLeansHarderOnDiagonals` 80-89, `theAimChangesOnlyAfterAStepAndIsAUnitVector` 90-98 |
 | LayoutMathTest.kt | 98 | `LayoutMathTest` 7-98 |
 | LoopRulesTest.kt | 32 | `LoopRulesTest` 7-32 |
 | PopTimingTest.kt | 168 | `PopTimingTest` 9-10, `resultOf` 11-13, `checkEveryCellHasAnEntry` 14-18, `plainChainPopsAllAtOnce` 19-29, `bombOriginSwellsFirstThenNeighboursPopTogether` 30-44, `rowBlastGrowsWithColumnDistanceAndMatchesBothSides` 45-61, `colorBurstBonusStartsAfterLeadAndRipplesOutward` 62-78, `ringStartsAtTheCellNearestItsCentreAndRipplesOutwardAfterTheLead` 79-94, `result` 95-168 |
