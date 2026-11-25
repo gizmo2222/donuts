@@ -66,6 +66,17 @@ abstract class GameInputTestBase {
         assertEquals(1f, v.settingsAnim, 0f)
     }
 
+    /** Open settings, tap Grown-ups, answer the gate: the grown-ups page is showing. */
+    protected fun openGrownUps(v: GameView) {
+        openSettings(v)
+        tap(v, v.settingsGrownRect)
+        assertEquals(SETTINGS_GATE, v.settingsPage)
+        val ans = v.parentGate.answer
+        tap(v, v.gateKeyRects[ans / 10])
+        tap(v, v.gateKeyRects[ans % 10])
+        assertEquals(SETTINGS_GROWN, v.settingsPage)
+    }
+
     protected fun openStickers(v: GameView) {
         tap(v, v.stickersBtnRect)
         assertTrue(v.stickersOpen)

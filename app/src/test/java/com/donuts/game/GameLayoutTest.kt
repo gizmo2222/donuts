@@ -40,6 +40,12 @@ class GameLayoutTest {
         }
     }
 
+    /** Run [block] on each settings page in turn, then go back to Steven's page. */
+    private fun pages(v: GameView, block: (Int) -> Unit) {
+        for (page in SETTINGS_KID..SETTINGS_GROWN) { v.showSettingsPage(page); block(page) }
+        v.showSettingsPage(SETTINGS_KID)
+    }
+
     private fun assertNoOverlap(label: String, rects: List<Pair<String, RectF>>) {
         for (i in rects.indices) for (j in i + 1 until rects.size) {
             assertTrue("$label: ${rects[i].first} overlaps ${rects[j].first}", !overlap(rects[i].second, rects[j].second))
@@ -96,20 +102,39 @@ class GameLayoutTest {
     }
 
     @Test fun settingsPanelButtonsFitAndDoNotOverlap() = forAll { n, v ->
-        assertTrue("$n: panel inside", inside(surfaceRect(v), v.panelRect))
-        val all = listOf(
-            "sound0" to v.soundRects[0], "sound1" to v.soundRects[1],
-            "buzz0" to v.buzzRects[0], "buzz1" to v.buzzRects[1],
-            "hint0" to v.hintRects[0], "hint1" to v.hintRects[1],
-            "grid0" to v.gridRects[0], "grid1" to v.gridRects[1],
-            "reset" to v.settingsResetRect, "stickers" to v.settingsStickersRect,
-            "close" to v.settingsCloseRect
-        ) + v.settingsIconRects.mapIndexed { i, r -> "icon$i" to r }
-        for ((name, r) in all) {
-            assertTrue("$n: $name inside panel", inside(v.panelRect, r))
-            assertTrue("$n: $name has size", r.width() > 0f && r.height() > 0f)
+        pages(v) { page ->
+            assertTrue("$n p$page: panel inside", inside(surfaceRect(v), v.panelRect))
+            val all = when (page) {
+                SETTINGS_KID -> listOf(
+                    "sound0" to v.soundRects[0], "sound1" to v.soundRects[1],
+                    "buzz0" to v.buzzRects[0], "buzz1" to v.buzzRects[1],
+                    "hint0" to v.hintRects[0], "hint1" to v.hintRects[1],
+                    "grown" to v.settingsGrownRect
+                ) + (0..2).map { "icon$it" to v.settingsIconRects[it] }
+                SETTINGS_GATE -> v.gateKeyRects.mapIndexed { d, r -> "key$d" to r } + listOf("answer" to v.gateAnswerRect)
+                else -> listOf(
+                    "grid0" to v.gridRects[0], "grid1" to v.gridRects[1],
+                    "reset" to v.settingsResetRect, "stickers" to v.settingsStickersRect,
+                    "icon3" to v.settingsIconRects[ICON_GRID]
+                )
+            } + listOf("close" to v.settingsCloseRect)
+            for ((name, r) in all) {
+                assertTrue("$n p$page: $name inside panel", inside(v.panelRect, r))
+                assertTrue("$n p$page: $name has size", r.width() > 0f && r.height() > 0f)
+            }
+            assertNoOverlap("$n p$page", all)
         }
-        assertNoOverlap(n, all)
+    }
+
+    @Test fun theGateKeypadIsThreeAcrossWithZeroUnderEight() = forAll { n, v ->
+        v.showSettingsPage(SETTINGS_GATE)
+        val keys = v.gateKeyRects
+        for (d in 1..9) assertEquals("$n: key$d row", keys[1 + (d - 1) / 3 * 3].top, keys[d].top, eps)
+        assertEquals("$n: 0 under 8", keys[8].centerX(), keys[0].centerX(), eps)
+        assertTrue("$n: 0 below 7", keys[0].top > keys[7].bottom)
+        assertTrue("$n: answer above the keys", v.gateAnswerRect.bottom < keys[1].top)
+        assertEquals("$n: keypad centred", v.panelRect.centerX(), keys[5].centerX(), 1f)
+        v.showSettingsPage(SETTINGS_KID)
     }
 
     @Test fun stickersPanelTilesAndButtonsFitAndDoNotOverlap() = forAll { n, v ->
@@ -131,9 +156,10 @@ class GameLayoutTest {
     }
 
     @Test fun eachSettingsPictureSitsLeftOfItsChoicesInTheSameRow() = forAll { n, v ->
-        val k = v.u * v.settingsSc
         val rows = listOf(v.soundRects, v.buzzRects, v.hintRects, v.gridRects)
         for ((i, choices) in rows.withIndex()) {
+            v.showSettingsPage(if (i == ICON_GRID) SETTINGS_GROWN else SETTINGS_KID)
+            val k = v.u * v.settingsSc
             val icon = v.settingsIconRects[i]
             assertEquals("$n: icon$i width", 88f * k, icon.width(), eps)
             assertEquals("$n: icon$i height", 76f * k, icon.height(), eps)
@@ -143,8 +169,9 @@ class GameLayoutTest {
                 assertEquals("$n: row$i choice$j height", 60f * k, b.height(), eps)
                 assertEquals("$n: row$i choice$j centred on the picture", icon.centerY(), b.centerY(), eps)
             }
-            if (i > 0) assertEquals("$n: row gap", 12f * k, icon.top - v.settingsIconRects[i - 1].bottom, eps)
+            if (i in 1..2) assertEquals("$n: row gap", 12f * k, icon.top - v.settingsIconRects[i - 1].bottom, eps)
         }
+        v.showSettingsPage(SETTINGS_KID)
     }
 
     @Test fun panelsAreCentredHorizontally() = forAll { n, v ->
@@ -160,6 +187,7 @@ class GameLayoutTest {
         assertEquals("$n: strip top", b.bottom + v.counterH, s.top, eps)
         assertTrue("$n: strip height ${s.height()}", s.height() >= 64f * v.u - eps)
 
+        v.showSettingsPage(SETTINGS_GROWN)
         val k = v.u * v.settingsSc
         val pad = 16f * k
         val p = v.panelRect
@@ -173,6 +201,13 @@ class GameLayoutTest {
         assertEquals("$n: close left", p.left + pad, close.left, eps)
         assertEquals("$n: close right", p.right - pad, close.right, eps)
         assertEquals("$n: close bottom", p.bottom - 24f * k - pad, close.bottom, eps)
+        v.showSettingsPage(SETTINGS_KID)
+        val kk = v.u * v.settingsSc
+        assertEquals("$n: grown-ups height", 56f * kk, v.settingsGrownRect.height(), eps)
+        assertEquals("$n: grown-ups full width", v.panelRect.width() - 32f * kk, v.settingsGrownRect.width(), eps)
+        v.showSettingsPage(SETTINGS_GATE)
+        assertEquals("$n: gate back bottom", v.panelRect.bottom - 16f * v.u * v.settingsSc, v.settingsCloseRect.bottom, eps)
+        v.showSettingsPage(SETTINGS_KID)
 
         val sp = v.stickerPanelRect; val sc = v.stickersCloseRect
         assertEquals("$n: sticker close height", 56f * v.u, sc.height(), eps)
@@ -182,7 +217,7 @@ class GameLayoutTest {
     }
 
     @Test fun panelsAreCentredVertically() = forAll { n, v ->
-        assertEquals("$n: settings", v.surfaceH / 2f, v.panelRect.centerY(), 1f)
+        pages(v) { page -> assertEquals("$n: settings p$page", v.surfaceH / 2f, v.panelRect.centerY(), 1f) }
         assertEquals("$n: stickers", v.surfaceH / 2f, v.stickerPanelRect.centerY(), 1f)
     }
     @Test @Config(qualifiers = "xxhdpi")
@@ -196,7 +231,7 @@ class GameLayoutTest {
             assertTrue(inside(surfaceRect(v), v.stickerPanelRect))
             assertTrue(inside(v.stickerPanelRect, v.stickersTabRect) && inside(v.stickerPanelRect, v.friendsTabRect))
             assertTrue(v.stickersTabRect.height() >= 48f * 3f - eps && v.friendsTabRect.height() >= 48f * 3f - eps)
-            assertEquals(1f, v.settingsSc, 0f)
+            pages(v) { page -> assertEquals("page $page", 1f, v.settingsSc, 0f) }
         }
     }
 
@@ -206,8 +241,12 @@ class GameLayoutTest {
         assertTrue("scaled down: ${v.settingsSc}", v.settingsSc < 1f)
         assertTrue(inside(surfaceRect(v), v.panelRect))
         assertTrue(inside(v.panelRect, v.settingsCloseRect))
+        assertTrue(inside(v.panelRect, v.settingsGrownRect))
+        for (r in v.settingsIconRects.take(3)) assertTrue(inside(v.panelRect, r))
+        pages(v) { page -> assertTrue("page $page inside", inside(surfaceRect(v), v.panelRect)) }
+        v.showSettingsPage(SETTINGS_GROWN)
         assertTrue(inside(v.panelRect, v.gridRects[1]))
-        for (r in v.settingsIconRects) assertTrue(inside(v.panelRect, r))
+        v.showSettingsPage(SETTINGS_KID)
         // The rows are taller than the old 56dp buttons yet the panel is shorter, so even
         // shrunk to fit, a choice is still a real touch target (old layout: about 28dp)
         val choiceDp = v.soundRects[0].height() / v.uiScale.density
@@ -302,7 +341,8 @@ class GameLayoutTest {
         val rects = mutableListOf<RectF>()
         rects += listOf(v.stickersBtnRect, v.settingsBtnRect, v.panelRect, v.stickerPanelRect,
             v.settingsCloseRect, v.settingsResetRect, v.settingsStickersRect, v.stickersCloseRect,
-            v.donutBoxRect, v.boxStrip.rect)
+            v.donutBoxRect, v.boxStrip.rect, v.settingsGrownRect, v.gateAnswerRect)
+        rects += v.settingsPageRects + v.settingsPageClose + v.gateKeyRects
         rects += v.soundRects + v.buzzRects + v.hintRects + v.gridRects + v.stickerRects
         return listOf(v.cellSize, v.boardLeft, v.boardTop, v.counterH, v.u, v.settingsSc) +
             rects.map { it.toShortString() }

@@ -8,19 +8,32 @@ import kotlin.math.*
 // Touch handling: panel hits, dragging a chain, releasing it, New game.
 // Part of GameView: these are extension functions on it, split out of GameView.kt.
 
-// Panel hit ids: 0-5 option buttons (sound, hints, size), 10-11 buzz, 6 New game, 9 Reset stickers, 7 Done, 8 outside the panel,
-// -1 the panel itself (not a button)
+// Panel hit ids: 0-5 option buttons (sound, hints, size), 10-11 buzz, 6 New game, 9 Reset stickers, 7 Done,
+// 8 outside the panel, 14 Grown-ups (Steven's page), 15 Back (the gate), 30+d keypad digit d,
+// -1 the panel itself (not a button). Only the shown page's buttons can be hit.
 internal fun GameView.settingsHit(x: Float, y: Float): Int {
-    val opts = arrayOf(soundRects[0], soundRects[1], hintRects[0], hintRects[1], gridRects[0], gridRects[1],
-                       buzzRects[0], buzzRects[1])
-    for (i in opts.indices) if (opts[i].contains(x, y)) return if (i < 6) i else i + 4
-    return when {
-        settingsResetRect.contains(x, y) -> 6
-        settingsStickersRect.contains(x, y) -> 9
-        settingsCloseRect.contains(x, y) -> 7
-        !panelRect.contains(x, y)        -> 8
-        else -> -1
+    if (!panelRect.contains(x, y)) return 8
+    when (settingsPage) {
+        SETTINGS_KID -> {
+            val opts = arrayOf(soundRects[0], soundRects[1], hintRects[0], hintRects[1], buzzRects[0], buzzRects[1])
+            val ids  = intArrayOf(0, 1, 2, 3, 10, 11)
+            for (i in opts.indices) if (opts[i].contains(x, y)) return ids[i]
+            if (settingsGrownRect.contains(x, y)) return 14
+            if (settingsCloseRect.contains(x, y)) return 7
+        }
+        SETTINGS_GATE -> {
+            for (d in 0..9) if (gateKeyRects[d].contains(x, y)) return 30 + d
+            if (settingsCloseRect.contains(x, y)) return 15
+        }
+        else -> {
+            if (gridRects[0].contains(x, y)) return 4
+            if (gridRects[1].contains(x, y)) return 5
+            if (settingsResetRect.contains(x, y)) return 6
+            if (settingsStickersRect.contains(x, y)) return 9
+            if (settingsCloseRect.contains(x, y)) return 7
+        }
     }
+    return -1
 }
 
 // Stickers panel hit ids: 7 Done, 8 outside, 12 Stickers tab, 13 Friends tab, 20+i a met friend's tile, -1 the panel itself
@@ -59,8 +72,18 @@ internal fun GameView.panelHitRect(hit: Int): RectF? {
         9 -> settingsStickersRect; 10 -> buzzRects[0]; 11 -> buzzRects[1]
         7 -> if (inSettings) settingsCloseRect else stickersCloseRect
         12 -> stickersTabRect; 13 -> friendsTabRect
+        14 -> settingsGrownRect; 15 -> settingsCloseRect
+        in 30..39 -> gateKeyRects[hit - 30]
         else -> null
     }
+}
+
+/** Turn the settings panel to [page] with a little pop, disarming both two-tap confirms. */
+internal fun GameView.turnSettingsPage(page: Int) {
+    newGameConfirm.cancel(); stickersConfirm.cancel()
+    if (page == SETTINGS_GATE) { parentGate.next(); gateWrongMs = -1L }
+    showSettingsPage(page)
+    settingsPageMs = SystemClock.elapsedRealtime()
 }
 
 internal fun GameView.handleSettingsTap(hit: Int) {
@@ -82,6 +105,12 @@ internal fun GameView.handleSettingsTap(hit: Int) {
         9 -> {
             newGameConfirm.cancel()
             if (stickersConfirm.tap(now)) resetStickers()
+        }
+        14 -> turnSettingsPage(SETTINGS_GATE)
+        15 -> turnSettingsPage(SETTINGS_KID)
+        in 30..39 -> when (parentGate.press(hit - 30)) {
+            ParentGate.OPEN  -> turnSettingsPage(SETTINGS_GROWN)
+            ParentGate.WRONG -> { gateWrongMs = now; if (prefs.soundEnabled) soundEngine.playBoop() }
         }
         7, 8 -> closeSettings()
     }
@@ -310,7 +339,7 @@ internal fun GameView.handleTouch(event: MotionEvent): Boolean {
         if (action == MotionEvent.ACTION_DOWN) {
             val now = SystemClock.elapsedRealtime()
             if (stickersBtnRect.contains(px, py)) { stickersPressMs = now; stickersOpen = true; return true }
-            if (settingsBtnRect.contains(px, py)) { settingsPressMs = now; settingsOpen = true; return true }
+            if (settingsBtnRect.contains(px, py)) { settingsPressMs = now; showSettingsPage(SETTINGS_KID); settingsOpen = true; return true }
         }
 
         // Board still popping or dropping: hold the finger instead of dropping it, so a

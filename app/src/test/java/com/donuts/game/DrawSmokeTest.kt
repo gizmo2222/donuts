@@ -193,6 +193,12 @@ class DrawSmokeTest {
         s.v.settingsOpen = true
         s.frames(30, 20L)
         assertTrue(s.v.settingsAnim > 0.99f)
+        s.frames(5); assertPainted(s, "settings kid page")
+        s.v.showSettingsPage(SETTINGS_GATE); s.v.parentGate.press(s.v.parentGate.answer / 10)
+        s.frames(5); assertPainted(s, "settings gate")
+        s.v.gateWrongMs = TestViews.now()
+        s.frames(3); assertPainted(s, "settings gate wrong")
+        s.v.showSettingsPage(SETTINGS_GROWN)
         s.v.newGameConfirm.tap(TestViews.now())
         assertTrue(s.v.newGameConfirm.isArmed(TestViews.now()))
         s.frames(5); assertPainted(s, "settings")

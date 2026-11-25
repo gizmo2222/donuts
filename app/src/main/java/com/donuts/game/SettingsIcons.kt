@@ -182,3 +182,22 @@ internal fun GameView.drawConfirmIcon(canvas: Canvas, now: Long, cx: Float, cy: 
     if (restart) drawRestartIcon(canvas, cx, cy, r) else drawStarIcon(canvas, cx, cy, r)
     canvas.restore()
 }
+
+/** A gold padlock for the Grown-ups button. */
+internal fun GameView.drawLockIcon(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+    // Shackle: a thick arch above the body
+    scratchPath.rewind()
+    val sw = r * 0.5f
+    scratchPath.addArc(cx - sw, cy - r * 0.9f, cx + sw, cy + r * 0.1f, 180f, 180f)
+    scratchPath.moveTo(cx - sw, cy - r * 0.4f); scratchPath.lineTo(cx - sw, cy)
+    scratchPath.moveTo(cx + sw, cy - r * 0.4f); scratchPath.lineTo(cx + sw, cy)
+    inkLine(canvas, scratchPath, r * 0.34f, Color.rgb(200, 200, 215))
+    // Body
+    scratchPath.rewind()
+    scratchPath.addRoundRect(cx - r * 0.8f, cy - r * 0.1f, cx + r * 0.8f, cy + r * 0.9f, r * 0.2f, r * 0.2f, Path.Direction.CW)
+    outlineAndFill(canvas, scratchPath, r * 0.24f, GOLD)
+    // Keyhole
+    fillPaint.color = INK
+    canvas.drawCircle(cx, cy + r * 0.32f, r * 0.14f, fillPaint)
+    canvas.drawRect(cx - r * 0.06f, cy + r * 0.32f, cx + r * 0.06f, cy + r * 0.62f, fillPaint)
+}

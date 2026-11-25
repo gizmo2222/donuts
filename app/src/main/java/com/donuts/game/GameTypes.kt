@@ -6,6 +6,11 @@ import android.graphics.RectF
 
 internal enum class AnimPhase { IDLE, POPPING, DROPPING }
 
+/** The settings panel's pages, in [GameView.settingsPageRects] order. */
+internal const val SETTINGS_KID   = 0
+internal const val SETTINGS_GATE  = 1
+internal const val SETTINGS_GROWN = 2
+
 internal data class AnimCell(
     val row: Int, val col: Int, val type: DonutType,
     val fromRow: Int = row, val isGolden: Boolean = false,

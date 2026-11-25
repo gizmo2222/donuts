@@ -68,15 +68,28 @@ internal fun GameView.computeLayout() {
 internal fun GameView.layoutSettingsPanel(safeL: Float, safeT: Float, safeW: Float, safeH: Float) {
     val pw     = min(safeW - 24f * u, 480f * u)
     val availH = safeH - 24f * u
-    settingsSc = 1f
-    val ph = placeSettings(pw, safeL, safeT, safeW, safeH)
-    if (ph > availH) {
-        settingsSc = availH / ph
-        placeSettings(pw, safeL, safeT, safeW, safeH)
+    for (page in SETTINGS_KID..SETTINGS_GROWN) {
+        settingsSc = 1f
+        val ph = placeSettings(page, pw, safeL, safeT, safeW, safeH)
+        if (ph > availH) {
+            settingsSc = availH / ph
+            placeSettings(page, pw, safeL, safeT, safeW, safeH)
+        }
+        settingsPageSc[page] = settingsSc
     }
+    showSettingsPage(settingsPage)
 }
 
-internal fun GameView.placeSettings(pw: Float, safeL: Float, safeT: Float, safeW: Float, safeH: Float): Float {
+/** Make [page] the shown settings page: the panel, its fit factor and its bottom button follow it. */
+internal fun GameView.showSettingsPage(page: Int) {
+    settingsPage      = page
+    panelRect         = settingsPageRects[page]
+    settingsSc        = settingsPageSc[page]
+    settingsCloseRect = settingsPageClose[page]
+}
+
+/** Lay out one settings page at the current [GameView.settingsSc]; returns its height. */
+internal fun GameView.placeSettings(page: Int, pw: Float, safeL: Float, safeT: Float, safeW: Float, safeH: Float): Float {
     val k      = u * settingsSc
     val pad    = 16f * k
     val titleH = 84f * k
@@ -84,17 +97,24 @@ internal fun GameView.placeSettings(pw: Float, safeL: Float, safeT: Float, safeW
     val secGap = 12f * k
     val btnH   = 60f * k      // the choice buttons, centred in the row
     val iconW  = 88f * k      // the picture-and-word column on the left of each row
-    val rowH   = 56f * k      // New game / Reset stickers
+    val rowH   = 56f * k      // Grown-ups; New game / Reset stickers
     val confGap = 24f * k
     val closeH = 56f * k
     val verH   = 24f * k      // the small version line under Done
-    val ph = titleH + secH * 4f + secGap * 3f + confGap + rowH + pad + closeH + pad + verH
+    val promiseH = 64f * k    // the two-line promise to parents under New game / Reset stickers
+    val questH = 48f * k      // the gate's question
+    val ansH   = 60f * k      // the box the typed digits show in
+    val keyH   = 58f * k; val keyGap = 10f * k
+    val ph = when (page) {
+        SETTINGS_KID  -> titleH + secH * 3f + secGap * 2f + confGap + rowH + pad + closeH + pad + verH
+        SETTINGS_GATE -> titleH + questH + ansH + keyGap * 2f + keyH * 4f + keyGap * 3f + pad + closeH + pad
+        else          -> titleH + secH + confGap + rowH + promiseH + closeH + pad + verH
+    }
     val pl = safeL + (safeW - pw) / 2f
     val pt = safeT + (safeH - ph) / 2f
-    panelRect = RectF(pl, pt, pl + pw, pt + ph)
+    settingsPageRects[page].set(pl, pt, pl + pw, pt + ph)
 
-    fun row(i: Int, rects: Array<RectF>) {
-        val top = pt + titleH + i * (secH + secGap)
+    fun row(i: Int, top: Float, rects: Array<RectF>) {
         settingsIconRects[i].set(pl + pad, top, pl + pad + iconW, top + secH)
         val n  = rects.size
         val x0 = pl + pad + iconW
@@ -105,12 +125,38 @@ internal fun GameView.placeSettings(pw: Float, safeL: Float, safeT: Float, safeW
             rects[j].set(x, bTop, x + bw, bTop + btnH)
         }
     }
-    row(0, soundRects); row(1, buzzRects); row(2, hintRects); row(3, gridRects)
-    val rTop = pt + titleH + secH * 4f + secGap * 3f + confGap
-    val rw = (pw - pad * 3f) / 2f
-    settingsResetRect    = RectF(pl + pad, rTop, pl + pad + rw, rTop + rowH)
-    settingsStickersRect = RectF(pl + pad * 2f + rw, rTop, pl + pw - pad, rTop + rowH)
-    settingsCloseRect = RectF(pl + pad, pt + ph - verH - closeH - pad, pl + pw - pad, pt + ph - verH - pad)
+    val verBelow = if (page == SETTINGS_GATE) 0f else verH
+    settingsPageClose[page].set(pl + pad, pt + ph - verBelow - closeH - pad, pl + pw - pad, pt + ph - verBelow - pad)
+    when (page) {
+        SETTINGS_KID -> {
+            row(ICON_SOUND, pt + titleH, soundRects)
+            row(ICON_BUZZ, pt + titleH + secH + secGap, buzzRects)
+            row(ICON_HINTS, pt + titleH + (secH + secGap) * 2f, hintRects)
+            val gTop = pt + titleH + secH * 3f + secGap * 2f + confGap
+            settingsGrownRect = RectF(pl + pad, gTop, pl + pw - pad, gTop + rowH)
+        }
+        SETTINGS_GATE -> {
+            val aw = 150f * k; val aTop = pt + titleH + questH
+            gateAnswerRect = RectF(pl + (pw - aw) / 2f, aTop, pl + (pw + aw) / 2f, aTop + ansH)
+            val kw = min(104f * k, (pw - pad * 4f) / 3f)
+            val gapX = 14f * k
+            val x0 = pl + (pw - kw * 3f - gapX * 2f) / 2f
+            val y0 = aTop + ansH + keyGap * 2f
+            for (d in 0..9) {
+                val r = if (d == 0) 3 else (d - 1) / 3
+                val c = if (d == 0) 1 else (d - 1) % 3
+                val x = x0 + c * (kw + gapX); val y = y0 + r * (keyH + keyGap)
+                gateKeyRects[d].set(x, y, x + kw, y + keyH)
+            }
+        }
+        else -> {
+            row(ICON_GRID, pt + titleH, gridRects)
+            val rTop = pt + titleH + secH + confGap
+            val rw = (pw - pad * 3f) / 2f
+            settingsResetRect    = RectF(pl + pad, rTop, pl + pad + rw, rTop + rowH)
+            settingsStickersRect = RectF(pl + pad * 2f + rw, rTop, pl + pw - pad, rTop + rowH)
+        }
+    }
     return ph
 }
 

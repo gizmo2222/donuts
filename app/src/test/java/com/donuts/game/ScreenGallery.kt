@@ -110,6 +110,16 @@ class ScreenGallery {
             shoot(v, size, "07-settings", warm = 30, step = 20L) { v.settingsOpen = true }
         }
         run {
+            val v = game(size)
+            shoot(v, size, "25-settings-gate", warm = 30, step = 20L) {
+                v.settingsOpen = true; v.showSettingsPage(SETTINGS_GATE); v.parentGate.press(v.parentGate.answer / 10)
+            }
+        }
+        run {
+            val v = game(size)
+            shoot(v, size, "26-settings-grown", warm = 30, step = 20L) { v.settingsOpen = true; v.showSettingsPage(SETTINGS_GROWN) }
+        }
+        run {
             val v = game(size) { it.friendsMet = 4; it.lifetimeDonuts = 75 }
             shoot(v, size, "23-friends-page", warm = 30, step = 20L) { v.stickersPage = 1; v.stickersOpen = true }
         }
@@ -121,7 +131,7 @@ class ScreenGallery {
         run {
             val v = game(size)
             shoot(v, size, "08-settings-confirm", warm = 30, step = 20L) {
-                v.settingsOpen = true; v.newGameConfirm.tap(TestViews.now())
+                v.settingsOpen = true; v.showSettingsPage(SETTINGS_GROWN); v.newGameConfirm.tap(TestViews.now())
             }
         }
         run {

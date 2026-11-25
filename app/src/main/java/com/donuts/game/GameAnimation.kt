@@ -178,6 +178,8 @@ internal fun GameView.advanceSettingsAnim(now: Long) {
     panelAnimMs = now
     settingsAnim = slideToward(settingsAnim, settingsOpen, dt)
     stickersAnim = slideToward(stickersAnim, stickersOpen, dt)
+    // A shut panel always opens on Steven's page next time, never on the grown-ups corner
+    if (!settingsOpen && settingsAnim == 0f && settingsPage != SETTINGS_KID) showSettingsPage(SETTINGS_KID)
 }
 
 /** One frame of a panel slide: toward 1 when open, toward 0 when shut, never past either end. */
