@@ -29,6 +29,9 @@ class GameBoard(
 
     private val activeTypes: List<DonutType> = DonutType.values().take(typeCount)
 
+    /** Chance a refilled cell copies a neighbour's type ([DroughtAssist]); 0 keeps the plain random refill. */
+    var nudge: Double = 0.0
+
     val grid: Array<Array<GameCell>> = Array(rows) { r ->
         Array(cols) { c -> GameCell(randomType(), r, c) }
     }
@@ -279,6 +282,7 @@ class GameBoard(
 
     /** Gravity column by column: survivors (golden kept) fall, new cells spawn on top. */
     private fun collapse(cleared: Set<Pair<Int, Int>>) {
+        if (nudge > 0.0) { collapseNudged(cleared); return }
         for (c in 0 until cols) {
             val surviving = (0 until rows).filter { r -> Pair(r, c) !in cleared }.map { r -> grid[r][c] }
             val newCount = rows - surviving.size
@@ -286,6 +290,71 @@ class GameBoard(
             val column = newCells + surviving
             for (r in 0 until rows) grid[r][c] = column[r].copy(row = r)
         }
+    }
+
+    /**
+     * [collapse] while the drought assist is on: survivors fall as usual, then the new cells are filled from
+     * the bottom of each column up. Each one, with chance [nudge], copies the type of a random neighbour
+     * already in place (golden ones skipped) that would not make a straight three; otherwise it is random.
+     */
+    private fun collapseNudged(cleared: Set<Pair<Int, Int>>) {
+        val fresh = Array(rows) { BooleanArray(cols) }
+        for (c in 0 until cols) {
+            val surviving = (0 until rows).filter { r -> Pair(r, c) !in cleared }.map { r -> grid[r][c] }
+            val newCount = rows - surviving.size
+            for (r in 0 until newCount) fresh[r][c] = true
+            for ((i, cell) in surviving.withIndex()) grid[newCount + i][c] = cell.copy(row = newCount + i)
+        }
+        for (c in 0 until cols) for (r in rows - 1 downTo 0) {
+            if (!fresh[r][c]) continue
+            var type = randomType()
+            if (random.nextDouble() < nudge) {
+                val picks = ArrayList<DonutType>()
+                for (dr in -1..1) for (dc in -1..1) {
+                    val nr = r + dr; val nc = c + dc
+                    if ((dr == 0 && dc == 0) || nr !in 0 until rows || nc !in 0 until cols || fresh[nr][nc]) continue
+                    val n = grid[nr][nc]
+                    if (!n.isGolden && !makesLine(r, c, n.type, fresh)) picks += n.type
+                }
+                if (picks.isNotEmpty()) type = picks[random.nextInt(picks.size)]
+            }
+            grid[r][c] = GameCell(type, r, c, isGolden = random.nextDouble() < goldenChance)
+            fresh[r][c] = false
+        }
+    }
+
+    /** True if [type] at [r],[c] would sit in a straight run of three with cells already in place. */
+    private fun makesLine(r: Int, c: Int, type: DonutType, fresh: Array<BooleanArray>): Boolean {
+        fun same(rr: Int, cc: Int) = rr in 0 until rows && cc in 0 until cols && !fresh[rr][cc] && grid[rr][cc].type == type
+        fun run(dr: Int, dc: Int): Int { var k = 0; while (same(r + dr * (k + 1), c + dc * (k + 1))) k++; return k }
+        return run(0, -1) + run(0, 1) >= 2 || run(-1, 0) + run(1, 0) >= 2
+    }
+
+    /**
+     * True if a drag chain of at least [len] cells exists: a path of 8-way neighbours, golden cells wild, as
+     * [ChainRules] allows. A depth-limited search that stops at the first hit; the drought assist asks this.
+     */
+    fun hasChainOf(len: Int): Boolean {
+        if (len <= 1) return rows * cols >= len
+        val seen = Array(rows) { BooleanArray(cols) }
+        fun go(r: Int, c: Int, type: DonutType?, depth: Int): Boolean {
+            if (depth >= len) return true
+            seen[r][c] = true
+            for (dr in -1..1) for (dc in -1..1) {
+                val nr = r + dr; val nc = c + dc
+                if ((dr == 0 && dc == 0) || nr !in 0 until rows || nc !in 0 until cols || seen[nr][nc]) continue
+                val n = grid[nr][nc]
+                if (!n.isGolden && type != null && n.type != type) continue
+                if (go(nr, nc, if (n.isGolden) type else n.type, depth + 1)) { seen[r][c] = false; return true }
+            }
+            seen[r][c] = false
+            return false
+        }
+        for (r in 0 until rows) for (c in 0 until cols) {
+            val cell = grid[r][c]
+            if (go(r, c, if (cell.isGolden) null else cell.type, 1)) return true
+        }
+        return false
     }
 
     /**

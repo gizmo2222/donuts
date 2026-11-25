@@ -267,6 +267,9 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var partyPopMs     = -1L       // the meter's bounce when donuts pour in or a party starts
     internal val PARTY_POP_MS   = 320L
 
+    // Quiet drought assist (DroughtAssist): Steven's chains in a row since a long chain was last possible; not saved
+    internal var droughtDry     = 0
+
     // Picture prompt (PicturePrompts): a soft goal, a donut and a number beside the counter; kept in Prefs
     internal var promptRandom: kotlin.random.Random = kotlin.random.Random.Default   // tests and the gallery seed it
     internal var prompt: Prompt? = null     // null until the first frame restores or picks one

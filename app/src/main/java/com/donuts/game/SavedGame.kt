@@ -121,6 +121,7 @@ internal fun GameView.resetPlayState() {
     counterPulseMs = -1L; chainFlashMs = -1L
     shuffleAnimMs = -1L; noMovesWarningMs = -1L
     tutorialCells = emptyList()
+    droughtDry = 0
     lastActionMs = SystemClock.elapsedRealtime()
 }
 
