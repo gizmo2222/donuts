@@ -62,7 +62,7 @@ internal fun GameView.drawBall(canvas: Canvas, cx: Float, cy: Float, r: Float, s
 
 internal fun GameView.drawPieceVector(
     canvas: Canvas, cx: Float, cy: Float,
-    radius: Float, type: DonutType, selected: Boolean, alpha: Int, top: Topping = topping
+    radius: Float, type: DonutType, selected: Boolean, alpha: Int, top: Topping = topping, look: Season? = seasonWorn
 ) {
     when (type) {
         DonutType.STRAWBERRY -> drawDrippyRing(canvas, cx, cy, radius, type, selected, alpha)
@@ -72,7 +72,7 @@ internal fun GameView.drawPieceVector(
         DonutType.MATCHA     -> drawHalfDipRing(canvas, cx, cy, radius, type, selected, alpha)
         DonutType.CARAMEL    -> drawSquareDonut(canvas, cx, cy, radius, type, selected, alpha)
     }
-    drawTopping(canvas, cx, cy, radius, top, alpha)
+    if (look != null) drawSeasonLook(canvas, cx, cy, radius, look, alpha) else drawTopping(canvas, cx, cy, radius, top, alpha)
 }
 
 // Shared round base: selection halo, dark outline, drop shadow, dough body.

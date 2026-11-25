@@ -87,6 +87,16 @@ class Prefs(context: Context) {
         get()  = p.getString("topping", null)
         set(v) { p.edit().putString("topping", v).apply() }
 
+    // The seasonal look Steven has on (Season.key, "" when he took it off); SeasonRules.worn ignores it out of season
+    var seasonLook: String?
+        get()  = p.getString("season_look", null)
+        set(v) { p.edit().putString("season_look", v).apply() }
+
+    // The last season run revealed (SeasonRules.id, e.g. "snow-2026"), so each one is revealed once a year
+    var seasonSeen: String?
+        get()  = p.getString("season_seen", null)
+        set(v) { p.edit().putString("season_seen", v).apply() }
+
     // How Steven plays (PlayTally text form): chain lengths and power-ups. Stays on the phone; no reset clears it.
     var playTally: String?
         get()  = p.getString("play_tally", null)

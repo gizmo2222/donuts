@@ -47,7 +47,7 @@ internal fun GameView.stickersHit(x: Float, y: Float): Int {
         tabs && stickersTabRect.contains(x, y) -> 12
         tabs && prefs.friendsMet > 0 && friendsTabRect.contains(x, y) -> 13
         tabs && toppingsTabRect.contains(x, y) && 2 in panelTabPages() -> 16
-        tabs && page == 2 -> toppingTiles().indices.firstOrNull { stickerRects[it].contains(x, y) }?.let { 60 + it } ?: -1
+        tabs && page == 2 -> (0 until pickerTileCount()).firstOrNull { stickerRects[it].contains(x, y) }?.let { 60 + it } ?: -1
         tabs && page == 1 -> (0 until min(prefs.friendsMet, DRAWN)).firstOrNull { stickerRects[it].contains(x, y) }
             ?.let { 20 + it } ?: -1
         else -> -1

@@ -10,6 +10,8 @@ import kotlin.math.*
 private const val TOP_STAY = 0.62f      // share of the fly spent at the board centre
 private const val TOP_POP  = 0.25f      // share of the stay spent popping in
 private const val TOP_TAP_MS = 500L
+private const val SEASON_CHECK_MS = 60_000L   // how often the date is looked at
+private val SEASON_TILE_COLOR = Color.rgb(240, 90, 60)
 private val TOP_TILE_COLORS = intArrayOf(
     Color.rgb(80, 190, 255), Color.rgb(255, 120, 170), Color.rgb(70, 200, 140), Color.rgb(255, 170, 40),
     Color.rgb(170, 110, 255), Color.rgb(60, 140, 240), Color.rgb(255, 200, 40)
@@ -19,7 +21,42 @@ private val TOP_TILE_COLORS = intArrayOf(
 internal fun GameView.wearTopping(t: Topping) {
     topping = t
     prefs.topping = ToppingRules.encode(t)
+    prefs.seasonLook = ""
+    seasonWorn = null
     buildSprites()
+}
+
+/** Puts seasonal look [s] on every donut, over (not instead of) his saved topping. */
+internal fun GameView.wearSeason(s: Season) {
+    seasonWorn = s
+    prefs.seasonLook = s.key
+    buildSprites()
+}
+
+/**
+ * Looks at the date about once a minute: which season it is, and whether its look is still worn (the donuts go back
+ * to his topping when it ends). The first time a season comes round each year it is revealed like a new topping and
+ * put on, once nothing else is showing.
+ */
+internal fun GameView.checkSeason(now: Long) {
+    if (seasonCheckMs < 0 || now - seasonCheckMs >= SEASON_CHECK_MS) {
+        seasonCheckMs = now
+        val d = today()
+        season = SeasonRules.at(d.monthValue, d.dayOfMonth)
+        seasonId = season?.let { SeasonRules.id(it, d.year, d.monthValue) } ?: ""
+        val w = SeasonRules.worn(prefs.seasonLook, season)
+        if (w != seasonWorn) { seasonWorn = w; buildSprites() }
+    }
+    val s = season ?: return
+    if (prefs.seasonSeen == seasonId) return
+    if (toppingFlyMs >= 0 || friendFlyMs >= 0 || stickerFlyMs >= 0 || showSomeoneMs >= 0 || showSomeonePending != SHOW_NONE) return
+    if (panelBusy() || tutorialActive) return
+    prefs.seasonSeen = seasonId
+    wearSeason(s)
+    toppingFlySeason = s; toppingFlyMs = now
+    hintCells = emptyList()
+    if (prefs.soundEnabled)  soundEngine.playFriend(s.ordinal)
+    if (prefs.hapticEnabled) hapticEngine.milestone()
 }
 
 /**
@@ -32,7 +69,7 @@ internal fun GameView.checkToppings(now: Long) {
     val t = ToppingRules.next(displayedLifetime(), prefs.toppingsEarned) ?: return
     prefs.toppingsEarned = prefs.toppingsEarned + 1
     wearTopping(t)
-    toppingFlyTop = t; toppingFlyMs = now
+    toppingFlyTop = t; toppingFlySeason = null; toppingFlyMs = now
     hintCells = emptyList()
     if (prefs.soundEnabled)  soundEngine.playFriend(t.ordinal)
     if (prefs.hapticEnabled) hapticEngine.milestone()
@@ -61,22 +98,28 @@ internal fun GameView.drawToppingFly(canvas: Canvas, now: Long) {
         r = big * (1f - 0.82f * p)
     }
     if (r <= 1f) return
-    drawPieceVector(canvas, cx, cy, r, DonutType.STRAWBERRY, false, 255, toppingFlyTop)
+    val look = toppingFlySeason
+    drawPieceVector(canvas, cx, cy, r, DonutType.STRAWBERRY, false, 255, toppingFlyTop, look)
     if (t < TOP_STAY) {
         val sz = 30f * u
-        drawOutlinedText(canvas, "NEW TOPPING!", bx, by - big * 1.62f - sz * 0.5f, sz, Color.rgb(255, 215, 50))
-        drawOutlinedText(canvas, toppingName(toppingFlyTop), bx, by + big * 1.45f + sz * 0.6f, sz, Color.WHITE)
+        val head = if (look != null) seasonCheer(look) else "NEW TOPPING!"
+        val name = if (look != null) seasonName(look) else toppingName(toppingFlyTop)
+        drawOutlinedText(canvas, head, bx, by - big * 1.62f - sz * 0.5f, sz, Color.rgb(255, 215, 50))
+        drawOutlinedText(canvas, name, bx, by + big * 1.45f + sz * 0.6f, sz, Color.WHITE)
     }
 }
 
 // ---- Stickers panel tabs ----
 
-/** The panel pages that have a tab right now: 0 stickers, 1 friends (once one is met), 2 toppings (once one is earned). */
+/** True when the toppings tab shows: a topping is earned, or a season's look is on offer. */
+internal fun GameView.hasToppingsTab(): Boolean = prefs.toppingsEarned > 0 || season != null
+
+/** The panel pages that have a tab right now: 0 stickers, 1 friends (once one is met), 2 toppings (see [hasToppingsTab]). */
 internal fun GameView.panelTabPages(): List<Int> {
     val pages = ArrayList<Int>(3)
     pages.add(0)
     if (prefs.friendsMet > 0) pages.add(1)
-    if (prefs.toppingsEarned > 0) pages.add(2)
+    if (hasToppingsTab()) pages.add(2)
     return pages
 }
 
@@ -103,17 +146,22 @@ internal fun GameView.drawPanelTabs(canvas: Canvas, now: Long) {
     drawPrettyButton(canvas, stickersTabRect, if (page == 0) bright else dim, "Stickers", 22f * u, pressScaleFor(stickersTabRect, now))
     if (prefs.friendsMet > 0)
         drawPrettyButton(canvas, friendsTabRect, if (page == 1) bright else dim, "Friends", 22f * u, pressScaleFor(friendsTabRect, now))
-    if (prefs.toppingsEarned > 0)
+    if (hasToppingsTab())
         drawPrettyButton(canvas, toppingsTabRect, if (page == 2) bright else dim, "Toppings", 22f * u, pressScaleFor(toppingsTabRect, now))
 }
 
 /** Tiles on the toppings page: Plain and each earned topping, in order. */
 internal fun GameView.toppingTiles(): List<Topping> = ToppingRules.unlocked(prefs.toppingsEarned)
 
-/** A tap on tile [i]: wear that topping, with a happy blip and a hop. */
+/** How many tiles the toppings page has: the toppings, then the season's look while one lasts. */
+internal fun GameView.pickerTileCount(): Int = toppingTiles().size + (if (season != null) 1 else 0)
+
+/** A tap on tile [i]: wear that topping (or the season's look, the last tile), with a happy blip and a hop. */
 internal fun GameView.tapToppingTile(i: Int) {
-    val t = toppingTiles().getOrNull(i) ?: return
-    wearTopping(t)
+    val tiles = toppingTiles()
+    val s = season
+    if (i == tiles.size && s != null) wearSeason(s)
+    else wearTopping(tiles.getOrNull(i) ?: return)
     toppingTapIdx = i; toppingTapMs = SystemClock.elapsedRealtime()
     if (prefs.soundEnabled) soundEngine.playPromptDone()
 }
@@ -121,14 +169,15 @@ internal fun GameView.tapToppingTile(i: Int) {
 /** The toppings page: a strawberry donut in each earned topping with its name; the worn one has a ring and a check. */
 internal fun GameView.drawToppingsPage(canvas: Canvas, now: Long) {
     val tiles = toppingTiles()
-    for (i in tiles.indices) {
+    for (i in 0 until pickerTileCount()) {
         if (i >= stickerRects.size) break
         val rect = stickerRects[i]
-        val worn = tiles[i] == topping
+        val look = if (i < tiles.size) null else season
+        val worn = if (look != null) seasonWorn == look else seasonWorn == null && tiles[i] == topping
         val rr = 10f * u; val g = 2.5f * u
         fillPaint.color = Color.argb(220, 28, 12, 0)
         canvas.drawRoundRect(scratchRectF.apply { set(rect.left - g, rect.top - g, rect.right + g, rect.bottom + g) }, rr + g, rr + g, fillPaint)
-        fillPaint.color = TOP_TILE_COLORS[i % TOP_TILE_COLORS.size]; fillPaint.alpha = 255
+        fillPaint.color = if (look != null) SEASON_TILE_COLOR else TOP_TILE_COLORS[i % TOP_TILE_COLORS.size]; fillPaint.alpha = 255
         canvas.drawRoundRect(rect, rr, rr, fillPaint)
         canvas.save()
         canvas.clipRect(rect.left, rect.top, rect.right, rect.centerY())
@@ -144,9 +193,9 @@ internal fun GameView.drawToppingsPage(canvas: Canvas, now: Long) {
         var cy = rect.centerY() - side * 0.08f
         val t = if (i == toppingTapIdx) (now - toppingTapMs).toFloat() / TOP_TAP_MS else 2f
         if (t in 0f..1f && !reducedMotion) cy -= sin(t * PI.toFloat()) * side * 0.12f
-        drawPieceVector(canvas, rect.centerX(), cy, side * 0.30f, DonutType.STRAWBERRY, false, 255, tiles[i])
+        drawPieceVector(canvas, rect.centerX(), cy, side * 0.30f, DonutType.STRAWBERRY, false, 255, if (look != null) topping else tiles[i], look)
         if (worn) drawCheckBadge(canvas, rect.right - side * 0.16f, rect.top + side * 0.16f, side * 0.1f)
         fillPaint.alpha = 255; strokePaint.alpha = 255
-        drawLabel(canvas, toppingName(tiles[i]), rect.centerX(), rect.bottom - side * 0.09f, side * 0.15f, side - 14f * u, Color.WHITE, outlined = true)
+        drawLabel(canvas, if (look != null) seasonName(look) else toppingName(tiles[i]), rect.centerX(), rect.bottom - side * 0.09f, side * 0.15f, side - 14f * u, Color.WHITE, outlined = true)
     }
 }
