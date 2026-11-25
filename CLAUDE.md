@@ -101,9 +101,10 @@ All sources are in `app\src\main\java\com\donuts\game`. No main source is over a
 | `LayoutMath.kt` | Pure layout arithmetic: `spareShare`, sticker tile `gutter` and `fitSide`, `cellIndex`, `boardSide`, `panelLocalY`, `clampCenter` (unit tested) |
 | `SavedBoard.kt` | `SavedBoard` and its text `encode`/`decode` form for `Prefs`, no Android types (unit tested) |
 | `FriendRules.kt` | `Friend` and `FriendRules`: the twelve donut friends, fixed reveal order on box slot fills (pure, unit tested) |
+| `SeasonRules.kt` | `Season` and `SeasonRules`: the four nature windows by date (wrapping over New Year), each year's reveal id, whether the saved look is worn (pure, unit tested) |
 | `ToppingRules.kt` | `Topping` and `ToppingRules`: the toppings earned from lifetime donuts in a fixed order, kept forever, and the saved choice falling back to PLAIN (pure, unit tested) |
-| `ToppingArt.kt` | `drawTopping` (six chunky pieces over the glaze ring, rainbow bands) and `toppingName` |
-| `ToppingDraw.kt` | Toppings in play: `wearTopping`, `checkToppings` and the reveal fly, the stickers panel tabs (`panelTabPages`, `placePanelTabs`, `drawPanelTabs`) and the toppings page |
+| `ToppingArt.kt` | `drawTopping` (six chunky pieces over the glaze ring, rainbow bands) and `toppingName`; the seasonal looks (`drawSeasonLook`: snowflakes, flowers, suns, leaves), `seasonName`, `seasonCheer` |
+| `ToppingDraw.kt` | Toppings in play: `wearTopping`, `checkToppings` and the reveal fly, `checkSeason` and `wearSeason` (the seasonal look, revealed once a year, a last picker tile while in season), the stickers panel tabs (`panelTabPages`, `placePanelTabs`, `drawPanelTabs`) and the toppings page |
 | `StickerRules.kt` | `StickerStats` and `StickerRules`: which stickers are earned, donut-box slot maths (pure, unit tested) |
 | `DroughtAssist.kt` | `DroughtAssist`: counts chains in a row with no 5-chain possible on the still board; after three, refilled donuts may copy a neighbour (`GameBoard.nudge`), quietly (pure, unit tested) |
 | `PartyMeter.kt` | `PartyState` and `PartyMeter`: what fills the sprinkle party meter, when a party starts and ends, its golden chance (pure, unit tested) |
@@ -155,7 +156,7 @@ so read just that range.
 | GameLayout.kt | 222 | `computeLayout` 10-67, `layoutSettingsPanel` 68-83, `showSettingsPage` 84-91, `placeSettings` 92-117, `row` 118-169, `layoutStickersPanel` 170-178, `sideFor` 179-213, `excludeBackSwipe` 214-222 |
 | GameTheme.kt | 23 | `GameTheme` 6-23 |
 | GameTypes.kt | 52 | `AnimPhase` 7-13, `AnimCell` 14-20, `PowerUpFx` 21-25, `DigitFlip` 26-27, `Particle` 28-35, `FloatLabel` 36-41, `BoxStrip` 42-52 |
-| GameView.kt | 521 | `GameView` 14-437, `surfaceCreated` 438-442, `surfaceChanged` 443-446, `surfaceDestroyed` 447-466, `drawFrame` 467-519, `onTouchEvent` 520-521 |
+| GameView.kt | 530 | `GameView` 14-445, `surfaceCreated` 446-450, `surfaceChanged` 451-454, `surfaceDestroyed` 455-474, `drawFrame` 475-528, `onTouchEvent` 529-530 |
 | GateDraw.kt | 90 | `drawGrownUpsButton` 17-35, `drawGatePage` 36-67, `drawPromise` 68-77, `drawTally` 78-90 |
 | HapticEngine.kt | 34 | `HapticEngine` 10-21, `tick` 22-24, `pop` 25-27, `milestone` 28-31, `shuffle` 32-34 |
 | HitZone.kt | 62 | `HitZone` 16-25, `diagWeight` 26-32, `target` 33-56, `aim` 57-62 |
@@ -173,17 +174,18 @@ so read just that range.
 | PopTiming.kt | 49 | `PopTiming` 8-11, `leadMs` 12-22, `origin` 23-31, `delays` 32-46, `totalMs` 47-49 |
 | PowerUp.kt | 13 | `PowerUp` 13-13 |
 | Praise.kt | 38 | `Praise` 8-21, `chainLabel` 22-32, `cheers` 33-35, `banner` 36-38 |
-| Prefs.kt | 110 | `Prefs` 5-52, `highScore` 53-53, `setHighScore` 54-110 |
+| Prefs.kt | 120 | `Prefs` 5-52, `highScore` 53-53, `setHighScore` 54-120 |
 | PromptDraw.kt | 130 | `advancePrompt` 19-58, `savePrompt` 59-65, `layoutCounterRow` 66-83, `drawPromptChip` 84-130 |
 | RenderThread.kt | 62 | `RenderThread` 9-12, `lockFrame` 13-27, `run` 28-62 |
 | SavedBoard.kt | 30 | `SavedBoard` 4-5, `encode` 6-12, `decode` 13-24, `ints` 25-30 |
 | SavedGame.kt | 135 | `settleBoard` 19-31, `saveState` 32-46, `restoreState` 47-53, `applySaved` 54-70, `saveToPrefs` 71-79, `restoreFromPrefs` 80-85, `saveSession` 86-93, `lifetimeDonuts` 94-96, `displayedLifetime` 97-98, `rebuildBoard` 99-112, `resetPlayState` 113-128, `clearMotion` 129-135 |
+| SeasonRules.kt | 46 | `Season` 9-22, `SeasonRules` 23-25, `md` 26-28, `at` 29-37, `id` 38-44, `worn` 45-46 |
 | SettingsIcons.kt | 203 | `drawSettingsIcon` 24-37, `inkLine` 38-44, `outlineAndFill` 45-51, `drawSpeakerIcon` 52-79, `drawBuzzIcon` 80-101, `drawBulbIcon` 102-136, `drawGridIcon` 137-156, `drawRestartIcon` 157-178, `drawConfirmIcon` 179-186, `drawLockIcon` 187-203 |
 | SoundEngine.kt | 188 | `SoundEngine` 12-15, `waveSample` 16-22, `playConnectBlip` 23-28, `playPopClear` 29-33, `playBoop` 34-38, `playDropLand` 39-46, `playMilestone` 47-62, `playGiggle` 63-75, `playFriend` 76-87, `playPromptDone` 88-94, `playShuffle` 95-102, `playTone` 103-106, `playToneBlocking` 107-117, `playSweep` 118-121, `playSweepBlocking` 122-135, `playPCM` 136-188 |
 | StickerArt.kt | 167 | `drawStickerArt` 12-45, `drawStickerGift` 46-99, `drawChainArt` 100-111, `drawBatchArt` 112-121, `drawCrown` 122-140, `drawMiniBoard` 141-153, `drawHeart` 154-167 |
 | StickerRules.kt | 75 | `StickerStats` 6-14, `StickerRules` 15-20, `statsLine` 21-27, `isBig` 28-32, `isEarned` 33-52, `earnedMask` 53-59, `toAnnounce` 60-62, `boxesFilled` 63-65, `slotsFilled` 66-68, `slotJustFilled` 69-72, `boxJustFilled` 73-75 |
-| ToppingArt.kt | 132 | `toppingName` 22-32, `drawTopping` 33-67, `starPiece` 68-81, `heartPiece` 82-92, `outlineOf` 93-99, `miniBall` 100-113, `drawRainbowBands` 114-115, `arcs` 116-132 |
-| ToppingDraw.kt | 152 | `wearTopping` 19-28, `checkToppings` 29-41, `drawToppingFly` 42-74, `panelTabPages` 75-83, `panelPageNow` 84-86, `placePanelTabs` 87-92, `slot` 93-99, `drawPanelTabs` 100-110, `toppingTiles` 111-113, `tapToppingTile` 114-121, `drawToppingsPage` 122-152 |
+| ToppingArt.kt | 240 | `toppingName` 22-32, `drawTopping` 33-67, `starPiece` 68-81, `heartPiece` 82-92, `outlineOf` 93-99, `miniBall` 100-113, `drawRainbowBands` 114-115, `arcs` 116-139, `seasonName` 140-147, `seasonCheer` 148-155, `drawSeasonLook` 156-174, `snowflake` 175-190, `flower` 191-207, `sun` 208-227, `leaf` 228-240 |
+| ToppingDraw.kt | 201 | `wearTopping` 21-29, `wearSeason` 30-40, `checkSeason` 41-65, `checkToppings` 66-78, `drawToppingFly` 79-114, `hasToppingsTab` 115-117, `panelTabPages` 118-126, `panelPageNow` 127-129, `placePanelTabs` 130-135, `slot` 136-142, `drawPanelTabs` 143-153, `toppingTiles` 154-156, `pickerTileCount` 157-159, `tapToppingTile` 160-169, `drawToppingsPage` 170-201 |
 | ToppingRules.kt | 53 | `Topping` 7-24, `ToppingRules` 25-31, `due` 32-34, `next` 35-40, `unlocked` 41-42, `isUnlocked` 43-45, `encode` 46-48, `chosen` 49-53 |
 | TwoTapConfirm.kt | 21 | `TwoTapConfirm` 4-7, `tap` 8-13, `isArmed` 14-16, `progress` 17-19, `cancel` 20-21 |
 | UiScale.kt | 26 | `UiScale` 14-21, `update` 22-26 |
@@ -241,12 +243,14 @@ so read just that range.
 | RingClearTest.kt | 53 | `RingClearTest` 8-10, `board` 11-17, `aRingClearsEveryOtherCellOfItsType` 18-26, `theSameChainUnloopedIsABomb` 27-30, `aRingWinsOverEveryLengthTier` 31-40, `aGoldenFirstCellTakesTheTypeOfTheRestOfTheRing` 41-48, `aMixedRingIsRejected` 49-53 |
 | SavedBoardCodecTest.kt | 96 | `SavedBoardCodecTest` 11-12, `seeded` 13-49, `cellsText` 50-96 |
 | SavedGameTest.kt | 330 | `SavedGameTest` 10-14, `codes` 15-17, `plant` 18-23, `planted` 24-29, `assertSameBoard` 30-330 |
-| ScreenGallery.kt | 224 | `ScreenGallery` 24-27, `Size` 28-37, `save` 38-42, `clearPrefs` 43-46, `game` 47-57, `shoot` 58-67, `drag` 68-78, `home` 79-89, `render` 90-224 |
+| ScreenGallery.kt | 234 | `ScreenGallery` 24-27, `Size` 28-37, `save` 38-42, `clearPrefs` 43-46, `game` 47-57, `shoot` 58-67, `drag` 68-78, `home` 79-89, `render` 90-234 |
+| SeasonLookTest.kt | 133 | `SeasonLookTest` 14-17, `pixels` 18-20, `setDate` 21-133 |
+| SeasonRulesTest.kt | 55 | `SeasonRulesTest` 6-55 |
 | SettingsIconsTest.kt | 62 | `SettingsIconsTest` 15-18, `pixels` 19-26, `icon` 27-51, `at` 52-62 |
 | ShowSomeoneTest.kt | 117 | `ShowSomeoneTest` 12-13, `boxFull` 14-23, `aFullBoxShowsTheCard` 24-33, `aBigStickerShowsTheCardOnlyAfterTheFlyEnds` 34-50, `aSmallStickerDoesNotShowTheCard` 51-63, `theCardWaitsWhileAPanelIsOpen` 64-76, `aTapClosesTheCardAndStartsNoChain` 77-95, `backClosesTheCardFirst` 96-105, `theCardDrawsForBothKindsAndHoldsTheHintBack` 106-117 |
 | StickerGiftTest.kt | 61 | `StickerGiftTest` 16-17, `near` 18-21, `shot` 22-28, `paper` 29-61 |
 | StickerRulesTest.kt | 115 | `StickerRulesTest` 8-11, `earned` 12-13, `edge` 14-110, `onlyTheTopOfEachLadderIsBig` 111-115 |
-| TestViews.kt | 96 | `TestViews` 17-17, `app` 18-20, `gameView` 21-35, `fixedRandom` 36-36, `nextBits` 37-37, `nextInt` 38-40, `canvas` 41-43, `now` 44-45, `advance` 46-48, `frames` 49-53, `settleLift` 54-56, `cellCenter` 57-63, `touch` 64-67, `touchRaw` 68-74, `quietView` 75-81, `total` 82-84, `playHintChain` 85-96 |
+| TestViews.kt | 97 | `TestViews` 17-17, `app` 18-20, `gameView` 21-36, `fixedRandom` 37-37, `nextBits` 38-38, `nextInt` 39-41, `canvas` 42-44, `now` 45-46, `advance` 47-49, `frames` 50-54, `settleLift` 55-57, `cellCenter` 58-64, `touch` 65-68, `touchRaw` 69-75, `quietView` 76-82, `total` 83-85, `playHintChain` 86-97 |
 | ToppingRulesTest.kt | 108 | `ToppingRulesTest` 9-108 |
 | ToppingsPageTest.kt | 140 | `ToppingsPageTest` 13-14, `openWith` 15-22, `paint` 23-24, `pixels` 25-140 |
 | TwoTapConfirmTest.kt | 85 | `TwoTapConfirmTest` 8-85 |

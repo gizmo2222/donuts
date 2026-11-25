@@ -130,3 +130,111 @@ private fun GameView.drawRainbowBands(canvas: Canvas, cx: Float, cy: Float, r: F
     arcs(190f, 160f)
     arcs(25f, 130f)
 }
+
+// ---- Seasonal looks: drawn at the topping spots instead of the topping while one is worn ----
+
+private val FLOWER_COLORS = intArrayOf(Color.rgb(255, 120, 185), Color.rgb(255, 225, 60), Color.rgb(185, 130, 255))
+private val LEAF_COLORS = intArrayOf(Color.rgb(235, 70, 40), Color.rgb(255, 150, 30), Color.rgb(240, 200, 40))
+
+/** What the picker calls a seasonal look. */
+fun seasonName(s: Season): String = when (s) {
+    Season.SNOW -> "Snowflakes"
+    Season.FLOWERS -> "Flowers"
+    Season.SUNSHINE -> "Suns"
+    Season.LEAVES -> "Leaves"
+}
+
+/** The shout over a season's reveal. */
+fun seasonCheer(s: Season): String = when (s) {
+    Season.SNOW -> "SNOWY DONUTS!"
+    Season.FLOWERS -> "FLOWER DONUTS!"
+    Season.SUNSHINE -> "SUNNY DONUTS!"
+    Season.LEAVES -> "LEAFY DONUTS!"
+}
+
+/** Draws seasonal look [s] over the glaze ring of a donut of radius [r] centred on [cx], [cy]. */
+internal fun GameView.drawSeasonLook(canvas: Canvas, cx: Float, cy: Float, r: Float, s: Season, alpha: Int) {
+    val ow = r * 0.055f
+    for (i in TOP_ANG.indices) {
+        val a = Math.toRadians(TOP_ANG[i].toDouble())
+        val px = cx + r * TOP_RAD[i] * cos(a).toFloat()
+        val py = cy + r * TOP_RAD[i] * sin(a).toFloat()
+        canvas.save(); canvas.rotate(TOP_TILT[i], px, py)
+        when (s) {
+            Season.SNOW -> snowflake(canvas, px, py, r * 0.19f, ow, if (i % 2 == 0) Color.WHITE else Color.rgb(190, 235, 255), alpha)
+            Season.FLOWERS -> flower(canvas, px, py, r * 0.10f, ow, FLOWER_COLORS[i % FLOWER_COLORS.size], alpha)
+            Season.SUNSHINE -> sun(canvas, px, py, r * 0.10f, ow, alpha)
+            Season.LEAVES -> leaf(canvas, px, py, r * 0.20f, ow, LEAF_COLORS[i % LEAF_COLORS.size], alpha)
+        }
+        canvas.restore()
+    }
+    fillPaint.alpha = 255; strokePaint.alpha = 255
+    strokePaint.strokeCap = Paint.Cap.BUTT
+}
+
+private fun GameView.snowflake(canvas: Canvas, x: Float, y: Float, s: Float, ow: Float, color: Int, alpha: Int) {
+    strokePaint.strokeCap = Paint.Cap.ROUND
+    for (pass in 0..1) {
+        strokePaint.color = if (pass == 0) Color.argb(alpha, 28, 12, 0) else color
+        if (pass == 1) strokePaint.alpha = alpha
+        strokePaint.strokeWidth = if (pass == 0) s * 0.26f + ow * 1.6f else s * 0.26f
+        for (k in 0 until 3) {
+            val a = (k * 60.0) * PI / 180.0
+            val dx = s * cos(a).toFloat(); val dy = s * sin(a).toFloat()
+            canvas.drawLine(x - dx, y - dy, x + dx, y + dy, strokePaint)
+        }
+    }
+    fillPaint.color = Color.argb(alpha, 28, 12, 0)
+    canvas.drawCircle(x, y, s * 0.12f, fillPaint)
+}
+
+private fun GameView.flower(canvas: Canvas, x: Float, y: Float, s: Float, ow: Float, color: Int, alpha: Int) {
+    fillPaint.color = Color.argb(alpha, 28, 12, 0)
+    for (k in 0 until 5) {
+        val a = (-90.0 + k * 72.0) * PI / 180.0
+        canvas.drawCircle(x + s * cos(a).toFloat(), y + s * sin(a).toFloat(), s * 0.78f + ow, fillPaint)
+    }
+    fillPaint.color = color; fillPaint.alpha = alpha
+    for (k in 0 until 5) {
+        val a = (-90.0 + k * 72.0) * PI / 180.0
+        canvas.drawCircle(x + s * cos(a).toFloat(), y + s * sin(a).toFloat(), s * 0.78f, fillPaint)
+    }
+    fillPaint.color = Color.argb(alpha, 28, 12, 0)
+    canvas.drawCircle(x, y, s * 0.55f + ow, fillPaint)
+    fillPaint.color = Color.rgb(255, 160, 30); fillPaint.alpha = alpha
+    canvas.drawCircle(x, y, s * 0.55f, fillPaint)
+}
+
+private fun GameView.sun(canvas: Canvas, x: Float, y: Float, s: Float, ow: Float, alpha: Int) {
+    strokePaint.strokeCap = Paint.Cap.ROUND
+    for (pass in 0..1) {
+        strokePaint.color = if (pass == 0) Color.argb(alpha, 28, 12, 0) else Color.rgb(255, 150, 20)
+        if (pass == 1) strokePaint.alpha = alpha
+        strokePaint.strokeWidth = if (pass == 0) s * 0.32f + ow * 1.6f else s * 0.32f
+        for (k in 0 until 8) {
+            val a = (k * 45.0) * PI / 180.0
+            val c = cos(a).toFloat(); val sn = sin(a).toFloat()
+            canvas.drawLine(x + c * s * 1.25f, y + sn * s * 1.25f, x + c * s * 1.75f, y + sn * s * 1.75f, strokePaint)
+        }
+    }
+    fillPaint.color = Color.argb(alpha, 28, 12, 0)
+    canvas.drawCircle(x, y, s + ow, fillPaint)
+    fillPaint.color = Color.rgb(255, 225, 40); fillPaint.alpha = alpha
+    canvas.drawCircle(x, y, s, fillPaint)
+    fillPaint.color = Color.argb(alpha * 2 / 3, 255, 250, 200)
+    canvas.drawCircle(x - s * 0.35f, y - s * 0.35f, s * 0.3f, fillPaint)
+}
+
+private fun GameView.leaf(canvas: Canvas, x: Float, y: Float, s: Float, ow: Float, color: Int, alpha: Int) {
+    scratchPath2.rewind()
+    scratchPath2.moveTo(x - s, y)
+    scratchPath2.quadTo(x, y - s * 0.85f, x + s, y)
+    scratchPath2.quadTo(x, y + s * 0.85f, x - s, y)
+    scratchPath2.close()
+    fillPaint.color = color; fillPaint.alpha = alpha
+    canvas.drawPath(scratchPath2, fillPaint)
+    outlineOf(canvas, ow, alpha)
+    strokePaint.color = Color.argb(alpha * 3 / 4, 120, 40, 10); strokePaint.strokeWidth = ow
+    canvas.drawLine(x - s * 0.75f, y, x + s * 0.6f, y, strokePaint)
+    strokePaint.alpha = 255
+}

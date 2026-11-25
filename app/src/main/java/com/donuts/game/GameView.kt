@@ -154,6 +154,13 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var toppingTapMs      = -1L
     // The topping on every donut, from the saved choice (PLAIN if unknown or not earned)
     internal var topping: Topping  = ToppingRules.chosen(prefs.topping, prefs.toppingsEarned)
+    // Seasonal looks (SeasonRules): the date's season (checked once a minute), its run id, and the look worn
+    // instead of the topping (null: the topping shows). [today] is swapped in tests.
+    internal var today: () -> java.time.LocalDate = { java.time.LocalDate.now() }
+    internal var season: Season?   = null
+    internal var seasonId          = ""
+    internal var seasonCheckMs     = -1L
+    internal var seasonWorn: Season? = null
 
     // Donut box: one slot fills every StickerRules.BOX_SLOT_DONUTS donuts popped, ever; a full box
     // is banked and a fresh one starts. It never runs out, so there is always something filling up.
@@ -306,6 +313,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // A topping earned at a lifetime threshold: a big strawberry in it pops up on the board, then flies into the star
     internal var toppingFlyMs   = -1L
     internal var toppingFlyTop  = Topping.PLAIN
+    internal var toppingFlySeason: Season? = null   // set when the fly is a season's reveal
     internal val TOPPING_FLY_MS = 1500L
 
     // Press feedback on panel buttons (settings options, New game, Done)
@@ -492,6 +500,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
         advanceShowSomeone(now)
         checkFriends(now)
         checkToppings(now)
+        checkSeason(now)
         if (stickerFlyMs >= 0) drawStickerFly(canvas, now)
         if (friendFlyMs >= 0) drawFriendFly(canvas, now)
         if (toppingFlyMs >= 0) drawToppingFly(canvas, now)

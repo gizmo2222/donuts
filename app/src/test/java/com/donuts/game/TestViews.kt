@@ -27,6 +27,7 @@ internal object TestViews {
         val v = GameView(app(), GameBoard(grid, grid, Random(seed)), prefs)
         v.fxRandom = Random(seed)          // confetti, looks and giggles repeat run to run
         v.promptRandom = Random(seed)      // and so do the picture prompts
+        v.today = { java.time.LocalDate.of(2026, 11, 25) }   // between seasons, so no seasonal look turns up
         v.surfaceW = w; v.surfaceH = h
         v.computeLayout()
         return v

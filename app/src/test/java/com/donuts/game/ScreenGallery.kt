@@ -136,6 +136,16 @@ class ScreenGallery {
             val v = game(size) { it.toppingsEarned = 1; it.topping = "sprinkles"; it.lifetimeDonuts = 60 }
             shoot(v, size, "30-board-sprinkles")
         }
+        run {
+            val v = game(size) { it.toppingsEarned = 1; it.topping = "sprinkles"; it.seasonSeen = "snow-2026"; it.seasonLook = "snow" }
+            v.today = { java.time.LocalDate.of(2026, 12, 10) }; v.seasonCheckMs = -1L
+            shoot(v, size, "31-board-snow")
+        }
+        run {
+            val v = game(size) { it.toppingsEarned = 4; it.topping = "stars"; it.seasonSeen = "leaves-2026"; it.seasonLook = "leaves" }
+            v.today = { java.time.LocalDate.of(2026, 10, 12) }; v.seasonCheckMs = -1L
+            shoot(v, size, "32-toppings-season", warm = 30, step = 20L) { v.stickersPage = 2; v.stickersOpen = true }
+        }
         if (!size.allStates) return
         run {
             val v = game(size)
