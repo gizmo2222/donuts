@@ -77,6 +77,11 @@ class Prefs(context: Context) {
         get()  = p.getInt("friends_met", 0).coerceIn(0, FriendRules.FRIEND_COUNT)
         set(v) { p.edit().putInt("friends_met", v).apply() }
 
+    // How Steven plays (PlayTally text form): chain lengths and power-ups. Stays on the phone; no reset clears it.
+    var playTally: String?
+        get()  = p.getString("play_tally", null)
+        set(v) { p.edit().putString("play_tally", v).apply() }
+
     // The board and counter as left by the last pause (see SavedBoard); null = none
     var savedBoard: String?
         get()  = p.getString("saved_board", null)

@@ -315,6 +315,7 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
             drawConfirmButton(canvas, now, settingsResetRect, newGameConfirm, "New game", "New game?", Color.rgb(200, 70, 50), restart = true)
             drawConfirmButton(canvas, now, settingsStickersRect, stickersConfirm, "Reset stickers", "Clear all?", Color.rgb(150, 70, 170), restart = false)
             drawPromise(canvas)
+            drawTally(canvas)
         }
     }
 

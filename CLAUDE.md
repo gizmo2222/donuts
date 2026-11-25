@@ -85,7 +85,7 @@ All sources are in `app\src\main\java\com\donuts\game`. No main source is over a
 | `FriendDraw.kt` | Meeting a friend: `checkFriends` starts a reveal, `drawFriendFly` pops it up on the board and flies it into the star; `drawPanelTabs`, `drawFriendsPage` are the stickers panel tabs and the friends page |
 | `SavedGame.kt` | Keeping the board and counter across an activity restart (`saveState`, `restoreState`), and session banking (`saveSession`, `lifetimeDonuts`, `rebuildBoard`, prefs save) |
 | `RenderThread.kt` | The render thread: lock a canvas, draw a frame, post it, pace to 60 fps |
-| `GateDraw.kt` | The settings panel's grown-ups pages: the locked Grown-ups button, the parent gate (question, answer box, keypad), the no-ads promise |
+| `GateDraw.kt` | The settings panel's grown-ups pages: the locked Grown-ups button, the parent gate (question, answer box, keypad), the no-ads promise, the play tally card |
 | `ParentGate.kt` | `ParentGate`: the grown-ups gate question (times table in words) and its two-digit keypad answer (pure, unit tested) |
 | `TwoTapConfirm.kt` | The tap-twice confirm for New game and Reset stickers (pure, tested) |
 | `CelebrationMix.kt` | Celebration looks: confetti style, banner colour, the rare golden shower and the rare tap giggle, from a seedable `Random` (pure, unit tested) |
@@ -103,6 +103,7 @@ All sources are in `app\src\main\java\com\donuts\game`. No main source is over a
 | `FriendRules.kt` | `Friend` and `FriendRules`: the twelve donut friends, fixed reveal order on box slot fills (pure, unit tested) |
 | `StickerRules.kt` | `StickerStats` and `StickerRules`: which stickers are earned, donut-box slot maths (pure, unit tested) |
 | `PartyMeter.kt` | `PartyState` and `PartyMeter`: what fills the sprinkle party meter, when a party starts and ends, its golden chance (pure, unit tested) |
+| `PlayTally.kt` | `PlayTally`: the local tally of chain lengths, power-ups and golden chains, its text form for `Prefs` and the Grown-ups page lines (pure, unit tested) |
 | `GameBoard.kt`, `GameCell.kt`, `ChainResult.kt`, `PowerUp.kt`, `DonutType.kt` | Game rules, no drawing |
 | `MainView.kt`, `MainActivity.kt`, `GameActivity.kt` | Home screen and the two activities |
 | `Prefs.kt`, `UiScale.kt`, `GameTheme.kt`, `SoundEngine.kt`, `HapticEngine.kt` | Saved data, dp sizing, palette, sound, haptics |
@@ -143,12 +144,12 @@ so read just that range.
 | GameAnimation.kt | 405 | `cascadeWord` 10-15, `updateHint` 16-29, `advancePowerPops` 30-41, `advanceAnimation` 42-165, `addFloatLabelAt` 166-174, `advanceSettingsAnim` 175-185, `slideToward` 186-197, `easeOutQuint` 198-203, `settingsSlideY` 204-204, `stickersSlideY` 205-210, `panelBusy` 211-212, `advanceCounter` 213-246, `celebrate` 247-251, `praise` 252-255, `startCelebration` 256-269, `spawnParticles` 270-310, `easeOutBack` 311-316, `checkStickers` 317-349, `advanceShowSomeone` 350-358, `closeShowSomeone` 359-363, `starPulse` 364-371, `advanceBoxStrip` 372-384, `pourParty` 385-392, `setParty` 393-399, `advancePartyMeter` 400-405 |
 | GameBoard.kt | 359 | `GameBoard` 12-53, `refill` 54-72, `randomType` 73-75, `safeRandom` 76-97, `spawnCell` 98-105, `findMatches` 106-146, `resolveOnce` 147-162, `findHint` 163-181, `dragOrder` 182-186, `floodFill` 187-214, `chainTypeOf` 215-234, `peekChainClear` 235-275, `countCleared` 276-280, `collapse` 281-298, `clearChain` 299-306, `hasValidMoves` 307-313, `shuffle` 314-317, `reset` 318-327, `settle` 328-332, `cellCodes` 333-338, `clearedCounts` 339-344, `restore` 345-359 |
 | GameCell.kt | 18 | `GameCell` 13-18 |
-| GameInput.kt | 441 | `settingsHit` 14-39, `stickersHit` 40-53, `handleStickersTap` 54-66, `panelHitRect` 67-81, `turnSettingsPage` 82-88, `handleSettingsTap` 89-119, `resetStickers` 120-131, `closeSettings` 132-134, `startOver` 135-150, `startHeldDrag` 151-157, `handleDown` 158-170, `handleMove` 171-227, `handleUp` 228-287, `beginLift` 288-295, `finishLift` 296-302, `advanceLift` 303-311, `resumeLift` 312-329, `handleTouch` 330-418, `cellCol` 419-420, `cellRow` 421-423, `cellU` 424-425, `cellV` 426-427, `inBounds` 428-429, `adjacent8` 430-433, `onBackPressed` 434-441 |
-| GameLayout.kt | 221 | `computeLayout` 10-67, `layoutSettingsPanel` 68-83, `showSettingsPage` 84-91, `placeSettings` 92-116, `row` 117-166, `layoutStickersPanel` 167-175, `sideFor` 176-212, `excludeBackSwipe` 213-221 |
+| GameInput.kt | 450 | `settingsHit` 14-39, `stickersHit` 40-53, `handleStickersTap` 54-66, `panelHitRect` 67-81, `turnSettingsPage` 82-88, `handleSettingsTap` 89-119, `resetStickers` 120-131, `closeSettings` 132-134, `startOver` 135-150, `startHeldDrag` 151-157, `handleDown` 158-170, `handleMove` 171-227, `handleUp` 228-289, `tallyChain` 290-296, `beginLift` 297-304, `finishLift` 305-311, `advanceLift` 312-320, `resumeLift` 321-338, `handleTouch` 339-427, `cellCol` 428-429, `cellRow` 430-432, `cellU` 433-434, `cellV` 435-436, `inBounds` 437-438, `adjacent8` 439-442, `onBackPressed` 443-450 |
+| GameLayout.kt | 224 | `computeLayout` 10-67, `layoutSettingsPanel` 68-83, `showSettingsPage` 84-91, `placeSettings` 92-117, `row` 118-169, `layoutStickersPanel` 170-178, `sideFor` 179-215, `excludeBackSwipe` 216-224 |
 | GameTheme.kt | 23 | `GameTheme` 6-23 |
 | GameTypes.kt | 52 | `AnimPhase` 7-13, `AnimCell` 14-20, `PowerUpFx` 21-25, `DigitFlip` 26-27, `Particle` 28-35, `FloatLabel` 36-41, `BoxStrip` 42-52 |
-| GameView.kt | 489 | `GameView` 14-409, `surfaceCreated` 410-414, `surfaceChanged` 415-418, `surfaceDestroyed` 419-438, `drawFrame` 439-487, `onTouchEvent` 488-489 |
-| GateDraw.kt | 74 | `drawGrownUpsButton` 16-34, `drawGatePage` 35-66, `drawPromise` 67-74 |
+| GameView.kt | 493 | `GameView` 14-413, `surfaceCreated` 414-418, `surfaceChanged` 419-422, `surfaceDestroyed` 423-442, `drawFrame` 443-491, `onTouchEvent` 492-493 |
+| GateDraw.kt | 90 | `drawGrownUpsButton` 17-35, `drawGatePage` 36-67, `drawPromise` 68-77, `drawTally` 78-90 |
 | HapticEngine.kt | 34 | `HapticEngine` 10-21, `tick` 22-24, `pop` 25-27, `milestone` 28-31, `shuffle` 32-34 |
 | HitZone.kt | 62 | `HitZone` 16-25, `diagWeight` 26-32, `target` 33-56, `aim` 57-62 |
 | HudDraw.kt | 288 | `drawHUD` 12-16, `drawBackdrop` 17-30, `drawIconButton` 31-38, `drawStarIcon` 39-55, `drawGearIcon` 56-73, `pressScaleFor` 74-77, `buttonPressScale` 78-84, `drawPrettyButton` 85-126, `drawCounter` 127-194, `drawLabel` 195-210, `drawOutlinedText` 211-221, `drawBoxStrip` 222-228, `drawPartyMeter` 229-284, `blendColor` 285-285, `ch` 286-288 |
@@ -157,13 +158,14 @@ so read just that range.
 | LoopRules.kt | 22 | `LoopRules` 9-15, `closes` 16-22 |
 | MainActivity.kt | 28 | `MainActivity` 8-12, `onResume` 13-17, `onCreate` 18-28 |
 | MainView.kt | 372 | `MainView` 13-66, `onSizeChanged` 67-72, `relayout` 73-94, `onDraw` 95-116, `drawDotGrid` 117-131, `drawLogo` 132-150, `drawDonut` 151-192, `drawSoccerBall` 193-235, `regularPolygon` 236-250, `addSheen` 251-267, `drawTitle` 268-308, `buttonPressScale` 309-315, `drawPlayButton` 316-356, `onTouchEvent` 357-372 |
-| PanelsDraw.kt | 420 | `stickerStats` 13-21, `drawStickersPanel` 22-165, `drawDonutBox` 166-233, `popScale` 234-238, `drawClosedBox` 239-258, `drawSettings` 259-339, `drawConfirmButton` 340-367, `drawCheckBadge` 368-377, `drawSettingsBtn` 378-420 |
+| PanelsDraw.kt | 421 | `stickerStats` 13-21, `drawStickersPanel` 22-165, `drawDonutBox` 166-233, `popScale` 234-238, `drawClosedBox` 239-258, `drawSettings` 259-340, `drawConfirmButton` 341-368, `drawCheckBadge` 369-378, `drawSettingsBtn` 379-421 |
 | ParentGate.kt | 49 | `ParentGate` 11-22, `next` 23-32, `press` 33-49 |
 | PartyMeter.kt | 50 | `PartyState` 7-17, `PartyMeter` 18-30, `after` 31-37, `started` 38-40, `goldenChance` 41-43, `fill` 44-47, `restore` 48-50 |
+| PlayTally.kt | 90 | `PlayTally` 11-19, `record` 20-27, `chains` 28-30, `powerUps` 31-39, `popsAtLeast` 40-42, `percentAtLeast` 43-47, `encode` 48-51, `lines` 52-66, `bump` 67-74, `decode` 75-86, `ints` 87-90 |
 | PopTiming.kt | 49 | `PopTiming` 8-11, `leadMs` 12-22, `origin` 23-31, `delays` 32-46, `totalMs` 47-49 |
 | PowerUp.kt | 13 | `PowerUp` 13-13 |
 | Praise.kt | 38 | `Praise` 8-21, `chainLabel` 22-32, `cheers` 33-35, `banner` 36-38 |
-| Prefs.kt | 90 | `Prefs` 5-52, `highScore` 53-53, `setHighScore` 54-90 |
+| Prefs.kt | 95 | `Prefs` 5-52, `highScore` 53-53, `setHighScore` 54-95 |
 | RenderThread.kt | 62 | `RenderThread` 9-12, `lockFrame` 13-27, `run` 28-62 |
 | SavedBoard.kt | 30 | `SavedBoard` 4-5, `encode` 6-12, `decode` 13-24, `ints` 25-30 |
 | SavedGame.kt | 134 | `settleBoard` 19-31, `saveState` 32-46, `restoreState` 47-53, `applySaved` 54-70, `saveToPrefs` 71-79, `restoreFromPrefs` 80-85, `saveSession` 86-93, `lifetimeDonuts` 94-96, `displayedLifetime` 97-98, `rebuildBoard` 99-112, `resetPlayState` 113-127, `clearMotion` 128-134 |
@@ -214,6 +216,8 @@ so read just that range.
 | ParentGateTest.kt | 71 | `ParentGateTest` 9-9, `gate` 10-71 |
 | PartyMeterTest.kt | 79 | `PartyMeterTest` 9-79 |
 | PartyMeterViewTest.kt | 85 | `PartyMeterViewTest` 12-13, `settle` 14-85 |
+| PlayTallyInputTest.kt | 55 | `PlayTallyInputTest` 9-11, `aPoppedChainIsTalliedAndSavedToPrefs` 12-21, `aTapAndATwoAreTalliedAsTries` 22-30, `aChainOfFiveCountsItsBomb` 31-38, `theTallyOutlivesTheViewAndNewGameAndResetStickers` 39-47, `theGrownUpsPageDrawsTheTally` 48-55 |
+| PlayTallyTest.kt | 91 | `PlayTallyTest` 6-6, `sample` 7-14, `anEmptyTallyCountsNothingAndSaysSo` 15-23, `chainsCountByLengthWithTapsAndTwosAsTries` 24-36, `powerUpsCountByKindAndNoneIsNeverCounted` 37-44, `longChainsShareTheLastSlotAndBadLengthsAreIgnored` 45-53, `encodeAndDecodeRoundTrip` 54-62, `badTextDecodesToAnEmptyTally` 63-74, `countsStopAtTheTopInsteadOfWrapping` 75-82, `theLinesNameEveryCountAndTheSevenPlusShare` 83-91 |
 | PopTimingTest.kt | 168 | `PopTimingTest` 9-10, `resultOf` 11-13, `checkEveryCellHasAnEntry` 14-18, `plainChainPopsAllAtOnce` 19-29, `bombOriginSwellsFirstThenNeighboursPopTogether` 30-44, `rowBlastGrowsWithColumnDistanceAndMatchesBothSides` 45-61, `colorBurstBonusStartsAfterLeadAndRipplesOutward` 62-78, `ringStartsAtTheCellNearestItsCentreAndRipplesOutwardAfterTheLead` 79-94, `result` 95-168 |
 | PraiseTest.kt | 40 | `PraiseTest` 6-7, `powerUpWordsComeFirstEvenWithAGoldenCell` 8-15, `aGoldenCellNamesItselfOnShortChains` 16-21, `plainChainsGetNiceAtFourAndNothingAtThree` 22-27, `theCheerComesOnEverySecondBigMoment` 28-34, `floatWordsStayShortEnoughForAnEightByEightCell` 35-40 |
 | PrivacyPromiseTest.kt | 61 | `PrivacyPromiseTest` 16-17, `requestedPermissions` 18-61 |

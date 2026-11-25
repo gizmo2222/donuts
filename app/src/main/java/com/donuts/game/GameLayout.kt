@@ -102,13 +102,14 @@ internal fun GameView.placeSettings(page: Int, pw: Float, safeL: Float, safeT: F
     val closeH = 56f * k
     val verH   = 24f * k      // the small version line under Done
     val promiseH = 64f * k    // the two-line promise to parents under New game / Reset stickers
+    val tallyH = 108f * k     // the play tally under the promise: a heading and three lines, then a gap
     val questH = 48f * k      // the gate's question
     val ansH   = 60f * k      // the box the typed digits show in
     val keyH   = 58f * k; val keyGap = 10f * k
     val ph = when (page) {
         SETTINGS_KID  -> titleH + secH * 3f + secGap * 2f + confGap + rowH + pad + closeH + pad + verH
         SETTINGS_GATE -> titleH + questH + ansH + keyGap * 2f + keyH * 4f + keyGap * 3f + pad + closeH + pad
-        else          -> titleH + secH + confGap + rowH + promiseH + closeH + pad + verH
+        else          -> titleH + secH + confGap + rowH + promiseH + tallyH + closeH + pad + verH
     }
     val pl = safeL + (safeW - pw) / 2f
     val pt = safeT + (safeH - ph) / 2f
@@ -155,6 +156,8 @@ internal fun GameView.placeSettings(page: Int, pw: Float, safeL: Float, safeT: F
             val rw = (pw - pad * 3f) / 2f
             settingsResetRect    = RectF(pl + pad, rTop, pl + pad + rw, rTop + rowH)
             settingsStickersRect = RectF(pl + pad * 2f + rw, rTop, pl + pw - pad, rTop + rowH)
+            val tTop = rTop + rowH + promiseH
+            settingsTallyRect = RectF(pl + pad, tTop, pl + pw - pad, tTop + tallyH - pad)
         }
     }
     return ph

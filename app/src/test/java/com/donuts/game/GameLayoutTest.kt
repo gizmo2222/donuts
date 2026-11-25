@@ -115,7 +115,7 @@ class GameLayoutTest {
                 else -> listOf(
                     "grid0" to v.gridRects[0], "grid1" to v.gridRects[1],
                     "reset" to v.settingsResetRect, "stickers" to v.settingsStickersRect,
-                    "icon3" to v.settingsIconRects[ICON_GRID]
+                    "icon3" to v.settingsIconRects[ICON_GRID], "tally" to v.settingsTallyRect
                 )
             } + listOf("close" to v.settingsCloseRect)
             for ((name, r) in all) {
