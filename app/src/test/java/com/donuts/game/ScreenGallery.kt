@@ -104,6 +104,10 @@ class ScreenGallery {
             val v = game(size)
             shoot(v, size, "07-settings", warm = 30, step = 20L) { v.settingsOpen = true }
         }
+        run {
+            val v = game(size) { it.friendsMet = 4; it.lifetimeDonuts = 75 }
+            shoot(v, size, "23-friends-page", warm = 30, step = 20L) { v.stickersPage = 1; v.stickersOpen = true }
+        }
         if (!size.allStates) return
         run {
             val v = game(size)
@@ -173,8 +177,7 @@ class ScreenGallery {
         run {
             val v = game(size) { it.friendsMet = 0; it.lifetimeDonuts = 10 }
             shoot(v, size, "22-friend", warm = 30)
-        }
-    }
+        }    }
 
     @Test fun phone() { assumeTrue(outDir != null); render(sizes[0]) }
     @Test fun phoneLandscape() { assumeTrue(outDir != null); render(sizes[1]) }

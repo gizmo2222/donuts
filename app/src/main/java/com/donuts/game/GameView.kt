@@ -119,6 +119,12 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var stickerPanelRect  = RectF()
     internal val stickerRects      = Array(12) { RectF() }
     internal var stickersCloseRect = RectF()
+    // Stickers panel pages: 0 stickers, 1 friends (tabs show once a friend is met). Not saved.
+    internal var stickersPage      = 0
+    internal var stickersTabRect   = RectF()
+    internal var friendsTabRect    = RectF()
+    internal var friendTapIdx      = -1      // the friend doing its happy hop on the friends page
+    internal var friendTapMs       = -1L
 
     // Donut box: one slot fills every StickerRules.BOX_SLOT_DONUTS donuts popped, ever; a full box
     // is banked and a fresh one starts. It never runs out, so there is always something filling up.

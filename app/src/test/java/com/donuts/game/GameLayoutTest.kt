@@ -106,9 +106,14 @@ class GameLayoutTest {
     @Test fun stickersPanelTilesAndButtonsFitAndDoNotOverlap() = forAll { n, v ->
         assertTrue("$n: panel inside", inside(surfaceRect(v), v.stickerPanelRect))
         val all = v.stickerRects.mapIndexed { i, r -> "tile$i" to r } +
-            listOf("box" to v.donutBoxRect, "close" to v.stickersCloseRect)
+            listOf("box" to v.donutBoxRect, "close" to v.stickersCloseRect,
+                "stickersTab" to v.stickersTabRect, "friendsTab" to v.friendsTabRect)
         for ((name, r) in all) assertTrue("$n: $name inside panel", inside(v.stickerPanelRect, r))
         assertNoOverlap(n, all)
+        for ((name, r) in listOf("stickersTab" to v.stickersTabRect, "friendsTab" to v.friendsTabRect)) {
+            assertTrue("$n: $name height ${r.height()}", r.height() >= 48f * v.u - eps)
+            assertTrue("$n: $name width ${r.width()}", r.width() >= 48f * v.u)
+        }
         val side = v.stickerRects[0].width()
         for (r in v.stickerRects) {
             assertEquals("$n: tiles square", r.width(), r.height(), eps)
@@ -163,6 +168,8 @@ class GameLayoutTest {
             assertTrue(v.stickersBtnRect.width() >= 48f * 3f)
             assertTrue(inside(surfaceRect(v), v.panelRect))
             assertTrue(inside(surfaceRect(v), v.stickerPanelRect))
+            assertTrue(inside(v.stickerPanelRect, v.stickersTabRect) && inside(v.stickerPanelRect, v.friendsTabRect))
+            assertTrue(v.stickersTabRect.height() >= 48f * 3f - eps && v.friendsTabRect.height() >= 48f * 3f - eps)
             assertEquals(1f, v.settingsSc, 0f)
         }
     }
@@ -175,6 +182,8 @@ class GameLayoutTest {
         assertTrue(inside(v.panelRect, v.settingsCloseRect))
         assertTrue(inside(v.panelRect, v.gridRects[1]))
         assertTrue(inside(surfaceRect(v), v.stickerPanelRect))
+        assertTrue(inside(v.stickerPanelRect, v.stickersTabRect) && inside(v.stickerPanelRect, v.friendsTabRect))
+        assertTrue(v.stickersTabRect.height() >= 48f * 3f - eps)
         assertTrue(inside(surfaceRect(v), boardRect(v)))
     }
 
