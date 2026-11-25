@@ -78,7 +78,7 @@ All sources are in `app\src\main\java\com\donuts\game`. No main source is over a
 | `EffectsDraw.kt` | Float labels, pings, confetti and banners, sticker fly, tutorial, no-moves warning, power-up effects |
 | `PanelsDraw.kt` | The stickers panel (with the donut box) and the settings panel |
 | `SettingsIcons.kt` | The settings pictures (speaker, buzzing phone, bulb, donut grid) that show each row's choice, and the icons on New game and Reset stickers |
-| `StickerArt.kt` | The twelve sticker pictures |
+| `StickerArt.kt` | The twelve sticker pictures, and the wrapped present a sticker shows until it is earned |
 | `FriendArt.kt` | The donut friends' faces (`drawFriend`, all twelve), the first four painters and the shared face helpers |
 | `FriendArt2.kt` | Friends 4-11 (Choco, Kicky, Berry, Gloop, Zoomy, Puff, Fizz, Captain Glaze), using the face helpers in `FriendArt.kt` |
 | `FriendDraw.kt` | Meeting a friend: `checkFriends` starts a reveal, `drawFriendFly` pops it up on the board and flies it into the star; `drawPanelTabs`, `drawFriendsPage` are the stickers panel tabs and the friends page |
@@ -137,7 +137,7 @@ so read just that range.
 | GameLayout.kt | 169 | `computeLayout` 10-61, `layoutSettingsPanel` 62-72, `placeSettings` 73-89, `row` 90-114, `layoutStickersPanel` 115-123, `sideFor` 124-160, `excludeBackSwipe` 161-169 |
 | GameTheme.kt | 17 | `GameTheme` 6-17 |
 | GameTypes.kt | 46 | `AnimPhase` 7-8, `AnimCell` 9-15, `PowerUpFx` 16-20, `DigitFlip` 21-22, `Particle` 23-29, `FloatLabel` 30-35, `BoxStrip` 36-46 |
-| GameView.kt | 461 | `GameView` 14-384, `surfaceCreated` 385-389, `surfaceChanged` 390-393, `surfaceDestroyed` 394-413, `drawFrame` 414-459, `onTouchEvent` 460-461 |
+| GameView.kt | 454 | `GameView` 14-377, `surfaceCreated` 378-382, `surfaceChanged` 383-386, `surfaceDestroyed` 387-406, `drawFrame` 407-452, `onTouchEvent` 453-454 |
 | HapticEngine.kt | 34 | `HapticEngine` 10-21, `tick` 22-24, `pop` 25-27, `milestone` 28-31, `shuffle` 32-34 |
 | HitZone.kt | 62 | `HitZone` 16-25, `diagWeight` 26-32, `target` 33-56, `aim` 57-62 |
 | HudDraw.kt | 225 | `drawHUD` 12-16, `drawBackdrop` 17-30, `drawIconButton` 31-38, `drawStarIcon` 39-55, `drawGearIcon` 56-73, `pressScaleFor` 74-77, `buttonPressScale` 78-84, `drawPrettyButton` 85-126, `drawCounter` 127-194, `drawLabel` 195-210, `drawOutlinedText` 211-221, `drawBoxStrip` 222-225 |
@@ -145,7 +145,7 @@ so read just that range.
 | LoopRules.kt | 22 | `LoopRules` 9-15, `closes` 16-22 |
 | MainActivity.kt | 28 | `MainActivity` 8-12, `onResume` 13-17, `onCreate` 18-28 |
 | MainView.kt | 372 | `MainView` 13-66, `onSizeChanged` 67-72, `relayout` 73-94, `onDraw` 95-116, `drawDotGrid` 117-131, `drawLogo` 132-150, `drawDonut` 151-192, `drawSoccerBall` 193-235, `regularPolygon` 236-250, `addSheen` 251-267, `drawTitle` 268-308, `buttonPressScale` 309-315, `drawPlayButton` 316-356, `onTouchEvent` 357-372 |
-| PanelsDraw.kt | 436 | `stickerStats` 13-21, `drawStickersPanel` 22-175, `drawTileCaption` 176-197, `drawDonutBox` 198-265, `popScale` 266-270, `drawClosedBox` 271-290, `drawSettings` 291-355, `drawConfirmButton` 356-383, `drawCheckBadge` 384-393, `drawSettingsBtn` 394-436 |
+| PanelsDraw.kt | 404 | `stickerStats` 13-21, `drawStickersPanel` 22-165, `drawDonutBox` 166-233, `popScale` 234-238, `drawClosedBox` 239-258, `drawSettings` 259-323, `drawConfirmButton` 324-351, `drawCheckBadge` 352-361, `drawSettingsBtn` 362-404 |
 | PopTiming.kt | 49 | `PopTiming` 8-11, `leadMs` 12-22, `origin` 23-31, `delays` 32-46, `totalMs` 47-49 |
 | PowerUp.kt | 13 | `PowerUp` 13-13 |
 | Praise.kt | 35 | `Praise` 8-18, `chainLabel` 19-29, `cheers` 30-32, `banner` 33-35 |
@@ -155,8 +155,8 @@ so read just that range.
 | SavedGame.kt | 133 | `settleBoard` 19-30, `saveState` 31-45, `restoreState` 46-52, `applySaved` 53-69, `saveToPrefs` 70-78, `restoreFromPrefs` 79-84, `saveSession` 85-92, `lifetimeDonuts` 93-95, `displayedLifetime` 96-97, `rebuildBoard` 98-111, `resetPlayState` 112-126, `clearMotion` 127-133 |
 | SettingsIcons.kt | 184 | `drawSettingsIcon` 24-37, `inkLine` 38-44, `outlineAndFill` 45-51, `drawSpeakerIcon` 52-79, `drawBuzzIcon` 80-101, `drawBulbIcon` 102-136, `drawGridIcon` 137-156, `drawRestartIcon` 157-178, `drawConfirmIcon` 179-184 |
 | SoundEngine.kt | 157 | `SoundEngine` 12-15, `waveSample` 16-22, `playConnectBlip` 23-28, `playPopClear` 29-33, `playBoop` 34-38, `playDropLand` 39-43, `playMilestone` 44-57, `playFriend` 58-69, `playShuffle` 70-77, `playTone` 78-81, `playToneBlocking` 82-92, `playSweep` 93-96, `playSweepBlocking` 97-110, `playPCM` 111-157 |
-| StickerArt.kt | 106 | `drawStickerArt` 12-38, `drawChainArt` 39-50, `drawBatchArt` 51-60, `drawCrown` 61-79, `drawMiniBoard` 80-92, `drawHeart` 93-106 |
-| StickerRules.kt | 68 | `StickerStats` 6-14, `StickerRules` 15-20, `isBig` 21-25, `isEarned` 26-45, `earnedMask` 46-52, `toAnnounce` 53-55, `boxesFilled` 56-58, `slotsFilled` 59-61, `slotJustFilled` 62-65, `boxJustFilled` 66-68 |
+| StickerArt.kt | 167 | `drawStickerArt` 12-45, `drawStickerGift` 46-99, `drawChainArt` 100-111, `drawBatchArt` 112-121, `drawCrown` 122-140, `drawMiniBoard` 141-153, `drawHeart` 154-167 |
+| StickerRules.kt | 75 | `StickerStats` 6-14, `StickerRules` 15-20, `statsLine` 21-27, `isBig` 28-32, `isEarned` 33-52, `earnedMask` 53-59, `toAnnounce` 60-62, `boxesFilled` 63-65, `slotsFilled` 66-68, `slotJustFilled` 69-72, `boxJustFilled` 73-75 |
 | TwoTapConfirm.kt | 21 | `TwoTapConfirm` 4-7, `tap` 8-13, `isArmed` 14-16, `progress` 17-19, `cancel` 20-21 |
 | UiScale.kt | 26 | `UiScale` 14-21, `update` 22-26 |
 
@@ -200,6 +200,7 @@ so read just that range.
 | ScreenGallery.kt | 191 | `ScreenGallery` 24-27, `Size` 28-37, `save` 38-42, `clearPrefs` 43-46, `game` 47-56, `shoot` 57-66, `drag` 67-77, `home` 78-88, `render` 89-191 |
 | SettingsIconsTest.kt | 62 | `SettingsIconsTest` 15-18, `pixels` 19-26, `icon` 27-51, `at` 52-62 |
 | ShowSomeoneTest.kt | 117 | `ShowSomeoneTest` 12-13, `boxFull` 14-23, `aFullBoxShowsTheCard` 24-33, `aBigStickerShowsTheCardOnlyAfterTheFlyEnds` 34-50, `aSmallStickerDoesNotShowTheCard` 51-63, `theCardWaitsWhileAPanelIsOpen` 64-76, `aTapClosesTheCardAndStartsNoChain` 77-95, `backClosesTheCardFirst` 96-105, `theCardDrawsForBothKindsAndHoldsTheHintBack` 106-117 |
+| StickerGiftTest.kt | 61 | `StickerGiftTest` 16-17, `near` 18-21, `shot` 22-28, `paper` 29-61 |
 | StickerRulesTest.kt | 115 | `StickerRulesTest` 8-11, `earned` 12-13, `edge` 14-110, `onlyTheTopOfEachLadderIsBig` 111-115 |
 | TestViews.kt | 78 | `TestViews` 17-17, `app` 18-20, `gameView` 21-32, `canvas` 33-35, `now` 36-37, `advance` 38-40, `frames` 41-45, `cellCenter` 46-49, `touch` 50-56, `quietView` 57-63, `total` 64-66, `playHintChain` 67-78 |
 | TwoTapConfirmTest.kt | 85 | `TwoTapConfirmTest` 8-85 |

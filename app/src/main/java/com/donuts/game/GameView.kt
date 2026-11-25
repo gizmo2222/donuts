@@ -150,13 +150,6 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
         "Little Batch",   "Big Batch",     "Donut Party",
         "Ball Finder",    "Explorer",      "Super Fan"
     )
-    // What to do to earn each one, in words an early reader can sound out
-    internal val STICKER_DESCS  = arrayOf(
-        "Pop 10",         "Pop 50",        "Pop 500",
-        "Connect 4",      "Connect 6",     "Connect 8",
-        "Pop 20 in a game",   "Pop 60 in a game",  "Pop 200 in a game",
-        "Pop a ball", "Play big and small","Play 10 times"
-    )
     internal val STICKER_COLORS = intArrayOf(
         Color.rgb(255, 140,  60), Color.rgb(255, 200,  30), Color.rgb(220,  80,  50),
         Color.rgb( 70, 170, 255), Color.rgb( 90,  90, 240), Color.rgb(160,  50, 220),

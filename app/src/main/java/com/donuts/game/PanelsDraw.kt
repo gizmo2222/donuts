@@ -97,9 +97,9 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
             canvas.drawRoundRect(scratchRectF.apply { set(rect.left-g2, rect.top-g2, rect.right+g2, rect.bottom+g2) }, r+g2, r+g2, fillPaint)
         }
 
-        // Tile body — warm parchment for unearned (not cold grey) so it reads as collectible, not broken
-        fillPaint.color = if (earned) color else Color.rgb(210, 190, 162)
-        fillPaint.alpha = if (earned) 255 else 220
+        // Tile body — a sticker not earned yet is a wrapped present in bright paper, a surprise, not a to-do
+        fillPaint.color = if (earned) color else GIFT_WRAP[i % GIFT_WRAP.size]
+        fillPaint.alpha = 255
         canvas.drawRoundRect(rect, r, r, fillPaint)
 
         // Top-half highlight
@@ -140,19 +140,7 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
             textPaint.textSize = br2 * 1.4f; textPaint.color = Color.WHITE
             canvas.drawText("\u2713", bx, by + br2 * 0.42f, textPaint)
         } else {
-            // Condition hint — tells Steven how to earn it
-            // Big and fully opaque: an early reader has to be able to sound it out
-            val lines = drawTileCaption(canvas, STICKER_DESCS[i], cx, rect.bottom - rect.height() * 0.10f,
-                rect.height() * 0.16f, rect.width() - 16f * u, theme.textPrimary)
-            // Mystery "?" — warm and inviting, not a broken/disabled lock; smaller and higher over a two-line hint
-            val qSz = rect.height() * (if (lines > 1) 0.36f else 0.48f)
-            val qY  = if (lines > 1) rect.top + rect.height() * 0.50f else cy + qSz * 0.36f
-            textPaint.textSize  = qSz
-            textPaint.textAlign = Paint.Align.CENTER
-            textPaint.color     = Color.argb(45, 28, 12, 0)
-            canvas.drawText("?", cx + 2f, qY + 2f, textPaint)
-            textPaint.color     = Color.argb(140, 100, 60, 10)
-            canvas.drawText("?", cx, qY, textPaint)
+            drawStickerGift(canvas, i, rect, now)
         }
     }
 
@@ -161,33 +149,13 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
     // ---- Stats line ----
     val statsY = donutBoxRect.bottom + 20f * u
     val lifetime = lifetimeDonuts()
-    drawLabel(canvas, "$lifetime donuts popped  ·  $earnedCount of 12 stickers",
+    val stats = StickerRules.statsLine(lifetime, earnedCount)
+    drawLabel(canvas, stats,
         stickerPanelRect.centerX(), statsY, 18f * u, stickerPanelRect.width() - 20f * u, theme.textPrimary, outlined = false)
 
     drawPrettyButton(canvas, stickersCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 18f * u, pressScaleFor(stickersCloseRect, now))
 
     canvas.restore()
-}
-
-/**
- * A locked sticker's hint, kept inside its tile: one line when it fits at 85% of [size] or more,
- * otherwise two lines split at the space nearest the middle, so an early reader keeps big letters.
- */
-internal fun GameView.drawTileCaption(canvas: Canvas, text: String, cx: Float, baseline: Float,
-                                      size: Float, maxW: Float, fill: Int): Int {
-    textPaint.textSize = size * 0.85f
-    val split = text.indices.filter { text[it] == ' ' }.minByOrNull { abs(it - text.length / 2) }
-    if (split == null || textPaint.measureText(text) <= maxW) {
-        drawLabel(canvas, text, cx, baseline, size, maxW, fill, outlined = false)
-        return 1
-    }
-    val a = text.substring(0, split); val b = text.substring(split + 1)
-    while (textPaint.textSize > 8f * u && max(textPaint.measureText(a), textPaint.measureText(b)) > maxW)
-        textPaint.textSize *= 0.92f
-    val sz = textPaint.textSize
-    drawLabel(canvas, a, cx, baseline - sz * 1.05f, sz, maxW, fill, outlined = false)
-    drawLabel(canvas, b, cx, baseline, sz, maxW, fill, outlined = false)
-    return 2
 }
 
 /**

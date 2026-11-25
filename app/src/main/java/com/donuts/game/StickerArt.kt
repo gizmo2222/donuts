@@ -35,6 +35,67 @@ internal fun GameView.drawStickerArt(canvas: Canvas, i: Int, cx: Float, cy: Floa
     }
 }
 
+/** Wrapping paper for the presents, one per tile in turn: pink, blue, purple, green. */
+internal val GIFT_WRAP = intArrayOf(
+    Color.rgb(236, 84, 112), Color.rgb(64, 146, 232), Color.rgb(148, 98, 228), Color.rgb(36, 176, 146))
+
+/**
+ * A sticker Steven has not earned yet: a wrapped present with a gold ribbon and a bow that bobs, so what is
+ * inside stays a surprise. No words, no "?" and no condition: the panel is a pile of presents, not a checklist.
+ */
+internal fun GameView.drawStickerGift(canvas: Canvas, i: Int, rect: RectF, now: Long) {
+    val cx = rect.centerX(); val w = rect.width(); val h = rect.height()
+    val side = min(w, h)
+    val ribbonY = rect.top + h * 0.58f
+    val band = side * 0.15f
+    val ink = Color.argb(200, 28, 12, 0)
+    canvas.save()
+    canvas.clipRect(rect)
+    // Paper dots
+    fillPaint.color = Color.argb(60, 255, 255, 255)
+    val step = side * 0.24f
+    var row = 0; var y = rect.top + step * 0.5f
+    while (y < rect.bottom) {
+        var x = rect.left + step * (if (row % 2 == 0) 0.5f else 1f)
+        while (x < rect.right) { canvas.drawCircle(x, y, side * 0.035f, fillPaint); x += step }
+        y += step * 0.75f; row++
+    }
+    // Ribbon cross with ink edges
+    fillPaint.color = Color.rgb(255, 208, 60)
+    canvas.drawRect(cx - band / 2f, rect.top, cx + band / 2f, rect.bottom, fillPaint)
+    canvas.drawRect(rect.left, ribbonY - band / 2f, rect.right, ribbonY + band / 2f, fillPaint)
+    strokePaint.color = ink; strokePaint.strokeWidth = max(1.5f * u, side * 0.02f); strokePaint.alpha = 200
+    for (sx in floatArrayOf(cx - band / 2f, cx + band / 2f)) {
+        canvas.drawLine(sx, rect.top, sx, ribbonY - band / 2f, strokePaint)
+        canvas.drawLine(sx, ribbonY + band / 2f, sx, rect.bottom, strokePaint)
+    }
+    for (sy in floatArrayOf(ribbonY - band / 2f, ribbonY + band / 2f)) {
+        canvas.drawLine(rect.left, sy, cx - band / 2f, sy, strokePaint)
+        canvas.drawLine(cx + band / 2f, sy, rect.right, sy, strokePaint)
+    }
+    canvas.restore()
+    // Bow: two loops and a knot, bobbing a little, each tile out of step with the next
+    val bob = sin(now / 320.0 + i * 1.3).toFloat()
+    val by = ribbonY - band * 0.2f + bob * side * 0.015f
+    val loop = side * 0.17f * (1f + bob * 0.04f)
+    for (dir in intArrayOf(-1, 1)) {
+        canvas.save()
+        canvas.rotate(dir * 28f, cx, by)
+        scratchRectF.set(cx + dir * loop * 0.15f - loop, by - loop * 0.55f, cx + dir * loop * 0.15f + loop, by + loop * 0.55f)
+        scratchRectF.offset(dir * loop * 0.85f, 0f)
+        fillPaint.color = Color.rgb(255, 208, 60)
+        canvas.drawOval(scratchRectF, fillPaint)
+        canvas.drawOval(scratchRectF, strokePaint)
+        canvas.restore()
+    }
+    fillPaint.color = Color.rgb(255, 180, 30)
+    canvas.drawCircle(cx, by, loop * 0.42f, fillPaint)
+    canvas.drawCircle(cx, by, loop * 0.42f, strokePaint)
+    fillPaint.color = Color.argb(120, 255, 255, 255)
+    canvas.drawCircle(cx - loop * 0.12f, by - loop * 0.14f, loop * 0.13f, fillPaint)
+    strokePaint.alpha = 255; fillPaint.alpha = 255
+}
+
 // A string with a donut at each end and the chain length in the middle
 internal fun GameView.drawChainArt(canvas: Canvas, cx: Float, cy: Float, size: Float, label: String) {
     val half = size * 0.62f
