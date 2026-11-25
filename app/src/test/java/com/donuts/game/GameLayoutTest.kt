@@ -95,7 +95,7 @@ class GameLayoutTest {
             "grid0" to v.gridRects[0], "grid1" to v.gridRects[1],
             "reset" to v.settingsResetRect, "stickers" to v.settingsStickersRect,
             "close" to v.settingsCloseRect
-        )
+        ) + v.settingsIconRects.mapIndexed { i, r -> "icon$i" to r }
         for ((name, r) in all) {
             assertTrue("$n: $name inside panel", inside(v.panelRect, r))
             assertTrue("$n: $name has size", r.width() > 0f && r.height() > 0f)
@@ -118,6 +118,23 @@ class GameLayoutTest {
         for (r in v.stickerRects) {
             assertEquals("$n: tiles square", r.width(), r.height(), eps)
             assertEquals("$n: tiles equal", side, r.width(), eps)
+        }
+    }
+
+    @Test fun eachSettingsPictureSitsLeftOfItsChoicesInTheSameRow() = forAll { n, v ->
+        val k = v.u * v.settingsSc
+        val rows = listOf(v.soundRects, v.buzzRects, v.hintRects, v.gridRects)
+        for ((i, choices) in rows.withIndex()) {
+            val icon = v.settingsIconRects[i]
+            assertEquals("$n: icon$i width", 88f * k, icon.width(), eps)
+            assertEquals("$n: icon$i height", 76f * k, icon.height(), eps)
+            assertEquals("$n: icon$i left", v.panelRect.left + 16f * k, icon.left, eps)
+            for ((j, b) in choices.withIndex()) {
+                assertTrue("$n: row$i choice$j right of picture", b.left >= icon.right)
+                assertEquals("$n: row$i choice$j height", 60f * k, b.height(), eps)
+                assertEquals("$n: row$i choice$j centred on the picture", icon.centerY(), b.centerY(), eps)
+            }
+            if (i > 0) assertEquals("$n: row gap", 12f * k, icon.top - v.settingsIconRects[i - 1].bottom, eps)
         }
     }
 
@@ -181,6 +198,11 @@ class GameLayoutTest {
         assertTrue(inside(surfaceRect(v), v.panelRect))
         assertTrue(inside(v.panelRect, v.settingsCloseRect))
         assertTrue(inside(v.panelRect, v.gridRects[1]))
+        for (r in v.settingsIconRects) assertTrue(inside(v.panelRect, r))
+        // The rows are taller than the old 56dp buttons yet the panel is shorter, so even
+        // shrunk to fit, a choice is still a real touch target (old layout: about 28dp)
+        val choiceDp = v.soundRects[0].height() / v.uiScale.density
+        assertTrue("choice height ${choiceDp}dp", choiceDp >= 30f)
         assertTrue(inside(surfaceRect(v), v.stickerPanelRect))
         assertTrue(inside(v.stickerPanelRect, v.stickersTabRect) && inside(v.stickerPanelRect, v.friendsTabRect))
         assertTrue(v.stickersTabRect.height() >= 48f * 3f - eps)

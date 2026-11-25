@@ -47,6 +47,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal val buzzRects         = Array(2) { RectF() }
     internal var settingsStickersRect = RectF()
     internal val gridRects         = Array(2) { RectF() }
+    internal val settingsIconRects = Array(4) { RectF() }   // picture with its word: sound, buzz, hints, size
     internal var settingsResetRect = RectF()
     internal var settingsCloseRect = RectF()
 
