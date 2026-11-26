@@ -18,8 +18,11 @@ class BalanceSim {
     private val strategies = listOf("kidShort", "kidRandom", "greedyLong", "hint", "goldenHunter", "kidLearner56", "kidLearner78")
     /** Slip chance per extra cell for the kidLearner strategies. */
     private val learnerBase = mapOf("kidLearner56" to 0.15, "kidLearner78" to 0.08)
-    /** Variants: base runs every strategy on both grids; the others run only the kidLearners on 6x6. */
-    private val variants = listOf("base", "types5", "golden08", "drought")
+    /**
+     * Variants: base runs every strategy on both grids with the game's rules (five donut types on 6x6, B29);
+     * the others run only the kidLearners on 6x6: types6 is the old six-type 6x6, golden08 and drought sit on base.
+     */
+    private val variants = listOf("base", "types6", "golden08", "drought")
     private val grids = listOf(6, 8)
     private val seeds = 0..24
     private val movesPerScenario = 150
@@ -203,7 +206,7 @@ class BalanceSim {
         val sc = Scenario(strategy, variant, n, seed)
         val board = GameBoard(n, n, Random(seed * 7919 + sIdx),
             goldenChance = if (variant == "golden08") 0.08 else GameBoard.GOLDEN_CHANCE,
-            typeCount = if (variant == "types5") 5 else DonutType.values().size)
+            typeCount = if (variant == "types6") DonutType.values().size else GameBoard.typesFor(n))
         val rng = Random(seed.toLong() * 104729L + sIdx + 1)
         val geo = Geometry(n); val dfs = Dfs(geo)
         var bestChain = 0; var goldenPoppedFlag = false; var dry = 0; var droughtDry = 0

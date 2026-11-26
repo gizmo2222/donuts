@@ -15,8 +15,8 @@ class GameBoard(
     private val random: Random = Random.Default,
     /** Chance that a refilled cell is golden. The balance sim sets it; the game raises it during a sprinkle party. */
     var goldenChance: Double = GOLDEN_CHANCE,
-    /** How many donut types are drawn, the first [typeCount] of [DonutType]. For the balance sim; the game uses the default. */
-    typeCount: Int = DonutType.values().size
+    /** How many donut types are drawn, the first [typeCount] of [DonutType]. The game picks it with [typesFor]. */
+    val typeCount: Int = DonutType.values().size
 ) {
     companion object {
         /** Chance that a freshly spawned (gravity-fill) cell is golden. */
@@ -25,6 +25,17 @@ class GameBoard(
         const val GOLDEN_BIT = 0x100
         /** Cap on refill attempts when looking for a board with a valid move. */
         const val REFILL_TRIES = 100
+        /** Boards this size or smaller drop the last donut type ([SMALL_GRID_TYPES] in play). */
+        const val SMALL_GRID = 6
+        /** Donut types on a [SMALL_GRID] board: five, so long chains come about twice as often (BalanceSim, B2/B29). */
+        const val SMALL_GRID_TYPES = 5
+
+        /** How many donut types a [size] x [size] game board draws: five on 6x6, all six on 8x8. */
+        fun typesFor(size: Int): Int = if (size <= SMALL_GRID) SMALL_GRID_TYPES else DonutType.values().size
+
+        /** The game's board for a [size] x [size] grid, with [typesFor] donut types. */
+        fun forGrid(size: Int, random: Random = Random.Default): GameBoard =
+            GameBoard(size, size, random, typeCount = typesFor(size))
     }
 
     private val activeTypes: List<DonutType> = DonutType.values().take(typeCount)
