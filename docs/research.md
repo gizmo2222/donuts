@@ -225,7 +225,7 @@ Score = fit x 2 + evidence (fit 0-5, evidence 0-5, judged on the number and stre
 - **Automatic reduced motion read from the animator duration scale.** This is in `GameView.kt` 239-241 and `MainView.kt` 28-30 [E7][E8]. Only a manual toggle is missing (#22).
 - **Touch target checks.** `GameLayoutTest` 43-170 checks touch targets and overlap across screen sizes [C1].
 - **Tap-twice confirms for destructive actions.** These are in `TwoTapConfirm.kt` and `GameInput.kt` 44-68. The gate in #11 would go further [B1].
-- **Moderate synth peaks.** Every play call is at 0.50 volume or less (`SoundEngine.kt` 23-93). Only a named cap and a test are missing (#25).
+- **Moderate synth peaks.** Every play call is at 0.50 volume or less (`SoundEngine.kt` 23-93). The named cap and its test landed in B27 (`SoundLevels.LOUDNESS_CAP`, `SoundLevelsTest`) (#25).
 - **Short drags are never silent.** Chains of one or two cells wobble and boop, and two cells show a "3!" label (`GameInput.kt` 203-210) [B1].
 - **Board, counter and stickers saved on pause.** This is `SavedGame.kt`, and it fits the UK code's pause-and-save idea [D9] (*unverified*).
 
