@@ -30,7 +30,15 @@ $code = [regex]::Match($gradle, 'versionCode\s+(\d+)').Groups[1].Value
 $name = [regex]::Match($gradle, 'versionName\s+"([^"]+)"').Groups[1].Value
 "Version: $name (versionCode $code)"
 
-# 4. Build. Gradle's own output is shown; any failure stops here with a non-zero exit code.
+# 4. Families-policy check of the release manifest and libraries (no AD_ID, no network, no ad SDKs).
+""
+& .\tools\families-check.ps1 -Quiet
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "FAMILIES CHECK FAILED. Nothing was built. Fix the problems listed above first." -ForegroundColor Red
+    exit 1
+}
+
+# 5. Build. Gradle's own output is shown; any failure stops here with a non-zero exit code.
 ""
 .\gradlew.bat bundleRelease --console=plain
 if ($LASTEXITCODE -ne 0) {
@@ -40,7 +48,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# 5. Result
+# 6. Result
 $aab = Get-Item app\build\outputs\bundle\release\app-release.aab
 ""
 Write-Host "BUILD SUCCESSFUL" -ForegroundColor Green

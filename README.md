@@ -105,7 +105,9 @@ means it is correct; `keystore password was incorrect` means it is not.
    tester notes in `app\src\main\play\release-notes\en-US\default.txt` (500 characters at most).
 2. Install the debug build on a real phone (`.\gradlew.bat installDebug`; on an emulator, `.\tools\emu.ps1 Install`) and play through the first-launch
    demo and a milestone. Debug builds log `fps` once a second under the `Donuts` logcat tag.
-3. Run `.\release.ps1` and confirm it ends with **BUILD SUCCESSFUL**.
+3. Run `.\release.ps1` and confirm it ends with **BUILD SUCCESSFUL**. It first runs `.\tools\families-check.ps1 -Quiet`
+   (the Play Families check of the release manifest and libraries: vibrate the only permission, no advertising
+   ID, no network, no ad, analytics or purchase SDK) and stops before building if that fails.
 4. Run `.\gradlew.bat publishReleaseBundle` to upload the bundle to the closed testing track (`alpha`) and roll
    it out to testers. Without the service-account key (below), upload by hand instead: Play Console, Donuts
    for Steven, then Test and release, then Testing, then Closed testing. Create a new release, upload the

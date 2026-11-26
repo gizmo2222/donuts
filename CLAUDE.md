@@ -49,6 +49,7 @@ main checkout's `local.properties` when working in a git worktree.
 | Render every screen state at five sizes, no emulator (`build\shots\gallery`) | `.\tools\gallery.ps1 -Quiet` |
 | Run the balance simulation, 250 scripted games (`build\balance`) | `.\tools\balance.ps1 -Quiet` |
 | Colour-blind check of the donut colours and the gallery shots (`build\shots\colorblind`) | `.\tools\colorblind.ps1 -Quiet` |
+| Play Families check of the release manifest and libraries (no AD_ID, network or ad SDK; `release.ps1` runs it) | `.\tools\families-check.ps1 -Quiet` |
 | Stop the emulator and the adb server | `.\tools\emu.ps1 Stop` |
 | Raise the version for a Play upload | `.\tools\bump-version.ps1 -Name 2.0.5` |
 | Build the signed release bundle | `.\release.ps1` |
