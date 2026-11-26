@@ -19,37 +19,44 @@ internal fun GameView.stickerStats() = StickerStats(
     sessions     = prefs.sessionCount
 )
 
+/** Dims the whole screen behind an open panel; [eased] is how far the panel is open. */
+internal fun GameView.dimScreen(canvas: Canvas, eased: Float) {
+    dimPaint.alpha = (eased * 160).toInt()
+    canvas.drawRect(0f, 0f, surfaceW.toFloat(), surfaceH.toFloat(), dimPaint)
+}
+
+/**
+ * Both panels' shell: a dark cartoon outline, a white ring and the cream fill, sized by [k].
+ * [sheen] adds the soft white wash over the top third (the stickers panel).
+ */
+internal fun GameView.drawPanelShell(canvas: Canvas, rect: RectF, k: Float, sheen: Boolean) {
+    val pr = 22f * k; val bd = 6f * k; val ring = 3f * k
+    fillPaint.color = ink(230)
+    canvas.drawRoundRect(scratchRectF.apply { set(rect.left - bd, rect.top - bd, rect.right + bd, rect.bottom + bd) },
+        pr + bd, pr + bd, fillPaint)
+    strokePaint.color = Color.WHITE; strokePaint.strokeWidth = ring
+    canvas.drawRoundRect(scratchRectF.apply { set(rect.left - ring, rect.top - ring, rect.right + ring, rect.bottom + ring) },
+        pr + ring, pr + ring, strokePaint)
+    fillPaint.color = theme.panelBg; fillPaint.alpha = 255
+    canvas.drawRoundRect(rect, pr, pr, fillPaint)
+    if (!sheen) return
+    canvas.save()
+    canvas.clipRect(rect.left, rect.top, rect.right, rect.top + rect.height() * 0.35f)
+    fillPaint.color = Color.argb(28, 255, 255, 255)
+    canvas.drawRoundRect(rect, pr, pr, fillPaint)
+    canvas.restore()
+}
+
 internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
     val eased  = easeOutQuint(stickersAnim)
     val slideY = stickersSlideY()
 
-    dimPaint.alpha = (eased * 160).toInt()
-    canvas.drawRect(0f, 0f, surfaceW.toFloat(), surfaceH.toFloat(), dimPaint)
+    dimScreen(canvas, eased)
 
     canvas.save()
     canvas.translate(0f, slideY)
 
-    // ---- Panel shell ----
-    val pr = 22f * u; val bd = 6f * u; val ring = 3f * u
-    fillPaint.color = ink(230)
-    canvas.drawRoundRect(
-        scratchRectF.apply { set(stickerPanelRect.left - bd, stickerPanelRect.top - bd,
-              stickerPanelRect.right + bd, stickerPanelRect.bottom + bd) },
-        pr + bd, pr + bd, fillPaint)
-    strokePaint.color = Color.WHITE
-    strokePaint.strokeWidth = ring
-    canvas.drawRoundRect(
-        scratchRectF.apply { set(stickerPanelRect.left - ring, stickerPanelRect.top - ring,
-              stickerPanelRect.right + ring, stickerPanelRect.bottom + ring) },
-        pr + ring, pr + ring, strokePaint)
-    fillPaint.color = theme.panelBg; fillPaint.alpha = 255
-    canvas.drawRoundRect(stickerPanelRect, pr, pr, fillPaint)
-    canvas.save()
-    canvas.clipRect(stickerPanelRect.left, stickerPanelRect.top,
-                    stickerPanelRect.right, stickerPanelRect.top + stickerPanelRect.height() * 0.35f)
-    fillPaint.color = Color.argb(28, 255, 255, 255)
-    canvas.drawRoundRect(stickerPanelRect, pr, pr, fillPaint)
-    canvas.restore()
+    drawPanelShell(canvas, stickerPanelRect, u, sheen = true)
 
     // ---- Title ----
     val titleX = stickerPanelRect.centerX()
@@ -136,12 +143,8 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
             // Earned checkmark badge — inside the tile's top right corner
             val br2 = min(8f * u, rect.width() * 0.11f); val inset = 3f * u + 1.5f * u
             val bx = rect.right - br2 - inset; val by = rect.top + br2 + inset
-            fillPaint.color = ink(220)
-            canvas.drawCircle(bx, by, br2 + 1.5f * u, fillPaint)
-            fillPaint.color = Color.rgb(80, 210, 80)
-            canvas.drawCircle(bx, by, br2, fillPaint)
-            textPaint.textSize = br2 * 1.4f; textPaint.color = Color.WHITE
-            canvas.drawText("\u2713", bx, by + br2 * 0.42f, textPaint)
+            drawCheckBadge(canvas, bx, by, br2, rim = 1.5f * u, rimAlpha = 220,
+                green = Color.rgb(80, 210, 80), textScale = 1.4f)
         } else {
             drawStickerGift(canvas, i, rect, now)
         }
@@ -263,8 +266,7 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
     val eased  = easeOutQuint(settingsAnim)
     val slideY = settingsSlideY()
 
-    dimPaint.alpha = (eased * 160).toInt()
-    canvas.drawRect(0f, 0f, surfaceW.toFloat(), surfaceH.toFloat(), dimPaint)
+    dimScreen(canvas, eased)
 
     canvas.save()
     canvas.translate(0f, slideY)
@@ -273,16 +275,7 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
     if (pageT < 1f) { val s = 0.92f + 0.08f * easeOutBack(pageT); canvas.scale(s, s, panelRect.centerX(), panelRect.centerY()) }
 
     val k  = u * settingsSc      // everything inside the panel scales with the fit factor
-    val pr = 22f * k
-    val bd = 6f * k; val ring = 3f * k
-
-    // Panel: dark cartoon outline, white ring, cream fill
-    fillPaint.color = ink(230)
-    canvas.drawRoundRect(scratchRectF.apply { set(panelRect.left - bd, panelRect.top - bd, panelRect.right + bd, panelRect.bottom + bd) }, pr + bd, pr + bd, fillPaint)
-    strokePaint.color = Color.WHITE; strokePaint.strokeWidth = ring
-    canvas.drawRoundRect(scratchRectF.apply { set(panelRect.left - ring, panelRect.top - ring, panelRect.right + ring, panelRect.bottom + ring) }, pr + ring, pr + ring, strokePaint)
-    fillPaint.color = theme.panelBg; fillPaint.alpha = 255
-    canvas.drawRoundRect(panelRect, pr, pr, fillPaint)
+    drawPanelShell(canvas, panelRect, k, sheen = false)
 
     val pl = panelRect.left; val pw = panelRect.width(); val pt = panelRect.top
 
@@ -374,12 +367,14 @@ internal fun GameView.drawConfirmButton(canvas: Canvas, now: Long, rect: RectF, 
 }
 
 /** Small green check badge used on selected settings buttons. */
-internal fun GameView.drawCheckBadge(canvas: Canvas, bx: Float, by: Float, br: Float) {
-    fillPaint.color = ink(210)
-    canvas.drawCircle(bx, by, br + br * 0.2f, fillPaint)
-    fillPaint.color = Color.rgb(80, 200, 80); fillPaint.alpha = 255
+/** A green tick in a dark rim. The defaults are the settings and toppings badge; stickers pass their own. */
+internal fun GameView.drawCheckBadge(canvas: Canvas, bx: Float, by: Float, br: Float, rim: Float = br * 0.2f,
+                                     rimAlpha: Int = 210, green: Int = Color.rgb(80, 200, 80), textScale: Float = 1.3f) {
+    fillPaint.color = ink(rimAlpha)
+    canvas.drawCircle(bx, by, br + rim, fillPaint)
+    fillPaint.color = green; fillPaint.alpha = 255
     canvas.drawCircle(bx, by, br, fillPaint)
-    textPaint.textSize  = br * 1.3f; textPaint.textAlign = Paint.Align.CENTER
+    textPaint.textSize  = br * textScale; textPaint.textAlign = Paint.Align.CENTER
     textPaint.color     = Color.WHITE
     canvas.drawText("\u2713", bx, by + br * 0.42f, textPaint)
 }
