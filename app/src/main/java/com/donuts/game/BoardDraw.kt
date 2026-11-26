@@ -45,7 +45,7 @@ internal fun GameView.drawBoardBackground(canvas: Canvas) {
     canvas.drawRoundRect(scratchRectF.apply { set(boardLeft, boardTop + 8f * u, boardR + 4f * u, boardB + 8f * u) }, 14f * u, 14f * u, shadowPaint)
     // Thick dark cartoon border
     val bd = 7f * u
-    fillPaint.color = Color.argb(220, 28, 12, 0)
+    fillPaint.color = ink(220)
     canvas.drawRoundRect(scratchRectF.apply { set(boardLeft - bd, boardTop - bd, boardR + bd, boardB + bd) }, 16f * u, 16f * u, fillPaint)
     // Board fill
     val fi = 2f * u
@@ -54,7 +54,7 @@ internal fun GameView.drawBoardBackground(canvas: Canvas) {
 
     // Polka-dot texture: subtle circles at cell intersections
     val dotR = cellSize * 0.06f
-    fillPaint.color = Color.argb(28, 28, 12, 0)
+    fillPaint.color = ink(28)
     canvas.save()
     canvas.clipRect(boardLeft - fi, boardTop - fi, boardR + fi, boardB + fi)
     for (r in 0..board.rows) {
@@ -86,7 +86,7 @@ internal fun GameView.drawChainLine(canvas: Canvas) {
     chainOutlinePaint.color = Color.argb((70 + boost * 90).toInt(), cr, cg, cb)
     canvas.drawPath(path, chainOutlinePaint)
     chainOutlinePaint.strokeWidth = cellSize * (0.20f + boost * 0.04f)
-    chainOutlinePaint.color = Color.argb(230, 28, 12, 0)
+    chainOutlinePaint.color = ink(230)
     canvas.drawPath(path, chainOutlinePaint)
     chainLinePaint.strokeWidth = cellSize * (0.12f + boost * 0.03f)
     chainLinePaint.color = Color.argb(255, cr, cg, cb)
@@ -119,7 +119,7 @@ internal fun GameView.drawTapCue(canvas: Canvas, now: Long) {
     for ((r, c) in wobbleCells) {
         val cx = boardLeft + (c + 0.5f) * cellSize
         val cy = boardTop + (r + 0.5f) * cellSize
-        refusedPaint.color = Color.argb((200f * fade).toInt().coerceIn(0, 255), 28, 12, 0)
+        refusedPaint.color = ink((200f * fade).toInt().coerceIn(0, 255))
         refusedPaint.strokeWidth = cellSize * 0.11f
         canvas.drawCircle(cx, cy, cellSize * 0.46f, refusedPaint)
         refusedPaint.color = Color.argb((240f * fade).toInt().coerceIn(0, 255), 255, 255, 255)
@@ -144,7 +144,7 @@ internal fun GameView.drawRefusedCue(canvas: Canvas, now: Long) {
 
 /** The "try these" ring used by the idle hint and the first-run demo. */
 internal fun GameView.drawHintRing(canvas: Canvas, cx: Float, cy: Float, radius: Float, alpha: Int) {
-    hintRingPaint.color       = Color.argb(alpha * 220 / 255, 28, 12, 0)
+    hintRingPaint.color       = ink(alpha * 220 / 255)
     hintRingPaint.strokeWidth = cellSize * 0.17f
     canvas.drawCircle(cx, cy, radius, hintRingPaint)
     hintRingPaint.color       = Color.argb(alpha, 255, 255, 255)

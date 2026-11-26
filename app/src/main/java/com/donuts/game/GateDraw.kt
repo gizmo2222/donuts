@@ -44,7 +44,7 @@ internal fun GameView.drawGatePage(canvas: Canvas, now: Long) {
     val shake = if (wrongT < 1f && !reducedMotion) sin(wrongT * PI.toFloat() * 6f) * (1f - wrongT) * 10f * k else 0f
     val a = gateAnswerRect
     canvas.save(); canvas.translate(shake, 0f)
-    fillPaint.color = Color.argb(210, 28, 12, 0)
+    fillPaint.color = ink(210)
     canvas.drawRoundRect(scratchRectF.apply { set(a.left - 3f * k, a.top - 3f * k, a.right + 3f * k, a.bottom + 3f * k) }, 14f * k, 14f * k, fillPaint)
     fillPaint.color = if (wrongT < 1f) Color.rgb(255, 210, 200) else Color.WHITE
     canvas.drawRoundRect(a, 12f * k, 12f * k, fillPaint)

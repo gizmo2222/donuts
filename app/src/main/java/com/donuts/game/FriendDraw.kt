@@ -89,7 +89,7 @@ internal fun GameView.drawFriendsPage(canvas: Canvas, now: Long) {
     for (i in 0 until met) {
         val rect = stickerRects[i]
         val rr = 10f * u; val g = 2.5f * u
-        fillPaint.color = Color.argb(220, 28, 12, 0)
+        fillPaint.color = ink(220)
         canvas.drawRoundRect(scratchRectF.apply { set(rect.left - g, rect.top - g, rect.right + g, rect.bottom + g) }, rr + g, rr + g, fillPaint)
         fillPaint.color = FRIEND_TILE_COLORS[i % FRIEND_TILE_COLORS.size]; fillPaint.alpha = 255
         canvas.drawRoundRect(rect, rr, rr, fillPaint)

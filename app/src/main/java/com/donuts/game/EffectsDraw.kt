@@ -46,7 +46,7 @@ internal fun GameView.drawFloatLabels(canvas: Canvas, now: Long) {
             textPaint.textAlign = Paint.Align.CENTER
             canvas.drawText(fl.text, 2f * u, 2f * u + sz * 0.36f, textPaint)
             // Outline
-            textOutlinePaint.color         = Color.argb((alpha * 0.8f).toInt(), 28, 12, 0)
+            textOutlinePaint.color         = ink((alpha * 0.8f).toInt())
             textOutlinePaint.textSize      = sz
             textOutlinePaint.textAlign     = Paint.Align.CENTER
             textOutlinePaint.strokeWidth   = 4f * u
@@ -83,7 +83,7 @@ internal fun GameView.drawCenterPing(canvas: Canvas, now: Long) {
     textPaint.textSize = sz; textPaint.textAlign = Paint.Align.CENTER
     textOutlinePaint.textSize = sz; textOutlinePaint.textAlign = Paint.Align.CENTER
     textOutlinePaint.strokeWidth = sz * 0.14f
-    textOutlinePaint.color = Color.argb(255, 28, 12, 0)
+    textOutlinePaint.color = ink()
     canvas.drawText("${dragChain.size}", cx, cy + sz * 0.36f, textOutlinePaint)
     textPaint.color = if (big) Color.rgb(255, 215, 50) else Color.WHITE
     canvas.drawText("${dragChain.size}", cx, cy + sz * 0.36f, textPaint)
@@ -115,7 +115,7 @@ internal fun GameView.drawStickerFly(canvas: Canvas, now: Long) {
         r = big * (1f - 0.7f * p)
     }
     if (r <= 1f) return
-    fillPaint.color = Color.argb(255, 28, 12, 0)
+    fillPaint.color = ink()
     canvas.drawRoundRect(scratchRectF.apply { set(cx - r - 3f * u, cy - r - 3f * u, cx + r + 3f * u, cy + r + 3f * u) }, r * 0.28f, r * 0.28f, fillPaint)
     fillPaint.color = STICKER_COLORS[i]; fillPaint.alpha = 255
     canvas.drawRoundRect(scratchRectF.apply { set(cx - r, cy - r, cx + r, cy + r) }, r * 0.25f, r * 0.25f, fillPaint)
@@ -125,7 +125,7 @@ internal fun GameView.drawStickerFly(canvas: Canvas, now: Long) {
         textPaint.textSize = sz
         textOutlinePaint.textSize = sz; textOutlinePaint.textAlign = Paint.Align.CENTER
         textOutlinePaint.strokeWidth = 4f * u
-        textOutlinePaint.color = Color.argb(255, 28, 12, 0)
+        textOutlinePaint.color = ink()
         canvas.drawText("NEW!", cx, cy - r - 14f * u, textOutlinePaint)
         textPaint.color = Color.rgb(255, 215, 50)
         canvas.drawText("NEW!", cx, cy - r - 14f * u, textPaint)
@@ -185,7 +185,7 @@ internal fun GameView.drawTutorial(canvas: Canvas, now: Long) {
         if (seg >= 1f) scratchPath.lineTo(xs[1], ys[1])
         scratchPath.lineTo(fx, fy)
         val a = (alpha * 255).toInt()
-        chainOutlinePaint.strokeWidth = cellSize * 0.30f; chainOutlinePaint.color = Color.argb((a * 0.85f).toInt(), 28, 12, 0)
+        chainOutlinePaint.strokeWidth = cellSize * 0.30f; chainOutlinePaint.color = ink((a * 0.85f).toInt())
         canvas.drawPath(scratchPath, chainOutlinePaint)
         chainLinePaint.strokeWidth = cellSize * 0.16f; chainLinePaint.color = Color.argb(a, 255, 255, 255)
         canvas.drawPath(scratchPath, chainLinePaint)
@@ -222,7 +222,7 @@ internal fun GameView.drawFinger(canvas: Canvas, x: Float, y: Float, alpha: Int)
     val tipR = cellSize * 0.17f
     canvas.save()
     canvas.rotate(-25f, x, y)
-    outlinePaint.color = Color.argb(alpha, 28, 12, 0); outlinePaint.strokeWidth = tipR * 0.35f
+    outlinePaint.color = ink(alpha); outlinePaint.strokeWidth = tipR * 0.35f
     scratchRectF.set(x - tipR * 0.85f, y, x + tipR * 0.85f, y + tipR * 3.2f)
     canvas.drawRoundRect(scratchRectF, tipR * 0.8f, tipR * 0.8f, outlinePaint)
     fillPaint.color = Color.argb(alpha, 255, 224, 190)
@@ -256,7 +256,7 @@ internal fun GameView.drawNoMovesWarning(canvas: Canvas, now: Long) {
 
     canvas.saveLayerAlpha(bx - bd, by - bd, bx + bw + bd, by + bh + bd, alpha)
     // Dark cartoon border
-    fillPaint.color = Color.argb(255, 28, 12, 0)
+    fillPaint.color = ink()
     canvas.drawRoundRect(scratchRectF.apply { set(bx - bd, by - bd, bx + bw + bd, by + bh + bd) }, 16f * u, 16f * u, fillPaint)
     // Panel fill
     fillPaint.color = Color.argb(255, 255, 150, 30)
@@ -270,7 +270,7 @@ internal fun GameView.drawNoMovesWarning(canvas: Canvas, now: Long) {
     // Progress bar (countdown to shuffle)
     val pbH = 8f * u; val pbPad = 12f * u
     val pbY = by + bh - pbH - pbPad
-    fillPaint.color = Color.argb(70, 28, 12, 0)
+    fillPaint.color = ink(70)
     canvas.drawRoundRect(scratchRectF.apply { set(bx + pbPad, pbY, bx + bw - pbPad, pbY + pbH) }, pbH / 2, pbH / 2, fillPaint)
     fillPaint.color = Color.argb(255, 255, 255, 255)
     canvas.drawRoundRect(scratchRectF.apply { set(bx + pbPad, pbY, bx + pbPad + (bw - pbPad * 2) * progress, pbY + pbH) }, pbH / 2, pbH / 2, fillPaint)
@@ -286,7 +286,7 @@ internal fun GameView.drawNoMovesWarning(canvas: Canvas, now: Long) {
         val start = spin + k * 180f + 10f
         val sweep = 140f
         scratchRectF.set(iconCX - ir, iconCY - ir, iconCX + ir, iconCY + ir)
-        strokePaint.strokeWidth = 7f * u; strokePaint.color = Color.argb(255, 28, 12, 0)
+        strokePaint.strokeWidth = 7f * u; strokePaint.color = ink()
         canvas.drawArc(scratchRectF, start, sweep, false, strokePaint)
         strokePaint.strokeWidth = 4f * u; strokePaint.color = Color.WHITE
         canvas.drawArc(scratchRectF, start, sweep, false, strokePaint)
@@ -399,7 +399,7 @@ internal fun GameView.drawShowSomeone(canvas: Canvas, now: Long) {
     val t   = (elapsed / 380f).coerceIn(0f, 1f)
     val sc  = if (reducedMotion) 1f else 0.4f + 0.6f * easeOutBack(t)
     val a   = (t * 255).toInt().coerceIn(0, 255)
-    fillPaint.color = Color.argb((a * 0.45f).toInt(), 28, 12, 0)
+    fillPaint.color = ink((a * 0.45f).toInt())
     canvas.drawRect(0f, 0f, surfaceW.toFloat(), surfaceH.toFloat(), fillPaint)
 
     val bw = min(board.cols * cellSize * 0.92f, 340f * u)
@@ -411,7 +411,7 @@ internal fun GameView.drawShowSomeone(canvas: Canvas, now: Long) {
     canvas.scale(sc, sc, cx, cy)
     fillPaint.color = Color.argb((a * 0.35f).toInt(), 0, 0, 0)
     canvas.drawRoundRect(scratchRectF.apply { set(bx + 3f * u, by + 7f * u, bx + bw + 3f * u, by + bh + 7f * u) }, 24f * u, 24f * u, fillPaint)
-    fillPaint.color = Color.argb(a, 28, 12, 0)
+    fillPaint.color = ink(a)
     canvas.drawRoundRect(scratchRectF.apply { set(bx - 5f * u, by - 5f * u, bx + bw + 5f * u, by + bh + 5f * u) }, 28f * u, 28f * u, fillPaint)
     fillPaint.color = Color.argb(a, 255, 210, 50)
     canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + bw, by + bh) }, 23f * u, 23f * u, fillPaint)

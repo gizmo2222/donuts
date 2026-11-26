@@ -82,7 +82,7 @@ internal fun GameView.ringBase(canvas: Canvas, cx: Float, cy: Float, r: Float, b
         fillPaint.color = Color.argb(alpha, 255, 255, 255)
         canvas.drawCircle(cx, cy, r + ow + cellSize * 0.07f, fillPaint)
     }
-    fillPaint.color = Color.argb(alpha, 28, 12, 0)
+    fillPaint.color = ink(alpha)
     canvas.drawCircle(cx, cy, r + ow, fillPaint)
     fillPaint.color = Color.argb(alpha / 3, 0, 0, 0)
     canvas.drawCircle(cx + r * 0.06f, cy + r * 0.12f, r, fillPaint)
@@ -95,7 +95,7 @@ internal fun GameView.drawHole(canvas: Canvas, cx: Float, cy: Float, hr: Float, 
     canvas.drawCircle(cx, cy, hr, fillPaint)
     outlinePaint.color = Color.argb(alpha / 2, 255, 255, 255); outlinePaint.strokeWidth = hr * 0.15f
     canvas.drawCircle(cx, cy, hr, outlinePaint)
-    outlinePaint.color = Color.argb(alpha / 2, 28, 12, 0)
+    outlinePaint.color = ink(alpha / 2)
     canvas.drawCircle(cx, cy, hr * 1.06f, outlinePaint)
     fillPaint.alpha = 255
 }
@@ -179,7 +179,7 @@ internal fun GameView.drawFlowerRing(canvas: Canvas, cx: Float, cy: Float, r: Fl
         canvas.drawCircle(cx, cy, r * 1.32f, fillPaint)
     }
     buildScallop(scratchPath, cx, cy, r)
-    outlinePaint.color = Color.argb(alpha, 28, 12, 0); outlinePaint.strokeWidth = ow * 2f
+    outlinePaint.color = ink(alpha); outlinePaint.strokeWidth = ow * 2f
     canvas.drawPath(scratchPath, outlinePaint)
     canvas.save(); canvas.translate(r * 0.06f, r * 0.12f)
     fillPaint.color = Color.argb(alpha / 3, 0, 0, 0)
@@ -233,7 +233,7 @@ internal fun GameView.drawSquareDonut(canvas: Canvas, cx: Float, cy: Float, r: F
         fillPaint.color = Color.argb(alpha, 255, 255, 255)
         canvas.drawCircle(cx, cy, r * 1.34f, fillPaint)
     }
-    fillPaint.color = Color.argb(alpha, 28, 12, 0)
+    fillPaint.color = ink(alpha)
     canvas.drawRoundRect(scratchRectF.apply { set(cx - side - ow, cy - side - ow, cx + side + ow, cy + side + ow) }, cr + ow, cr + ow, fillPaint)
     fillPaint.color = Color.argb(alpha / 3, 0, 0, 0)
     canvas.drawRoundRect(scratchRectF.apply { set(cx - side + r * 0.06f, cy - side + r * 0.12f, cx + side + r * 0.06f, cy + side + r * 0.12f) }, cr, cr, fillPaint)
@@ -273,16 +273,8 @@ internal fun GameView.drawBallVector(canvas: Canvas, cx: Float, cy: Float, r: Fl
     fillPaint.alpha = 255
 }
 
-internal fun GameView.drawPentagon(canvas: Canvas, cx: Float, cy: Float, r: Float, startDeg: Float) {
-    scratchPath.rewind()
-    for (i in 0 until 5) {
-        val a = Math.toRadians((startDeg + i * 72f).toDouble())
-        val x = cx + (r * cos(a)).toFloat(); val y = cy + (r * sin(a)).toFloat()
-        if (i == 0) scratchPath.moveTo(x, y) else scratchPath.lineTo(x, y)
-    }
-    scratchPath.close()
-    canvas.drawPath(scratchPath, fillPaint)
-}
+internal fun GameView.drawPentagon(canvas: Canvas, cx: Float, cy: Float, r: Float, startDeg: Float) =
+    canvas.drawPath(polygonPath(scratchPath, cx, cy, r, 5, startDeg), fillPaint)
 
 // -----------------------------------------------------------------------
 // 3D sheen helper — upper-left crescent highlight + specular dot
@@ -293,21 +285,6 @@ internal fun GameView.drawPentagon(canvas: Canvas, cx: Float, cy: Float, r: Floa
  * Call AFTER drawing the main body, BEFORE any hole/overlay elements.
  */
 internal fun GameView.addSheen(canvas: Canvas, cx: Float, cy: Float, r: Float, alpha: Int,
-                     sheenAlpha: Float = 0.32f, specAlpha: Float = 0.75f) {
-    // Soft top-left crescent via clipPath — reuse scratchPath (callers use scratchPath2
-    // for their own outer clip, so there is no aliasing conflict here).
-    scratchPath.rewind()
-    scratchPath.addOval(
-        scratchRectF.apply { set(cx - r * 0.88f, cy - r * 1.05f, cx + r * 0.52f, cy + r * 0.05f) },
-        Path.Direction.CW
-    )
-    canvas.save()
-    canvas.clipPath(scratchPath)
-    fillPaint.color = Color.argb((alpha * sheenAlpha).toInt(), 255, 255, 255)
-    canvas.drawRect(cx - r * 2f, cy - r * 2f, cx + r * 2f, cy + r * 2f, fillPaint)
-    canvas.restore()
-    // Bright specular dot upper-left
-    fillPaint.color = Color.argb((alpha * specAlpha).toInt(), 255, 255, 255)
-    canvas.drawCircle(cx - r * 0.30f, cy - r * 0.44f, r * 0.16f, fillPaint)
-    fillPaint.alpha = 255
-}
+                     sheenAlpha: Float = 0.32f, specAlpha: Float = 0.75f) =
+    // scratchPath is free here: callers use scratchPath2 for their own outer clip.
+    drawSheen(canvas, fillPaint, scratchPath, scratchRectF, cx, cy, r, alpha, sheenAlpha, specAlpha)

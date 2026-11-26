@@ -9,7 +9,6 @@ import kotlin.math.*
 /** Friends that have art. FriendRules.next is passed this so no friend without a picture is revealed. */
 const val DRAWN = 12
 
-private val INK = Color.rgb(28, 12, 0)
 private val DOUGH = Color.rgb(240, 170, 85)
 private val MOUTH = Color.rgb(125, 20, 35)
 private val TONGUE = Color.rgb(255, 105, 125)

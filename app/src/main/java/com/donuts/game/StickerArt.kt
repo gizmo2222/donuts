@@ -48,7 +48,7 @@ internal fun GameView.drawStickerGift(canvas: Canvas, i: Int, rect: RectF, now: 
     val side = min(w, h)
     val ribbonY = rect.top + h * 0.58f
     val band = side * 0.15f
-    val ink = Color.argb(200, 28, 12, 0)
+    val ink = ink(200)
     canvas.save()
     canvas.clipRect(rect)
     // Paper dots
@@ -99,7 +99,7 @@ internal fun GameView.drawStickerGift(canvas: Canvas, i: Int, rect: RectF, now: 
 // A string with a donut at each end and the chain length in the middle
 internal fun GameView.drawChainArt(canvas: Canvas, cx: Float, cy: Float, size: Float, label: String) {
     val half = size * 0.62f
-    chainOutlinePaint.strokeWidth = size * 0.11f; chainOutlinePaint.color = Color.argb(230, 28, 12, 0)
+    chainOutlinePaint.strokeWidth = size * 0.11f; chainOutlinePaint.color = ink(230)
     canvas.drawLine(cx - half, cy, cx + half, cy, chainOutlinePaint)
     chainLinePaint.strokeWidth = size * 0.05f; chainLinePaint.color = Color.WHITE
     canvas.drawLine(cx - half, cy, cx + half, cy, chainLinePaint)
@@ -111,7 +111,7 @@ internal fun GameView.drawChainArt(canvas: Canvas, cx: Float, cy: Float, size: F
 // A tray with a big number on it
 internal fun GameView.drawBatchArt(canvas: Canvas, cx: Float, cy: Float, size: Float, label: String) {
     val w = size * 0.62f; val h = size * 0.42f; val bd = size * 0.045f
-    fillPaint.color = Color.argb(255, 28, 12, 0)
+    fillPaint.color = ink()
     canvas.drawRoundRect(scratchRectF.apply { set(cx - w - bd, cy - h - bd, cx + w + bd, cy + h + bd) }, size * 0.16f, size * 0.16f, fillPaint)
     fillPaint.color = Color.rgb(245, 210, 165)
     canvas.drawRoundRect(scratchRectF.apply { set(cx - w, cy - h, cx + w, cy + h) }, size * 0.13f, size * 0.13f, fillPaint)
@@ -130,7 +130,7 @@ internal fun GameView.drawCrown(canvas: Canvas, cx: Float, cy: Float, r: Float) 
     scratchPath.lineTo(cx + w, cy - h * 0.5f)
     scratchPath.lineTo(cx + w, cy + h)
     scratchPath.close()
-    outlinePaint.color = Color.argb(255, 28, 12, 0); outlinePaint.strokeWidth = r * 0.22f
+    outlinePaint.color = ink(); outlinePaint.strokeWidth = r * 0.22f
     canvas.drawPath(scratchPath, outlinePaint)
     fillPaint.color = Color.rgb(255, 215, 50); fillPaint.alpha = 255
     canvas.drawPath(scratchPath, fillPaint)
@@ -140,7 +140,7 @@ internal fun GameView.drawCrown(canvas: Canvas, cx: Float, cy: Float, r: Float) 
 
 internal fun GameView.drawMiniBoard(canvas: Canvas, cx: Float, cy: Float, size: Float) {
     val half = size * 0.50f; val bd = size * 0.05f
-    fillPaint.color = Color.argb(255, 28, 12, 0)
+    fillPaint.color = ink()
     canvas.drawRoundRect(scratchRectF.apply { set(cx - half - bd, cy - half - bd, cx + half + bd, cy + half + bd) }, size * 0.16f, size * 0.16f, fillPaint)
     fillPaint.color = theme.boardBg
     canvas.drawRoundRect(scratchRectF.apply { set(cx - half, cy - half, cx + half, cy + half) }, size * 0.13f, size * 0.13f, fillPaint)
@@ -157,7 +157,7 @@ internal fun GameView.drawHeart(canvas: Canvas, cx: Float, cy: Float, r: Float) 
     scratchPath.cubicTo(cx - r * 1.6f, cy - r * 0.1f, cx - r * 0.9f, cy - r * 1.15f, cx, cy - r * 0.45f)
     scratchPath.cubicTo(cx + r * 0.9f, cy - r * 1.15f, cx + r * 1.6f, cy - r * 0.1f, cx, cy + r * 0.95f)
     scratchPath.close()
-    outlinePaint.color = Color.argb(255, 28, 12, 0); outlinePaint.strokeWidth = r * 0.22f
+    outlinePaint.color = ink(); outlinePaint.strokeWidth = r * 0.22f
     canvas.drawPath(scratchPath, outlinePaint)
     fillPaint.color = Color.rgb(235, 25, 80); fillPaint.alpha = 255
     canvas.drawPath(scratchPath, fillPaint)

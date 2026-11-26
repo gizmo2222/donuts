@@ -32,7 +32,7 @@ internal fun GameView.drawHintTrace(canvas: Canvas, now: Long) {
         for (i in 1..i0) scratchPath.lineTo(x(i), y(i))
         scratchPath.lineTo(fx, fy)
         val a = (pose.alpha * 200).toInt()
-        chainOutlinePaint.strokeWidth = cellSize * 0.26f; chainOutlinePaint.color = Color.argb(a * 3 / 4, 28, 12, 0)
+        chainOutlinePaint.strokeWidth = cellSize * 0.26f; chainOutlinePaint.color = ink(a * 3 / 4)
         canvas.drawPath(scratchPath, chainOutlinePaint)
         chainLinePaint.strokeWidth = cellSize * 0.13f; chainLinePaint.color = Color.argb(a, 255, 255, 255)
         canvas.drawPath(scratchPath, chainLinePaint)
