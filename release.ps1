@@ -5,12 +5,9 @@
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
-# 1. Java: use Android Studio's bundled JDK unless JAVA_HOME is already set
-if (-not $env:JAVA_HOME) {
-    $jbr = "C:\Program Files\Android\Android Studio\jbr"
-    if (-not (Test-Path "$jbr\bin\java.exe")) { throw "JAVA_HOME is not set and Android Studio's JDK was not found at $jbr" }
-    $env:JAVA_HOME = $jbr
-}
+# 1. Java: tools\env.ps1 uses Android Studio's bundled JDK unless JAVA_HOME is already set
+. "$PSScriptRoot\tools\env.ps1"
+if (-not (Test-Path "$env:JAVA_HOME\bin\java.exe")) { throw "No JDK found: set JAVA_HOME, or install Android Studio (its JDK is at C:\Program Files\Android\Android Studio\jbr)" }
 $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
 "Java: $env:JAVA_HOME"
 

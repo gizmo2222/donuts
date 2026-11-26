@@ -40,12 +40,8 @@ param(
     [switch]$ColdBoot
 )
 $root = Split-Path -Parent $PSScriptRoot
-$sdk = $env:ANDROID_HOME
-$props = Join-Path $root 'local.properties'
-if (-not $sdk -and (Test-Path $props)) {
-    $line = Select-String -Path $props -Pattern '^sdk\.dir=(.+)$' | Select-Object -First 1
-    if ($line) { $sdk = $line.Matches[0].Groups[1].Value -replace '\\\\', '\' -replace '\\:', ':' }
-}
+. "$PSScriptRoot\env.ps1"
+$sdk = $envSdk
 if (-not $sdk -or -not (Test-Path $sdk)) { Write-Output 'EMU FAILED: Android SDK not found (set ANDROID_HOME or sdk.dir)'; exit 1 }
 $adb = Join-Path $sdk 'platform-tools\adb.exe'
 $emulator = Join-Path $sdk 'emulator\emulator.exe'

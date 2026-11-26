@@ -33,7 +33,8 @@ closed testing; see the README for the release checklist.
 
 All commands are PowerShell 5.1, run from the repository root. The build scripts dot-source `tools\env.ps1`, which sets
 `$env:JAVA_HOME` to the JDK that ships with Android Studio when it is not set, and `$env:ANDROID_HOME` from the
-main checkout's `local.properties` when working in a git worktree.
+main checkout's `local.properties` when working in a git worktree; `emu.ps1` and `release.ps1` use it too, and
+`$envSdk` is the SDK folder it found.
 
 | Do | Command |
 |---|---|
