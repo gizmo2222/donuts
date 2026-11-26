@@ -75,12 +75,8 @@ internal fun GameView.pressScaleFor(rect: RectF, now: Long): Float =
     if (rect === optPressRect) buttonPressScale(now, optPressMs) else 1f
 
 /** Returns a scale factor that dips to 0.86 at tap then recovers to 1.0 over PRESS_MS. */
-internal fun GameView.buttonPressScale(now: Long, pressMs: Long): Float {
-    if (pressMs < 0) return 1f
-    val t = ((now - pressMs).toFloat() / PRESS_MS).coerceIn(0f, 1f)
-    // Dip then ease back: 0.86 at t=0, 1.0 at t=1 (ease-out) — chunkier press feel
-    return 0.86f + 0.14f * easeOutQuint(t)
-}
+internal fun GameView.buttonPressScale(now: Long, pressMs: Long): Float =
+    PressScale.at(now - pressMs, PRESS_MS, pressed = pressMs >= 0)
 
 internal fun GameView.drawPrettyButton(canvas: Canvas, rect: RectF, baseColor: Int, label: String, labelSize: Float, scale: Float = 1f) {
     val rx = 12f * u

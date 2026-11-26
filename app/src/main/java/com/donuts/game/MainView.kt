@@ -282,34 +282,15 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
     }
 
     /** Builds a regular n-gon path centred at (cx,cy) with given outer radius and start angle. */
-    private fun regularPolygon(cx: Float, cy: Float, r: Float, sides: Int, startDeg: Float): Path {
-        val path = Path()
-        for (i in 0 until sides) {
-            val a = Math.toRadians((startDeg + i * (360f / sides)).toDouble())
-            val x = cx + (r * cos(a)).toFloat()
-            val y = cy + (r * sin(a)).toFloat()
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        path.close()
-        return path
-    }
+    private fun regularPolygon(cx: Float, cy: Float, r: Float, sides: Int, startDeg: Float): Path =
+        polygonPath(Path(), cx, cy, r, sides, startDeg)
 
     // -----------------------------------------------------------------------
     // 3D sheen (shared with pieces)
     // -----------------------------------------------------------------------
     private fun addSheen(canvas: Canvas, cx: Float, cy: Float, r: Float, alpha: Int,
-                         sheenAlpha: Float = 0.32f, specAlpha: Float = 0.80f) {
-        val hlPath = Path()
-        hlPath.addOval(scratchRect.apply { set(cx - r * 0.88f, cy - r * 1.05f, cx + r * 0.52f, cy + r * 0.05f) }, Path.Direction.CW)
-        canvas.save()
-        canvas.clipPath(hlPath)
-        fillP.color = Color.argb((alpha * sheenAlpha).toInt(), 255, 255, 255)
-        canvas.drawRect(cx - r * 2f, cy - r * 2f, cx + r * 2f, cy + r * 2f, fillP)
-        canvas.restore()
-        fillP.color = Color.argb((alpha * specAlpha).toInt(), 255, 255, 255)
-        canvas.drawCircle(cx - r * 0.30f, cy - r * 0.44f, r * 0.16f, fillP)
-        fillP.alpha = 255
-    }
+                         sheenAlpha: Float = 0.32f, specAlpha: Float = 0.80f) =
+        drawSheen(canvas, fillP, Path(), scratchRect, cx, cy, r, alpha, sheenAlpha, specAlpha)
 
     // -----------------------------------------------------------------------
     // Title
@@ -355,12 +336,8 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
     // -----------------------------------------------------------------------
     // Play button
     // -----------------------------------------------------------------------
-    private fun buttonPressScale(now: Long): Float {
-        if (playPressMs < 0) return 1f
-        val t = ((now - playPressMs).toFloat() / PRESS_MS).coerceIn(0f, 1f)
-        val x = 1f - t
-        return 0.86f + 0.14f * (1f - x * x * x * x * x)
-    }
+    private fun buttonPressScale(now: Long): Float =
+        PressScale.at(now - playPressMs, PRESS_MS, pressed = playPressMs >= 0)
 
     private fun drawPlayButton(canvas: Canvas, scale: Float) {
         val rx = 16f * u
