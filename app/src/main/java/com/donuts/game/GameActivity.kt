@@ -16,7 +16,7 @@ class GameActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val prefs = Prefs(this)
-        val board = GameBoard(rows = prefs.gridSize, cols = prefs.gridSize)
+        val board = GameBoard.forGrid(prefs.gridSize)
         gameView  = GameView(this, board, prefs)
 
         // A restart (rotation, window resize, dark mode, or the system reclaiming the app)

@@ -18,12 +18,18 @@ private const val SPARKLE_MS = 700L
 /** Counts the pops toward the prompt, finishes it, and brings the next one PROMPT_NEXT_MS later. */
 internal fun GameView.advancePrompt(now: Long) {
     var p = prompt ?: run {
-        val saved = PicturePrompts.decode(prefs.picturePrompt, PROMPT_TYPES.size)
+        val saved = PicturePrompts.decode(prefs.picturePrompt, board.typeCount)
         promptsFinished = saved?.second ?: 0
-        val first = saved?.first ?: PicturePrompts.next(promptRandom, -1, PROMPT_TYPES.size, promptsFinished)
+        val first = saved?.first ?: PicturePrompts.next(promptRandom, -1, board.typeCount, promptsFinished)
         prompt = first
         if (saved == null) savePrompt(first)
         first
+    }
+    // A grid change to 6x6 leaves out the last donut: a prompt for it could never finish, so ask for another
+    if (p.type >= board.typeCount) {
+        p = PicturePrompts.next(promptRandom, p.type, board.typeCount, promptsFinished)
+        prompt = p; promptSeen = -1; promptDoneMs = -1L; promptPopMs = now
+        savePrompt(p)
     }
     // The tutorial teaches the drag on its own; the prompt waits and does not count its chain
     if (tutorialActive) { promptSeen = -1; return }
@@ -49,7 +55,7 @@ internal fun GameView.advancePrompt(now: Long) {
     }
     if (p.complete && promptDoneMs < 0) promptDoneMs = now   // restored already finished
     if (promptDoneMs >= 0 && now - promptDoneMs >= PROMPT_NEXT_MS) {
-        val fresh = PicturePrompts.next(promptRandom, p.type, PROMPT_TYPES.size, promptsFinished)
+        val fresh = PicturePrompts.next(promptRandom, p.type, board.typeCount, promptsFinished)
         prompt = fresh
         promptSeen = board.donutsCleared[PROMPT_TYPES[fresh.type]] ?: 0
         promptDoneMs = -1L; promptPopMs = now

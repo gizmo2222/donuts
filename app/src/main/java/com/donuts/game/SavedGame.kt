@@ -53,7 +53,7 @@ internal fun GameView.restoreState(state: Bundle): Boolean {
 /** Puts [s] on the board and the counter. False, changing nothing, when it does not fit. */
 internal fun GameView.applySaved(s: SavedBoard): Boolean {
     if (s.size != prefs.gridSize) return false
-    val saved = GameBoard(rows = s.size, cols = s.size)
+    val saved = GameBoard.forGrid(s.size)
     if (!saved.restore(s.cells, s.cleared)) return false
     synchronized(holder) {
         board = saved
@@ -102,7 +102,7 @@ internal fun GameView.rebuildBoard() {
         saveSession()
         sessionSaved = 0
         prefs.savedBoard = null
-        board = GameBoard(rows = prefs.gridSize, cols = prefs.gridSize)
+        board = GameBoard.forGrid(prefs.gridSize)
         resetPlayState()
         computeLayout()
         boardEntryMs = SystemClock.elapsedRealtime()

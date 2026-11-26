@@ -34,7 +34,7 @@ Tap the gear above the board:
 
 - **Sound** — on / off (on by default)
 - **Hints** — on / off; when on, a valid chain is highlighted after 5 seconds idle
-- **Donut size** — Big (6×6 board, the default) or Small (8×8 board)
+- **Donut size** — Big (6×6 board, the default, five donut types so long chains come easier) or Small (8×8 board, all six)
 - **New game** — fresh board and counter (tap twice to confirm)
 
 Stickers live behind the medal above the board. Each locked sticker says what to do to earn it.
