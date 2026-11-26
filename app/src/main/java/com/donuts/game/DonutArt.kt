@@ -82,7 +82,7 @@ internal fun GameView.ringBase(canvas: Canvas, cx: Float, cy: Float, r: Float, b
         fillPaint.color = Color.argb(alpha, 255, 255, 255)
         canvas.drawCircle(cx, cy, r + ow + cellSize * 0.07f, fillPaint)
     }
-    fillPaint.color = Color.argb(alpha, 28, 12, 0)
+    fillPaint.color = ink(alpha)
     canvas.drawCircle(cx, cy, r + ow, fillPaint)
     fillPaint.color = Color.argb(alpha / 3, 0, 0, 0)
     canvas.drawCircle(cx + r * 0.06f, cy + r * 0.12f, r, fillPaint)
@@ -95,7 +95,7 @@ internal fun GameView.drawHole(canvas: Canvas, cx: Float, cy: Float, hr: Float, 
     canvas.drawCircle(cx, cy, hr, fillPaint)
     outlinePaint.color = Color.argb(alpha / 2, 255, 255, 255); outlinePaint.strokeWidth = hr * 0.15f
     canvas.drawCircle(cx, cy, hr, outlinePaint)
-    outlinePaint.color = Color.argb(alpha / 2, 28, 12, 0)
+    outlinePaint.color = ink(alpha / 2)
     canvas.drawCircle(cx, cy, hr * 1.06f, outlinePaint)
     fillPaint.alpha = 255
 }
@@ -179,7 +179,7 @@ internal fun GameView.drawFlowerRing(canvas: Canvas, cx: Float, cy: Float, r: Fl
         canvas.drawCircle(cx, cy, r * 1.32f, fillPaint)
     }
     buildScallop(scratchPath, cx, cy, r)
-    outlinePaint.color = Color.argb(alpha, 28, 12, 0); outlinePaint.strokeWidth = ow * 2f
+    outlinePaint.color = ink(alpha); outlinePaint.strokeWidth = ow * 2f
     canvas.drawPath(scratchPath, outlinePaint)
     canvas.save(); canvas.translate(r * 0.06f, r * 0.12f)
     fillPaint.color = Color.argb(alpha / 3, 0, 0, 0)
@@ -233,7 +233,7 @@ internal fun GameView.drawSquareDonut(canvas: Canvas, cx: Float, cy: Float, r: F
         fillPaint.color = Color.argb(alpha, 255, 255, 255)
         canvas.drawCircle(cx, cy, r * 1.34f, fillPaint)
     }
-    fillPaint.color = Color.argb(alpha, 28, 12, 0)
+    fillPaint.color = ink(alpha)
     canvas.drawRoundRect(scratchRectF.apply { set(cx - side - ow, cy - side - ow, cx + side + ow, cy + side + ow) }, cr + ow, cr + ow, fillPaint)
     fillPaint.color = Color.argb(alpha / 3, 0, 0, 0)
     canvas.drawRoundRect(scratchRectF.apply { set(cx - side + r * 0.06f, cy - side + r * 0.12f, cx + side + r * 0.06f, cy + side + r * 0.12f) }, cr, cr, fillPaint)

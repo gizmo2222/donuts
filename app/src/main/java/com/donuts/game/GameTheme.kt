@@ -2,6 +2,10 @@ package com.donuts.game
 
 import android.graphics.Color
 
+// The warm dark brown of every outline, shadow, scrim and face line, at any alpha.
+fun ink(alpha: Int = 255): Int = Color.argb(alpha, 28, 12, 0)
+val INK = ink()
+
 // The one look: a warm cream bakery. Pieces bring the colour; the chrome stays quiet.
 object GameTheme {
     val bg            = Color.rgb(255, 240, 220)

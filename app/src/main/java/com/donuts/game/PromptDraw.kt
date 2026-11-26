@@ -104,7 +104,7 @@ internal fun GameView.drawPromptChip(canvas: Canvas, now: Long) {
 
     // Thick cartoon outline round a cream pill, gold once the prompt is done
     val ow = max(3f * u, h * 0.09f)
-    fillPaint.color = Color.argb(235, 28, 12, 0)
+    fillPaint.color = ink(235)
     canvas.drawRoundRect(scratchRectF.apply { set(r.left - ow, r.top - ow, r.right + ow, r.bottom + ow) }, rad + ow, rad + ow, fillPaint)
     fillPaint.color = if (p.complete) GameTheme.bannerColors[0] else Color.rgb(255, 244, 222)
     canvas.drawRoundRect(r, rad, rad, fillPaint)

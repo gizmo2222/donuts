@@ -6,7 +6,6 @@ import kotlin.math.*
 // The donut pal: Steven's buddy who stands beside the counter, holding up the number.
 // Part of GameView: these are extension functions on it, split out of GameView.kt.
 
-private val PAL_INK = Color.rgb(28, 12, 0)
 private val PAL_DOUGH = Color.rgb(240, 170, 85)
 private val PAL_GLAZE = Color.rgb(255, 140, 35)
 private val PAL_SHOE = Color.rgb(235, 45, 55)
@@ -45,7 +44,7 @@ internal fun GameView.drawPal(canvas: Canvas, cx: Float, footY: Float, r: Float,
         val rect = scratchRectF.apply { set(fx - r * 0.34f, footY - r * 0.30f, fx + r * 0.34f, footY) }
         fillPaint.color = PAL_SHOE
         canvas.drawRoundRect(rect, r * 0.16f, r * 0.16f, fillPaint)
-        outlinePaint.color = PAL_INK; outlinePaint.strokeWidth = max(2f, r * 0.10f)
+        outlinePaint.color = INK; outlinePaint.strokeWidth = max(2f, r * 0.10f)
         canvas.drawRoundRect(rect, r * 0.16f, r * 0.16f, outlinePaint)
     }
     // A happy shimmy turns the pal about its middle; the sneakers stay planted
@@ -60,7 +59,7 @@ internal fun GameView.drawPal(canvas: Canvas, cx: Float, footY: Float, r: Float,
         val rect = scratchRectF.apply { set(ax - r * 0.15f, ay - len, ax + r * 0.15f, ay + r * 0.12f) }
         fillPaint.color = PAL_DOUGH
         canvas.drawRoundRect(rect, r * 0.15f, r * 0.15f, fillPaint)
-        outlinePaint.color = PAL_INK; outlinePaint.strokeWidth = max(2f, r * 0.10f)
+        outlinePaint.color = INK; outlinePaint.strokeWidth = max(2f, r * 0.10f)
         canvas.drawRoundRect(rect, r * 0.15f, r * 0.15f, outlinePaint)
         canvas.restore()
     }

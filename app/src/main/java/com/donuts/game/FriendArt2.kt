@@ -6,7 +6,6 @@ import kotlin.math.*
 // Donut friends 4 to 11: Choco, Kicky, Berry, Gloop, Zoomy, Puff, Fizz and Captain Glaze. Same style as
 // FriendArt.kt (big eyes, a grin, one funny feature) and its face helpers. Extension functions on GameView.
 
-private val INK = Color.rgb(28, 12, 0)
 private val DOUGH = Color.rgb(240, 170, 85)
 
 // A ring friend's hole sits high so the face has room below it (as in FriendArt.kt)

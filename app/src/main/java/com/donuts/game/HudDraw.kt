@@ -44,7 +44,7 @@ internal fun GameView.drawStarIcon(canvas: Canvas, cx: Float, cy: Float, r: Floa
         if (i == 0) scratchPath.moveTo(x, y) else scratchPath.lineTo(x, y)
     }
     scratchPath.close()
-    outlinePaint.color = Color.argb(255, 28, 12, 0); outlinePaint.strokeWidth = r * 0.30f
+    outlinePaint.color = ink(); outlinePaint.strokeWidth = r * 0.30f
     canvas.drawPath(scratchPath, outlinePaint)
     fillPaint.color = Color.rgb(255, 215, 50); fillPaint.alpha = 255
     canvas.drawPath(scratchPath, fillPaint)
@@ -61,7 +61,7 @@ internal fun GameView.drawGearIcon(canvas: Canvas, cx: Float, cy: Float, r: Floa
         if (i == 0) scratchPath.moveTo(x, y) else scratchPath.lineTo(x, y)
     }
     scratchPath.close()
-    outlinePaint.color = Color.argb(255, 28, 12, 0); outlinePaint.strokeWidth = r * 0.24f
+    outlinePaint.color = ink(); outlinePaint.strokeWidth = r * 0.24f
     canvas.drawPath(scratchPath, outlinePaint)
     fillPaint.color = Color.rgb(255, 250, 240); fillPaint.alpha = 255
     canvas.drawPath(scratchPath, fillPaint)
@@ -95,7 +95,7 @@ internal fun GameView.drawPrettyButton(canvas: Canvas, rect: RectF, baseColor: I
     )
     // Cartoon border
     val bd = 3f * u
-    fillPaint.color = Color.rgb(28, 12, 0)
+    fillPaint.color = ink()
     canvas.drawRoundRect(
         scratchRectF.apply { set(rect.left - bd, rect.top - bd, rect.right + bd, rect.bottom + bd) },
         rx + bd, rx + bd, fillPaint
@@ -186,7 +186,7 @@ internal fun GameView.drawCounter(canvas: Canvas, now: Long) {
         canvas.drawText("$displayCh", x + 2f * u, baseY + 2f * u, textPaint)
         textPaint.color = theme.textPrimary
         canvas.drawText("$displayCh", x, baseY, textPaint)
-        textOutlinePaint.color = Color.argb(40, 28, 12, 0)
+        textOutlinePaint.color = ink(40)
         canvas.drawText("$displayCh", x, baseY, textOutlinePaint)
         canvas.restore()
     }
@@ -207,7 +207,7 @@ internal fun GameView.drawLabel(canvas: Canvas, text: String, x: Float, baseline
     if (outlined) {
         textOutlinePaint.textAlign = Paint.Align.CENTER
         textOutlinePaint.textSize = sz; textOutlinePaint.strokeWidth = max(2f * u, sz * 0.16f)
-        textOutlinePaint.color = Color.argb(235, 28, 12, 0)
+        textOutlinePaint.color = ink(235)
         canvas.drawText(text, x, baseline, textOutlinePaint)
     }
     textPaint.color = fill
@@ -218,7 +218,7 @@ internal fun GameView.drawOutlinedText(canvas: Canvas, text: String, x: Float, y
     textPaint.textSize = sz; textPaint.textAlign = Paint.Align.CENTER
     textOutlinePaint.textSize = sz; textOutlinePaint.textAlign = Paint.Align.CENTER
     textOutlinePaint.strokeWidth = sz * 0.16f
-    textOutlinePaint.color = Color.argb(255, 28, 12, 0)
+    textOutlinePaint.color = ink()
     canvas.drawText(text, x, y + sz * 0.36f, textOutlinePaint)
     textPaint.color = fill
     canvas.drawText(text, x, y + sz * 0.36f, textPaint)
@@ -246,7 +246,7 @@ internal fun GameView.drawPartyMeter(canvas: Canvas, now: Long) {
 
     // Thick cartoon outline round a cream track
     val ow = max(3f * u, h * 0.14f)
-    fillPaint.color = Color.argb(235, 28, 12, 0)
+    fillPaint.color = ink(235)
     canvas.drawRoundRect(scratchRectF.apply { set(r.left - ow, r.top - ow, r.right + ow, r.bottom + ow) }, rad + ow, rad + ow, fillPaint)
     fillPaint.color = Color.rgb(255, 244, 222)
     canvas.drawRoundRect(r, rad, rad, fillPaint)

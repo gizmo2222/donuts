@@ -62,7 +62,7 @@ internal fun GameView.drawCelebration(canvas: Canvas, now: Long) {
     canvas.scale(sc, sc, bx + bw / 2f, by + bh / 2f)
     fillPaint.color = Color.argb((bannerAlpha * 0.35f).toInt(), 0, 0, 0)
     canvas.drawRoundRect(scratchRectF.apply { set(bx + 3f * u, by + 6f * u, bx + bw + 3f * u, by + bh + 6f * u) }, 18f * u, 18f * u, fillPaint)
-    fillPaint.color = Color.argb(bannerAlpha, 28, 12, 0)
+    fillPaint.color = ink(bannerAlpha)
     canvas.drawRoundRect(scratchRectF.apply { set(bx - 4f * u, by - 4f * u, bx + bw + 4f * u, by + bh + 4f * u) }, 20f * u, 20f * u, fillPaint)
     val look = celebrateLook ?: CelebrationMix.CLASSIC
     fillPaint.color = (GameTheme.bannerColors[look.banner] and 0x00FFFFFF) or (bannerAlpha shl 24)

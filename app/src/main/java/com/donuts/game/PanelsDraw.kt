@@ -31,7 +31,7 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
 
     // ---- Panel shell ----
     val pr = 22f * u; val bd = 6f * u; val ring = 3f * u
-    fillPaint.color = Color.argb(230, 28, 12, 0)
+    fillPaint.color = ink(230)
     canvas.drawRoundRect(
         scratchRectF.apply { set(stickerPanelRect.left - bd, stickerPanelRect.top - bd,
               stickerPanelRect.right + bd, stickerPanelRect.bottom + bd) },
@@ -88,14 +88,14 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
                 scratchRectF.apply { set(rect.left - g, rect.top - g, rect.right + g, rect.bottom + g) },
                 r + g, r + g, strokePaint)
             // Gold border
-            fillPaint.color = Color.argb(220, 28, 12, 0)
+            fillPaint.color = ink(220)
             canvas.drawRoundRect(scratchRectF.apply { set(rect.left-g, rect.top-g, rect.right+g, rect.bottom+g) }, r+g, r+g, fillPaint)
             val g2 = 2.5f * u
             strokePaint.color = Color.rgb(255, 215, 50); strokePaint.strokeWidth = 2.5f * u; strokePaint.alpha = 255
             canvas.drawRoundRect(scratchRectF.apply { set(rect.left-g2, rect.top-g2, rect.right+g2, rect.bottom+g2) }, r+g2, r+g2, strokePaint)
         } else {
             // Plain dark border
-            fillPaint.color = Color.argb(140, 28, 12, 0)
+            fillPaint.color = ink(140)
             val g2 = 2.5f * u
             canvas.drawRoundRect(scratchRectF.apply { set(rect.left-g2, rect.top-g2, rect.right+g2, rect.bottom+g2) }, r+g2, r+g2, fillPaint)
         }
@@ -136,7 +136,7 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
             // Earned checkmark badge — inside the tile's top right corner
             val br2 = min(8f * u, rect.width() * 0.11f); val inset = 3f * u + 1.5f * u
             val bx = rect.right - br2 - inset; val by = rect.top + br2 + inset
-            fillPaint.color = Color.argb(220, 28, 12, 0)
+            fillPaint.color = ink(220)
             canvas.drawCircle(bx, by, br2 + 1.5f * u, fillPaint)
             fillPaint.color = Color.rgb(80, 210, 80)
             canvas.drawCircle(bx, by, br2, fillPaint)
@@ -195,7 +195,7 @@ internal fun GameView.drawDonutBox(canvas: Canvas, rect: RectF, now: Long, strip
     val by = rect.centerY() - boxH / 2f
     val bd = 3f * u
 
-    fillPaint.color = Color.argb(230, 28, 12, 0)
+    fillPaint.color = ink(230)
     canvas.drawRoundRect(scratchRectF.apply { set(bx - bd, by - bd, bx + boxW + bd, by + boxH + bd) }, 12f * u, 12f * u, fillPaint)
     fillPaint.color = Color.rgb(255, 205, 220); fillPaint.alpha = 255     // strawberry-pink bakery box
     canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + boxW, by + boxH) }, 10f * u, 10f * u, fillPaint)
@@ -243,7 +243,7 @@ internal fun GameView.drawClosedBox(canvas: Canvas, x: Float, y: Float, s: Float
     canvas.save()
     canvas.scale(pop, pop, x + s / 2f, y + s)
     val r = 8f * u
-    fillPaint.color = Color.argb(240, 28, 12, 0)
+    fillPaint.color = ink(240)
     canvas.drawRoundRect(scratchRectF.apply { set(x - 3f * u, y - 3f * u, x + s + 3f * u, y + s + 3f * u) }, r + 3f * u, r + 3f * u, fillPaint)
     fillPaint.color = Color.rgb(255, 205, 220)
     canvas.drawRoundRect(scratchRectF.apply { set(x, y, x + s, y + s) }, r, r, fillPaint)
@@ -251,7 +251,7 @@ internal fun GameView.drawClosedBox(canvas: Canvas, x: Float, y: Float, s: Float
     canvas.drawRoundRect(scratchRectF.apply { set(x, y, x + s, y + s * 0.30f) }, r, r, fillPaint)
     fillPaint.color = Color.rgb(255, 215, 50)                        // ribbon
     canvas.drawRect(x + s * 0.42f, y, x + s * 0.58f, y + s, fillPaint)
-    strokePaint.color = Color.rgb(28, 12, 0); strokePaint.strokeWidth = 2.5f * u
+    strokePaint.color = ink(); strokePaint.strokeWidth = 2.5f * u
     canvas.drawLine(x, y + s * 0.30f, x + s, y + s * 0.30f, strokePaint)
     if (number > 0) drawOutlinedText(canvas, "$number", x + s / 2f, y + s * 0.62f, s * 0.58f, Color.WHITE)
     canvas.restore()
@@ -277,7 +277,7 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
     val bd = 6f * k; val ring = 3f * k
 
     // Panel: dark cartoon outline, white ring, cream fill
-    fillPaint.color = Color.argb(230, 28, 12, 0)
+    fillPaint.color = ink(230)
     canvas.drawRoundRect(scratchRectF.apply { set(panelRect.left - bd, panelRect.top - bd, panelRect.right + bd, panelRect.bottom + bd) }, pr + bd, pr + bd, fillPaint)
     strokePaint.color = Color.WHITE; strokePaint.strokeWidth = ring
     canvas.drawRoundRect(scratchRectF.apply { set(panelRect.left - ring, panelRect.top - ring, panelRect.right + ring, panelRect.bottom + ring) }, pr + ring, pr + ring, strokePaint)
@@ -365,7 +365,7 @@ internal fun GameView.drawConfirmButton(canvas: Canvas, now: Long, rect: RectF, 
         val bw = rect.width() - 20f * k
         val by = rect.bottom - 8f * k
         val bh = 3f * k
-        fillPaint.color = Color.argb(60, 28, 12, 0)
+        fillPaint.color = ink(60)
         canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + bw, by + bh) }, bh / 2, bh / 2, fillPaint)
         fillPaint.color = Color.argb(220, 255, 200, 60)
         canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + bw * progress, by + bh) }, bh / 2, bh / 2, fillPaint)
@@ -375,7 +375,7 @@ internal fun GameView.drawConfirmButton(canvas: Canvas, now: Long, rect: RectF, 
 
 /** Small green check badge used on selected settings buttons. */
 internal fun GameView.drawCheckBadge(canvas: Canvas, bx: Float, by: Float, br: Float) {
-    fillPaint.color = Color.argb(210, 28, 12, 0)
+    fillPaint.color = ink(210)
     canvas.drawCircle(bx, by, br + br * 0.2f, fillPaint)
     fillPaint.color = Color.rgb(80, 200, 80); fillPaint.alpha = 255
     canvas.drawCircle(bx, by, br, fillPaint)
@@ -396,7 +396,7 @@ internal fun GameView.drawSettingsBtn(canvas: Canvas, now: Long, rect: RectF, la
         14f * k, 14f * k, shadowPaint
     )
     // Dark cartoon border
-    fillPaint.color = Color.argb(210, 28, 12, 0)
+    fillPaint.color = ink(210)
     canvas.drawRoundRect(
         scratchRectF.apply { set(rect.left - borderPad, rect.top - borderPad, rect.right + borderPad, rect.bottom + borderPad) },
         14f * k, 14f * k, fillPaint

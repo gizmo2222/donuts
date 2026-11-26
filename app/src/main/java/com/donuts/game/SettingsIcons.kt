@@ -7,7 +7,6 @@ import kotlin.math.*
 // bulb, a donut grid and a bouncing or resting donut), each showing its current choice, and the icons on the two
 // tap-twice buttons. Part of GameView: these are extension functions on it.
 
-private val INK  = Color.rgb(28, 12, 0)
 private val OFF  = Color.rgb(195, 178, 160)   // a switched-off picture: same shape, no colour
 private val GOLD = Color.rgb(255, 215, 50)
 

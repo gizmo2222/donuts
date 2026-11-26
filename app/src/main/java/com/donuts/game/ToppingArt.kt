@@ -42,14 +42,14 @@ internal fun GameView.drawTopping(canvas: Canvas, cx: Float, cy: Float, r: Float
         when (t) {
             Topping.SPRINKLES -> {
                 val w = r * 0.20f; val h = r * 0.075f
-                fillPaint.color = Color.argb(alpha, 28, 12, 0)
+                fillPaint.color = ink(alpha)
                 canvas.drawRoundRect(scratchRectF.apply { set(px - w - ow, py - h - ow, px + w + ow, py + h + ow) }, h + ow, h + ow, fillPaint)
                 fillPaint.color = ROD_COLORS[i]; fillPaint.alpha = alpha
                 canvas.drawRoundRect(scratchRectF.apply { set(px - w, py - h, px + w, py + h) }, h, h, fillPaint)
             }
             Topping.CHOC_CHIPS -> {
                 val w = r * 0.15f; val h = r * 0.11f
-                fillPaint.color = Color.argb(alpha, 28, 12, 0)
+                fillPaint.color = ink(alpha)
                 canvas.drawOval(scratchRectF.apply { set(px - w - ow, py - h - ow, px + w + ow, py + h + ow) }, fillPaint)
                 fillPaint.color = Color.rgb(112, 62, 28); fillPaint.alpha = alpha
                 canvas.drawOval(scratchRectF.apply { set(px - w, py - h, px + w, py + h) }, fillPaint)
@@ -91,18 +91,18 @@ private fun GameView.heartPiece(canvas: Canvas, x: Float, y: Float, s: Float, ow
 }
 
 private fun GameView.outlineOf(canvas: Canvas, ow: Float, alpha: Int) {
-    strokePaint.color = Color.argb(alpha, 28, 12, 0); strokePaint.strokeWidth = ow * 1.6f
+    strokePaint.color = ink(alpha); strokePaint.strokeWidth = ow * 1.6f
     strokePaint.strokeJoin = Paint.Join.ROUND
     canvas.drawPath(scratchPath2, strokePaint)
     strokePaint.alpha = 255
 }
 
 private fun GameView.miniBall(canvas: Canvas, x: Float, y: Float, s: Float, ow: Float, alpha: Int) {
-    fillPaint.color = Color.argb(alpha, 28, 12, 0)
+    fillPaint.color = ink(alpha)
     canvas.drawCircle(x, y, s + ow, fillPaint)
     fillPaint.color = Color.WHITE; fillPaint.alpha = alpha
     canvas.drawCircle(x, y, s, fillPaint)
-    fillPaint.color = Color.argb(alpha, 28, 12, 0)
+    fillPaint.color = ink(alpha)
     canvas.drawCircle(x, y, s * 0.46f, fillPaint)
     for (k in 0 until 3) {
         val a = (30.0 + k * 120.0) * PI / 180.0
@@ -116,7 +116,7 @@ private fun GameView.drawRainbowBands(canvas: Canvas, cx: Float, cy: Float, r: F
     fun arcs(start: Float, sweep: Float) {
         val inner = r * 0.45f
         strokePaint.strokeCap = Paint.Cap.ROUND
-        strokePaint.color = Color.argb(alpha, 28, 12, 0); strokePaint.strokeWidth = bw * 5f + r * 0.04f
+        strokePaint.color = ink(alpha); strokePaint.strokeWidth = bw * 5f + r * 0.04f
         val mid = inner + bw * 2f
         canvas.drawArc(scratchRectF.apply { set(cx - mid, cy - mid, cx + mid, cy + mid) }, start, sweep, false, strokePaint)
         strokePaint.strokeWidth = bw
@@ -175,7 +175,7 @@ internal fun GameView.drawSeasonLook(canvas: Canvas, cx: Float, cy: Float, r: Fl
 private fun GameView.snowflake(canvas: Canvas, x: Float, y: Float, s: Float, ow: Float, color: Int, alpha: Int) {
     strokePaint.strokeCap = Paint.Cap.ROUND
     for (pass in 0..1) {
-        strokePaint.color = if (pass == 0) Color.argb(alpha, 28, 12, 0) else color
+        strokePaint.color = if (pass == 0) ink(alpha) else color
         if (pass == 1) strokePaint.alpha = alpha
         strokePaint.strokeWidth = if (pass == 0) s * 0.26f + ow * 1.6f else s * 0.26f
         for (k in 0 until 3) {
@@ -184,12 +184,12 @@ private fun GameView.snowflake(canvas: Canvas, x: Float, y: Float, s: Float, ow:
             canvas.drawLine(x - dx, y - dy, x + dx, y + dy, strokePaint)
         }
     }
-    fillPaint.color = Color.argb(alpha, 28, 12, 0)
+    fillPaint.color = ink(alpha)
     canvas.drawCircle(x, y, s * 0.12f, fillPaint)
 }
 
 private fun GameView.flower(canvas: Canvas, x: Float, y: Float, s: Float, ow: Float, color: Int, alpha: Int) {
-    fillPaint.color = Color.argb(alpha, 28, 12, 0)
+    fillPaint.color = ink(alpha)
     for (k in 0 until 5) {
         val a = (-90.0 + k * 72.0) * PI / 180.0
         canvas.drawCircle(x + s * cos(a).toFloat(), y + s * sin(a).toFloat(), s * 0.78f + ow, fillPaint)
@@ -199,7 +199,7 @@ private fun GameView.flower(canvas: Canvas, x: Float, y: Float, s: Float, ow: Fl
         val a = (-90.0 + k * 72.0) * PI / 180.0
         canvas.drawCircle(x + s * cos(a).toFloat(), y + s * sin(a).toFloat(), s * 0.78f, fillPaint)
     }
-    fillPaint.color = Color.argb(alpha, 28, 12, 0)
+    fillPaint.color = ink(alpha)
     canvas.drawCircle(x, y, s * 0.55f + ow, fillPaint)
     fillPaint.color = Color.rgb(255, 160, 30); fillPaint.alpha = alpha
     canvas.drawCircle(x, y, s * 0.55f, fillPaint)
@@ -208,7 +208,7 @@ private fun GameView.flower(canvas: Canvas, x: Float, y: Float, s: Float, ow: Fl
 private fun GameView.sun(canvas: Canvas, x: Float, y: Float, s: Float, ow: Float, alpha: Int) {
     strokePaint.strokeCap = Paint.Cap.ROUND
     for (pass in 0..1) {
-        strokePaint.color = if (pass == 0) Color.argb(alpha, 28, 12, 0) else Color.rgb(255, 150, 20)
+        strokePaint.color = if (pass == 0) ink(alpha) else Color.rgb(255, 150, 20)
         if (pass == 1) strokePaint.alpha = alpha
         strokePaint.strokeWidth = if (pass == 0) s * 0.32f + ow * 1.6f else s * 0.32f
         for (k in 0 until 8) {
@@ -217,7 +217,7 @@ private fun GameView.sun(canvas: Canvas, x: Float, y: Float, s: Float, ow: Float
             canvas.drawLine(x + c * s * 1.25f, y + sn * s * 1.25f, x + c * s * 1.75f, y + sn * s * 1.75f, strokePaint)
         }
     }
-    fillPaint.color = Color.argb(alpha, 28, 12, 0)
+    fillPaint.color = ink(alpha)
     canvas.drawCircle(x, y, s + ow, fillPaint)
     fillPaint.color = Color.rgb(255, 225, 40); fillPaint.alpha = alpha
     canvas.drawCircle(x, y, s, fillPaint)
