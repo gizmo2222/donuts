@@ -105,7 +105,7 @@ The risky ones below were **not applied**. Each needs a pixel check, a dependenc
 | draw-22 | Outline-then-fill paths, tray backgrounds and outlined text are repeated | The cases are not equivalent: the NEW! baseline and the gear's extra circle |
 | draw-23 | Ink colour `argb(a, 28, 12, 0)` is written about 45 times in 8 files | An `ink(alpha)` helper is fine, but it should be its own commit, made by a regex script |
 | draw-24 | Home-screen copies of game art, two check badges, per-cell allocations, implicit `textAlign` | Pixel or hot-path changes; adding an explicit `CENTER` would only harden the code |
-| rules-18 | "Chain type = first non-golden cell" is written three times | `ChainRules.accepts` handles an all-golden chain differently. Only the GameBoard/GameView copies were merged (`GameBoard.chainTypeOf`) |
+| rules-18 | "Chain type = first non-golden cell" is written three times | `ChainRules.accepts` handles an all-golden chain differently. Only the GameBoard/GameView copies were merged (`GameBoard.chainTypeOf`). **Closed 2026-11-25 (B25): kept on purpose**, since the all-golden rule in `ChainRules.accepts` is intended |
 | rules-24 | `appcompat` and `material` serve only as a base class and a theme parent | Changes the window theme and the release dependencies; needs an emulator check on API 26 and 34+ |
 | build-1 | Gradle wrapper 9.2.1 has CVE-2026-22816 and CVE-2026-22865 (fixed in 9.3.x) | Build toolchain on the signing machine; the new `distributionSha256Sum` must come from services.gradle.org |
 | build-7 | Material is only the theme parent; `values-v27` repeats 9 of the base theme's 10 lines | Changes the window theme of both activities; needs an emulator look |
@@ -114,7 +114,7 @@ The risky ones below were **not applied**. Each needs a pixel check, a dependenc
 | build-10 | Ten identical adaptive-icon XMLs in five `mipmap-*dpi` folders (minSdk 26 needs only `mipmap-anydpi`) | Changes launcher-icon packaging; needs a launcher check |
 | build-11 | SDK and JDK discovery is repeated in `emu.ps1` and `release.ps1` instead of using `env.ps1` | `release.ps1` is release tooling, and `emu.ps1` needs an emulator to verify |
 | build-12 | `proguard-rules.pro` holds template rules; the JavascriptInterface keep duplicates AGP's default | R8 input for the signed bundle |
-| tests-8 | `GameBoardTest.powerUpTierFollowsChainLength` overlaps `GameBoardMoreTest`'s tier tests | It uses a different fixture (a 1x9 row) and covers an edge the other tests do not, so it was kept |
+| tests-8 | `GameBoardTest.powerUpTierFollowsChainLength` overlaps `GameBoardMoreTest`'s tier tests | It uses a different fixture (a 1x9 row) and covers an edge the other tests do not, so it was kept. **Closed 2026-11-25 (B25): kept on purpose** |
 
 **Refuted:** about 30 reports. Most duplicated a safe item from another finder (unused imports, `grid_size`
 clamp, AudioTrack release, count-and-gravity). The rest were not dead code (`core-ktx` is used, the
