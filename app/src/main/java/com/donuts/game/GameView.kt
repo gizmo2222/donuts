@@ -92,6 +92,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var lastActionMs = SystemClock.elapsedRealtime()
     internal var hintCells    = emptyList<Pair<Int, Int>>()
     internal var hintPulseMs  = 0L
+    internal var hintRandom: kotlin.random.Random = kotlin.random.Random.Default   // ties between equal hints; tests seed it
 
     // -----------------------------------------------------------------------
     // Touch / drag
@@ -495,6 +496,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
         drawBoardBackground(canvas)
         drawCells(canvas, now)
         drawChainLine(canvas)
+        drawHintTrace(canvas, now)
         drawPowerUpFx(canvas, now); drawCenterPing(canvas, now)
         drawFloatLabels(canvas, now)
         advancePrompt(now)

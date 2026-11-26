@@ -17,7 +17,10 @@ internal fun GameView.updateHint(now: Long) {
     val delay = prefs.hintDelayMs
     if (tutorialActive || showSomeoneMs >= 0 || friendFlyMs >= 0 || toppingFlyMs >= 0 || delay == 0L || animPhase != AnimPhase.IDLE || dragChain.isNotEmpty()) return
     if (now - lastActionMs >= delay) {
-        if (hintCells.isEmpty()) { hintCells = board.findHint(); hintPulseMs = now }
+        if (hintCells.isEmpty()) {
+            val want = prompt?.takeUnless { it.complete }?.type?.let { DonutType.values().getOrNull(it) }
+            hintCells = HintRules.pick(board, want, hintRandom); hintPulseMs = now
+        }
     } else {
         hintCells = emptyList()
     }
