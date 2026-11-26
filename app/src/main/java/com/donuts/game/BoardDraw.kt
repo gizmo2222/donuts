@@ -103,7 +103,29 @@ internal fun GameView.drawCells(canvas: Canvas, now: Long) {
                     boardLeft + board.cols * cellSize + frame, boardTop + board.rows * cellSize + frame)
     drawCellsInner(canvas, now)
     drawRefusedCue(canvas, now)
+    drawTapCue(canvas, now)
     canvas.restore()
+}
+
+/**
+ * Reduced-motion stand-in for the tap wobble, so the boop (or the rare giggle) is never a sound alone:
+ * a still white ring with a dark edge round each tapped donut, fading out over the wobble's time.
+ */
+internal fun GameView.drawTapCue(canvas: Canvas, now: Long) {
+    if (!reducedMotion || wobbleMs < 0) return
+    val t = (now - wobbleMs).toFloat() / (if (wobbleGiggle) WOBBLE_MS * 2 else WOBBLE_MS)
+    if (t >= 1f) { wobbleMs = -1L; return }
+    val fade = 1f - t.coerceAtLeast(0f)
+    for ((r, c) in wobbleCells) {
+        val cx = boardLeft + (c + 0.5f) * cellSize
+        val cy = boardTop + (r + 0.5f) * cellSize
+        refusedPaint.color = Color.argb((200f * fade).toInt().coerceIn(0, 255), 28, 12, 0)
+        refusedPaint.strokeWidth = cellSize * 0.11f
+        canvas.drawCircle(cx, cy, cellSize * 0.46f, refusedPaint)
+        refusedPaint.color = Color.argb((240f * fade).toInt().coerceIn(0, 255), 255, 255, 255)
+        refusedPaint.strokeWidth = cellSize * 0.06f
+        canvas.drawCircle(cx, cy, cellSize * 0.46f, refusedPaint)
+    }
 }
 
 /** Reduced-motion stand-in for the refusal shake: a still red ring that fades out. */
