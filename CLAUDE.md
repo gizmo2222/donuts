@@ -57,7 +57,7 @@ main checkout's `local.properties` when working in a git worktree.
 | Regenerate the doc map below | `.\tools\code-map.ps1 -UpdateDoc CLAUDE.md` |
 
 Unit tests live in `app\src\test\java\com\donuts\game` and all run on the JVM: the rules tests are plain JUnit,
-the view, activity and saved-game tests run under Robolectric 4.16. `BalanceSim` and `ScreenGallery` run only through
+the view, activity and saved-game tests run under Robolectric 4.18.1. `BalanceSim` and `ScreenGallery` run only through
 `balance.ps1` and `gallery.ps1`. There are no instrumented tests and no CI.
 
 ## Code map
