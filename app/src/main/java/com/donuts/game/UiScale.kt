@@ -23,4 +23,12 @@ class UiScale(context: Context) {
         val shortDp = min(wPx, hPx) / density
         u = density * (shortDp / 400f).coerceIn(1f, 1.5f)
     }
+
+    companion object {
+        /** True when the system animator scale is 0: the user asked Android for no animation. */
+        fun animationsOff(context: Context): Boolean = try {
+            android.provider.Settings.Global.getFloat(context.contentResolver,
+                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+        } catch (_: Exception) { false }
+    }
 }

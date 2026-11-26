@@ -9,7 +9,7 @@ import kotlin.math.*
 // Part of GameView: these are extension functions on it, split out of GameView.kt.
 
 // Panel hit ids: 0-5 option buttons (sound, hints, size), 10-11 buzz, 6 New game, 9 Reset stickers, 7 Done,
-// 8 outside the panel, 14 Grown-ups (Steven's page), 15 Back (the gate), 30+d keypad digit d,
+// 8 outside the panel, 14 Grown-ups (Steven's page), 15 Back (the gate), 30+d keypad digit d, 40-41 Bouncy/Calm,
 // -1 the panel itself (not a button). Only the shown page's buttons can be hit.
 internal fun GameView.settingsHit(x: Float, y: Float): Int {
     if (!panelRect.contains(x, y)) return 8
@@ -28,6 +28,8 @@ internal fun GameView.settingsHit(x: Float, y: Float): Int {
         else -> {
             if (gridRects[0].contains(x, y)) return 4
             if (gridRects[1].contains(x, y)) return 5
+            if (motionRects[0].contains(x, y)) return 40
+            if (motionRects[1].contains(x, y)) return 41
             if (settingsResetRect.contains(x, y)) return 6
             if (settingsStickersRect.contains(x, y)) return 9
             if (settingsCloseRect.contains(x, y)) return 7
@@ -104,6 +106,7 @@ internal fun GameView.handleSettingsTap(hit: Int) {
             val size = gridOptions[hit - 4]
             if (prefs.gridSize != size) { prefs.gridSize = size; rebuildBoard() }
         }
+        40, 41 -> { prefs.calmMotion = hit == 41; reducedMotion = systemReducedMotion || prefs.calmMotion }
         6 -> {
             stickersConfirm.cancel()
             if (newGameConfirm.tap(now)) { startOver(); closeSettings() }

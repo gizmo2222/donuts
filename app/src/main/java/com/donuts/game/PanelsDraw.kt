@@ -314,6 +314,11 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
             drawSettingsIcon(canvas, settingsIconRects[ICON_GRID], ICON_GRID, prefs.gridSize == gridOptions[0], "Size")
             for (i in gridOptions.indices) drawSettingsBtn(canvas, now, gridRects[i], gridLabels[i], gridOptions[i] == prefs.gridSize)
 
+            // Bouncy or Calm: shows the look in force, so the system's "remove animations" reads as Calm
+            drawSettingsIcon(canvas, settingsIconRects[ICON_MOTION], ICON_MOTION, !reducedMotion, "Motion")
+            drawSettingsBtn(canvas, now, motionRects[0], motionLabels[0], !reducedMotion)
+            drawSettingsBtn(canvas, now, motionRects[1], motionLabels[1], reducedMotion)
+
             // Two-tap confirm buttons so a stray tap cannot wipe the board or the stickers
             drawConfirmButton(canvas, now, settingsResetRect, newGameConfirm, "New game", "New game?", Color.rgb(200, 70, 50), restart = true)
             drawConfirmButton(canvas, now, settingsStickersRect, stickersConfirm, "Reset stickers", "Clear all?", Color.rgb(150, 70, 170), restart = false)

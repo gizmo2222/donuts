@@ -115,7 +115,9 @@ class GameLayoutTest {
                 else -> listOf(
                     "grid0" to v.gridRects[0], "grid1" to v.gridRects[1],
                     "reset" to v.settingsResetRect, "stickers" to v.settingsStickersRect,
-                    "icon3" to v.settingsIconRects[ICON_GRID], "tally" to v.settingsTallyRect
+                    "icon3" to v.settingsIconRects[ICON_GRID], "tally" to v.settingsTallyRect,
+                    "motion0" to v.motionRects[0], "motion1" to v.motionRects[1],
+                    "icon4" to v.settingsIconRects[ICON_MOTION]
                 )
             } + listOf("close" to v.settingsCloseRect)
             for ((name, r) in all) {
@@ -156,9 +158,9 @@ class GameLayoutTest {
     }
 
     @Test fun eachSettingsPictureSitsLeftOfItsChoicesInTheSameRow() = forAll { n, v ->
-        val rows = listOf(v.soundRects, v.buzzRects, v.hintRects, v.gridRects)
+        val rows = listOf(v.soundRects, v.buzzRects, v.hintRects, v.gridRects, v.motionRects)
         for ((i, choices) in rows.withIndex()) {
-            v.showSettingsPage(if (i == ICON_GRID) SETTINGS_GROWN else SETTINGS_KID)
+            v.showSettingsPage(if (i >= ICON_GRID) SETTINGS_GROWN else SETTINGS_KID)
             val k = v.u * v.settingsSc
             val icon = v.settingsIconRects[i]
             assertEquals("$n: icon$i width", 88f * k, icon.width(), eps)
@@ -169,7 +171,7 @@ class GameLayoutTest {
                 assertEquals("$n: row$i choice$j height", 60f * k, b.height(), eps)
                 assertEquals("$n: row$i choice$j centred on the picture", icon.centerY(), b.centerY(), eps)
             }
-            if (i in 1..2) assertEquals("$n: row gap", 12f * k, icon.top - v.settingsIconRects[i - 1].bottom, eps)
+            if (i in 1..2 || i == ICON_MOTION) assertEquals("$n: row gap", 12f * k, icon.top - v.settingsIconRects[i - 1].bottom, eps)
         }
         v.showSettingsPage(SETTINGS_KID)
     }
@@ -246,6 +248,7 @@ class GameLayoutTest {
         pages(v) { page -> assertTrue("page $page inside", inside(surfaceRect(v), v.panelRect)) }
         v.showSettingsPage(SETTINGS_GROWN)
         assertTrue(inside(v.panelRect, v.gridRects[1]))
+        assertTrue(inside(v.panelRect, v.motionRects[1]))
         v.showSettingsPage(SETTINGS_KID)
         // The rows are taller than the old 56dp buttons yet the panel is shorter, so even
         // shrunk to fit, a choice is still a real touch target (old layout: about 28dp)
@@ -343,7 +346,7 @@ class GameLayoutTest {
             v.settingsCloseRect, v.settingsResetRect, v.settingsStickersRect, v.stickersCloseRect,
             v.donutBoxRect, v.boxStrip.rect, v.settingsGrownRect, v.gateAnswerRect)
         rects += v.settingsPageRects + v.settingsPageClose + v.gateKeyRects
-        rects += v.soundRects + v.buzzRects + v.hintRects + v.gridRects + v.stickerRects
+        rects += v.soundRects + v.buzzRects + v.hintRects + v.gridRects + v.motionRects + v.stickerRects
         return listOf(v.cellSize, v.boardLeft, v.boardTop, v.counterH, v.u, v.settingsSc) +
             rects.map { it.toShortString() }
     }
