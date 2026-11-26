@@ -73,7 +73,7 @@ All sources are in `app\src\main\java\com\donuts\game`. No main source is over a
 | `GameLayout.kt` | Where the board, HUD and both panels sit |
 | `GameAnimation.kt` | Per-frame state updates: pops, drops, counter, hint, celebrations, stickers earned, settings panel slide, box strip |
 | `GameInput.kt` | Touch: the touch dispatcher (`handleTouch`), panel hits, dragging and releasing a chain, New game |
-| `BoardDraw.kt` | The board: background, cells, chain string, hint ring, flashes, the reduced-motion refused-donut ring |
+| `BoardDraw.kt` | The board: background, cells, chain string, hint ring, flashes, the reduced-motion refused-donut ring and tap ring |
 | `DonutArt.kt` | The six donuts and the ball: vector art and the sprite cache |
 | `HudDraw.kt` | Backdrop, icon buttons (star, gear), pretty buttons, the counter (with the donut pal in front of its figures), box strip, the sprinkle party meter, text helpers |
 | `EffectsDraw.kt` | Float labels, pings, sticker fly, tutorial, no-moves warning, power-up effects |
@@ -121,6 +121,7 @@ All sources are in `app\src\main\java\com\donuts\game`. No main source is over a
 | `ShopArt.kt` | `ShopScene`: draws the donut shop on the home screen under PLAY (base, sign, awning, window donuts, lamp, ball, roof donut, flower box, basketball, balloons, sun), a piece popping in (`drawPopping`: spring and sparkles, a glow under reduced motion) and `spot` for each piece |
 | `MainView.kt`, `MainActivity.kt`, `GameActivity.kt` | Home screen and the two activities |
 | `Prefs.kt`, `UiScale.kt`, `GameTheme.kt`, `SoundEngine.kt`, `HapticEngine.kt` | Saved data, dp sizing, palette, sound, haptics |
+| `SoundCues.kt` | `SoundCues`: the visual cue that plays with every sound level, with full motion and under reduced motion; a new level fails `SoundCuesTest` until it has both (pure, unit tested) |
 | `SoundLevels.kt` | `SoundLevels`: every sound's named level by kind (feedback, clear, cheer), `LOUDNESS_CAP` and the capped tone and sweep synth `SoundEngine` plays (pure, unit tested) |
 
 Rules for this layout:
@@ -140,7 +141,7 @@ so read just that range.
 | File | Lines | Symbols (line ranges) |
 |---|---|---|
 | BannerQueue.kt | 31 | `BannerQueue` 10-14, `offer` 15-21, `poll` 22-27, `clear` 28-29, `canStart` 30-31 |
-| BoardDraw.kt | 392 | `drawResetFlash` 12-25, `drawChainFlash` 26-38, `drawBoardBackground` 39-69, `drawChainLine` 70-98, `drawCells` 99-109, `drawRefusedCue` 110-123, `drawHintRing` 124-133, `nearMissOffset` 134-151, `drawCellsInner` 152-292, `drawGoldenOverlay` 293-325, `drawPoppingCells` 326-392 |
+| BoardDraw.kt | 414 | `drawResetFlash` 12-25, `drawChainFlash` 26-38, `drawBoardBackground` 39-69, `drawChainLine` 70-98, `drawCells` 99-113, `drawTapCue` 114-131, `drawRefusedCue` 132-145, `drawHintRing` 146-155, `nearMissOffset` 156-173, `drawCellsInner` 174-314, `drawGoldenOverlay` 315-347, `drawPoppingCells` 348-414 |
 | CelebrationDraw.kt | 112 | `drawCelebration` 9-93, `drawBannerSparkles` 94-112 |
 | CelebrationMix.kt | 38 | `ConfettiStyle` 6-11, `CelebrationLook` 12-18, `CelebrationMix` 19-25, `next` 26-36, `giggle` 37-38 |
 | ChainBadge.kt | 21 | `ChainBadge` 5-10, `spot` 11-21 |
@@ -195,6 +196,7 @@ so read just that range.
 | SettingsIcons.kt | 228 | `drawSettingsIcon` 25-39, `inkLine` 40-46, `outlineAndFill` 47-53, `drawSpeakerIcon` 54-81, `drawBuzzIcon` 82-103, `drawBulbIcon` 104-138, `drawGridIcon` 139-158, `drawMotionIcon` 159-181, `drawRestartIcon` 182-203, `drawConfirmIcon` 204-211, `drawLockIcon` 212-228 |
 | ShopArt.kt | 371 | `ShopScene` 15-42, `draw` 43-58, `drawPiece` 59-74, `drawPopping` 75-100, `sparkle` 101-111, `easeOutBack` 112-117, `spot` 118-121, `x` 122-122, `y` 123-124, `outlined` 125-129, `drawBase` 130-148, `drawSign` 149-161, `drawAwning` 162-186, `drawWindowDonuts` 187-199, `donut` 200-224, `drawLamp` 225-244, `drawBall` 245-260, `pentagon` 261-271, `drawRoofDonut` 272-283, `drawFlowers` 284-305, `drawBasketball` 306-322, `drawBalloons` 323-348, `drawSun` 349-371 |
 | ShopRules.kt | 81 | `ShopPiece` 9-23, `ShopReveal` 24-29, `ShopRules` 30-41, `due` 42-44, `kept` 45-47, `isShown` 48-50, `shown` 51-53, `next` 54-64, `revealAt` 65-75, `revealDone` 76-81 |
+| SoundCues.kt | 32 | `SoundCues` 10-12, `Cue` 13-32 |
 | SoundEngine.kt | 169 | `SoundEngine` 13-21, `playConnectBlip` 22-27, `playPopClear` 28-32, `playBoop` 33-37, `playDropLand` 38-45, `playMilestone` 46-61, `playGiggle` 62-74, `playFriend` 75-86, `playPromptDone` 87-93, `playShuffle` 94-101, `playTone` 102-105, `playToneBlocking` 106-108, `playSweep` 109-112, `playSweepBlocking` 113-116, `playPCM` 117-169 |
 | SoundLevels.kt | 73 | `SoundLevels` 15-19, `Kind` 20-22, `Level` 23-38, `capped` 39-41, `loudest` 42-44, `softest` 45-46, `wave` 47-49, `tone` 50-60, `sweep` 61-73 |
 | StickerArt.kt | 167 | `drawStickerArt` 12-45, `drawStickerGift` 46-99, `drawChainArt` 100-111, `drawBatchArt` 112-121, `drawCrown` 122-140, `drawMiniBoard` 141-153, `drawHeart` 154-167 |
@@ -239,7 +241,7 @@ so read just that range.
 | GameLayoutTest.kt | 353 | `GameLayoutTest` 14-24, `inside` 25-28, `surfaceRect` 29-29, `boardRect` 30-33, `overlap` 34-36, `forAll` 37-43, `pages` 44-48, `assertNoOverlap` 49-225, `realDensityPhoneStaysInsideAndKeepsTouchTargets` 226-240, `shortLandscapeShrinksTheSettingsPanelToFit` 241-311, `backSwipeIsExcludedBesideTheBoardOnApi29` 312-314, `backSwipeIsExcludedBesideTheBoardOnApi34` 315-317, `backSwipeIsNotExcludedBelowApi29` 318-319, `checkExclusion` 320-342, `snapshot` 343-353 |
 | GameViewSmokeTest.kt | 22 | `GameViewSmokeTest` 10-11, `buildsLaysOutDrawsAndTakesATouch` 12-22 |
 | HintRulesTest.kt | 131 | `HintRulesTest` 10-10, `assertDraggable` 11-21, `aFiveIsShownOverAThree` 22-35, `theHintStopsAtFiveOnALongerChain` 36-43, `thePromptsDonutWinsByOneCellButNotByTwo` 44-64, `noThreeMeansNoHint` 65-70, `goldenDonutsAreWildInTheHint` 71-82, `equalChainsAreChosenByChanceNotAlwaysTheTopLeft` 83-93, `seededGameBoardsAlwaysGetADraggableHint` 94-102, `theTraceFadesInStepsSlowlyRestsFadesAndLoops` 103-124, `underReducedMotionTheFingerRestsAndThePathShowsWhole` 125-131 |
-| HintTraceTest.kt | 87 | `HintTraceTest` 16-16, `shot` 17-22, `idleHinted` 23-31, `theTraceWaitsForASecondIdleSpellThenDrawsOverTheBoard` 32-45, `theTraceNeverPlaysTheMove` 46-58, `aTouchStopsTheTraceAndTheWaitStartsAgain` 59-72, `underCalmMotionTheTraceStillDrawsWithTheFingerAtRest` 73-87 |
+| HintTraceTest.kt | 89 | `HintTraceTest` 18-18, `shot` 19-24, `idleHinted` 25-33, `theTraceWaitsForASecondIdleSpellThenDrawsOverTheBoard` 34-47, `theTraceNeverPlaysTheMove` 48-60, `aTouchStopsTheTraceAndTheWaitStartsAgain` 61-74, `underCalmMotionTheTraceStillDrawsWithTheFingerAtRest` 75-89 |
 | HitZoneInputTest.kt | 60 | `HitZoneInputTest` 10-13, `cellAt` 14-17, `cuttingTheCornerOfAWrongDonutJoinsTheDiagonalWithoutAShake` 18-29, `aWobblyStraightDragStillJoinsTheStraightCells` 30-41, `goingBackStillUndoesAndJitterDoesNotRedoIt` 42-53, `aFingerThatSkipsACellStillAddsNothing` 54-60 |
 | HitZoneTest.kt | 98 | `HitZoneTest` 7-11, `t` 12-15, `theFingerOnTheLastCellAimsAtItAndACentreAimsAtThatCell` 16-23, `withoutAnAimAStraightStepJoinsAtTheSharedEdgeAsBefore` 24-31, `theAimLeadsTheFingerIntoTheCellItIsHeadingFor` 32-38, `cuttingACornerReachesTheDiagonalNotTheStraightCellBesideIt` 39-48, `aWobblyStraightStepIsNotStolenByTheDiagonal` 49-58, `goingBackTowardThePreviousCellAimsAtIt` 59-65, `beyondTheThreeByThreeBlockAimsAtNothing` 66-72, `cellsOffTheBoardAreNeverAimedAt` 73-79, `eightByEightLeansHarderOnDiagonals` 80-89, `theAimChangesOnlyAfterAStepAndIsAUnitVector` 90-98 |
 | LayoutMathTest.kt | 98 | `LayoutMathTest` 7-98 |
@@ -271,9 +273,11 @@ so read just that range.
 | ShopSceneTest.kt | 199 | `ShopSceneTest` 19-23, `prefs` 24-28, `mainView` 29-36, `checkLayout` 37-54, `theShopFitsUnderPlayOnARealDensityPhone` 55-56, `paint` 57-59, `assertInside` 60-110, `diff` 111-120, `shot` 121-179, `shot` 180-199 |
 | ShowSomeoneTest.kt | 117 | `ShowSomeoneTest` 12-13, `boxFull` 14-23, `aFullBoxShowsTheCard` 24-33, `aBigStickerShowsTheCardOnlyAfterTheFlyEnds` 34-50, `aSmallStickerDoesNotShowTheCard` 51-63, `theCardWaitsWhileAPanelIsOpen` 64-76, `aTapClosesTheCardAndStartsNoChain` 77-95, `backClosesTheCardFirst` 96-105, `theCardDrawsForBothKindsAndHoldsTheHintBack` 106-117 |
 | SmallGridTypesTest.kt | 74 | `SmallGridTypesTest` 11-14, `noCaramel` 15-74 |
+| SoundCuesTest.kt | 19 | `SoundCuesTest` 8-19 |
 | SoundLevelsTest.kt | 82 | `SoundLevelsTest` 11-13, `peak` 14-16, `theCapIsHalfOfFullScale` 17-21, `everyNamedLevelIsAudibleAndUnderTheCap` 22-26, `everyKindHasLevelsAndFeedbackStaysSofterThanClearsAndCheers` 27-35, `cappedClampsLoudNegativeAndNotANumber` 36-44, `everyLevelPlaysNearItsVolumeAndNeverPastTheCap` 45-56, `aTooLoudVolumeIsHeldAtTheCapAndANegativeOneIsSilent` 57-68, `lengthsFollowTheSampleRateAndAZeroLengthIsEmpty` 69-75, `waveIsASineAtQuarterPoints` 76-82 |
 | StickerGiftTest.kt | 61 | `StickerGiftTest` 16-17, `near` 18-21, `shot` 22-28, `paper` 29-61 |
 | StickerRulesTest.kt | 115 | `StickerRulesTest` 8-11, `earned` 12-13, `edge` 14-110, `onlyTheTopOfEachLadderIsBig` 111-115 |
+| TapCueTest.kt | 77 | `TapCueTest` 17-18, `blank` 19-21, `ring` 22-77 |
 | TestViews.kt | 97 | `TestViews` 17-17, `app` 18-20, `gameView` 21-36, `fixedRandom` 37-37, `nextBits` 38-38, `nextInt` 39-41, `canvas` 42-44, `now` 45-46, `advance` 47-49, `frames` 50-54, `settleLift` 55-57, `cellCenter` 58-64, `touch` 65-68, `touchRaw` 69-75, `quietView` 76-82, `total` 83-85, `playHintChain` 86-97 |
 | ToppingRulesTest.kt | 108 | `ToppingRulesTest` 9-108 |
 | ToppingsPageTest.kt | 140 | `ToppingsPageTest` 13-14, `openWith` 15-22, `paint` 23-24, `pixels` 25-140 |
