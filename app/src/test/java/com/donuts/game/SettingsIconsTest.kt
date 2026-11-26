@@ -28,7 +28,7 @@ class SettingsIconsTest {
         pixels { v.drawSettingsIcon(it, v.settingsIconRects[which], which, on, "Word") }
 
     @Test fun everyPicturePaintsAndLooksDifferentOnAndOff() {
-        for (which in 0 until 4) {
+        for (which in 0 until 5) {
             val on = icon(which, true); val off = icon(which, false)
             assertTrue("icon $which on is blank", on.toHashSet().size > 4)
             assertTrue("icon $which off is blank", off.toHashSet().size > 4)
@@ -37,7 +37,7 @@ class SettingsIconsTest {
     }
 
     @Test fun picturesStayInsideTheirColumn() {
-        for (which in 0 until 4) for (on in listOf(true, false)) {
+        for (which in 0 until 5) for (on in listOf(true, false)) {
             val r = v.settingsIconRects[which]
             val px = icon(which, on)
             for (i in px.indices) if (px[i] != 0) {

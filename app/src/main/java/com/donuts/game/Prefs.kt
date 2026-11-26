@@ -27,6 +27,11 @@ class Prefs(context: Context) {
         get()  = p.getBoolean("haptic_enabled", true)
         set(v) { p.edit().putBoolean("haptic_enabled", v).apply() }
 
+    // Calm mode, set on the grown-ups page: the same still look as the system's "remove animations"
+    var calmMotion: Boolean
+        get()  = p.getBoolean("calm_motion", false)
+        set(v) { p.edit().putBoolean("calm_motion", v).apply() }
+
     // The sprinkle party meter (see PartyMeter): donuts poured in, and party chains still to play
     var partyMeter: Int
         get()  = p.getInt("party_meter", 0)

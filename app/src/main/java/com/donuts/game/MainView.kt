@@ -38,10 +38,9 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
 
     // Density-independent unit (see UiScale) and window insets
     private val uiScale = UiScale(context)
-    private val reducedMotion: Boolean = try {
-        android.provider.Settings.Global.getFloat(context.contentResolver,
-            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
-    } catch (_: Exception) { false }
+    // The system's "remove animations" or the grown-ups page's Calm choice; refreshShop rereads it
+    internal var reducedMotion: Boolean = UiScale.animationsOff(context) || Prefs(context).calmMotion
+        private set
     private var u = 1f
     private var insetL = 0; private var insetT = 0; private var insetR = 0; private var insetB = 0
 
@@ -126,6 +125,7 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         revealFrom = shopSeen; revealChimed = shopSeen
         revealStartMs = SystemClock.elapsedRealtime()
         soundOn = prefs.soundEnabled
+        reducedMotion = UiScale.animationsOff(context) || prefs.calmMotion
         invalidate()
     }
 

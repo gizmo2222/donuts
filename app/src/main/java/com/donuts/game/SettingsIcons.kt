@@ -4,7 +4,7 @@ import android.graphics.*
 import kotlin.math.*
 
 // The settings pictures: a big icon over each settings word (a speaker, a buzzing phone, a
-// bulb and a donut grid), each showing its current choice, and the icons on the two
+// bulb, a donut grid and a bouncing or resting donut), each showing its current choice, and the icons on the two
 // tap-twice buttons. Part of GameView: these are extension functions on it.
 
 private val INK  = Color.rgb(28, 12, 0)
@@ -16,6 +16,7 @@ internal const val ICON_SOUND = 0
 internal const val ICON_BUZZ  = 1
 internal const val ICON_HINTS = 2
 internal const val ICON_GRID  = 3
+internal const val ICON_MOTION = 4
 
 /**
  * One settings row's left column: the picture, then its word underneath. [on] is the row's
@@ -29,6 +30,7 @@ internal fun GameView.drawSettingsIcon(canvas: Canvas, rect: RectF, which: Int, 
         ICON_SOUND -> drawSpeakerIcon(canvas, cx, cy, r, on)
         ICON_BUZZ  -> drawBuzzIcon(canvas, cx, cy, r, on)
         ICON_HINTS -> drawBulbIcon(canvas, cx, cy, r, on)
+        ICON_MOTION -> drawMotionIcon(canvas, cx, cy, r, on)
         else       -> drawGridIcon(canvas, cx, cy, r, if (on) 3 else 4)
     }
     drawLabel(canvas, word, cx, rect.bottom - 7f * k, 16f * k, rect.width() - 4f * k, theme.textPrimary, outlined = false)
@@ -150,6 +152,29 @@ internal fun GameView.drawGridIcon(canvas: Canvas, cx: Float, cy: Float, r: Floa
         fillPaint.color = theme.holeColor
         canvas.drawCircle(x, y, cell * 0.12f, fillPaint)
     }
+    fillPaint.alpha = 255
+}
+
+/** Motion: a donut bouncing up off the ground with lines under it ([on], Bouncy), or resting on it (Calm). */
+internal fun GameView.drawMotionIcon(canvas: Canvas, cx: Float, cy: Float, r: Float, on: Boolean) {
+    val ground = cy + r * 0.9f
+    val dr = r * 0.58f
+    val dy = if (on) cy - r * 0.32f else ground - dr - r * 0.08f
+    scratchPath.rewind()
+    scratchPath.moveTo(cx - r * 0.95f, ground); scratchPath.lineTo(cx + r * 0.95f, ground)
+    inkLine(canvas, scratchPath, r * 0.2f, theme.boardBg)
+    if (on) for (i in -1..1) {
+        scratchPath.rewind()
+        val x = cx + i * r * 0.36f
+        scratchPath.moveTo(x, dy + dr + r * 0.14f); scratchPath.lineTo(x, ground - r * 0.2f)
+        inkLine(canvas, scratchPath, r * 0.16f, GOLD)
+    }
+    fillPaint.color = INK
+    canvas.drawCircle(cx, dy, dr + r * 0.1f, fillPaint)
+    fillPaint.color = GRID_DONUTS[0]
+    canvas.drawCircle(cx, dy, dr, fillPaint)
+    fillPaint.color = theme.holeColor
+    canvas.drawCircle(cx, dy, dr * 0.36f, fillPaint)
     fillPaint.alpha = 255
 }
 

@@ -207,6 +207,34 @@ class GameInputPanelsTest : GameInputTestBase() {
     }
 
     @Test
+    fun calmOnTheGrownUpsPageStillsTheGameAndTheHomeScreenAndIsKept() {
+        val v = planted()
+        assertFalse(v.reducedMotion)
+        openGrownUps(v)
+        tap(v, v.motionRects[1])                  // Calm
+        assertTrue(v.prefs.calmMotion)
+        assertTrue(v.reducedMotion)
+        assertTrue(v.settingsOpen)
+        assertTrue("a new game view starts calm", TestViews.gameView().reducedMotion)
+        val home = MainView(TestViews.app()) {}
+        assertTrue("the home screen starts calm", home.reducedMotion)
+        tap(v, v.motionRects[0])                  // Bouncy
+        assertFalse(v.prefs.calmMotion)
+        assertFalse(v.reducedMotion)
+        home.refreshShop()
+        assertFalse("the home screen bounces again on resume", home.reducedMotion)
+    }
+
+    @Test
+    fun theMotionChoiceIsNotOnStevensPage() {
+        val v = planted()
+        openSettings(v)
+        tap(v, v.motionRects[1])                  // stale rect of the hidden page
+        assertFalse(v.prefs.calmMotion)
+        assertFalse(v.reducedMotion)
+    }
+
+    @Test
     fun grownUpButtonsAreNotOnStevensPage() {
         val v = planted()
         openSettings(v)

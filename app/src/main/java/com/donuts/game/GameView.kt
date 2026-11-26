@@ -47,7 +47,8 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal val buzzRects         = Array(2) { RectF() }
     internal var settingsStickersRect = RectF()
     internal val gridRects         = Array(2) { RectF() }
-    internal val settingsIconRects = Array(4) { RectF() }   // picture with its word: sound, buzz, hints, size
+    internal val motionRects       = Array(2) { RectF() }   // grown-ups page: Bouncy, Calm
+    internal val settingsIconRects = Array(5) { RectF() }   // picture with its word: sound, buzz, hints, size, motion
     internal var settingsResetRect = RectF()
     internal var settingsCloseRect = RectF()
 
@@ -76,6 +77,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal val gridOptions = Prefs.GRID_SIZES
     // 6x6 donuts are big, 8x8 are small; the grid size tells a parent that "Small" means more of them
     internal val gridLabels  = arrayOf("Big  6×6", "Small  8×8")
+    internal val motionLabels = arrayOf("Bouncy", "Calm")
 
     // "Start over" two-tap confirm. It lives in Settings so a stray tap cannot wipe the board.
     internal val newGameConfirm   = TwoTapConfirm(1500L)
@@ -327,11 +329,10 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var optPressMs = -1L
     internal var panelDownHit = -2           // panel hit id under the finger at ACTION_DOWN
 
-    // Honour the system animator scale: 0 means the user asked for no animation
-    internal var reducedMotion: Boolean = try {
-        android.provider.Settings.Global.getFloat(context.contentResolver,
-            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
-    } catch (_: Exception) { false }
+    // Honour the system animator scale (0 means the user asked for no animation) and the
+    // grown-ups page's Calm choice: either one gives the still, reduced-motion look
+    internal val systemReducedMotion: Boolean = UiScale.animationsOff(context)
+    internal var reducedMotion: Boolean = systemReducedMotion || prefs.calmMotion
 
     internal val floatLabels = mutableListOf<FloatLabel>()
     internal val FLOAT_MS    = 1400L
