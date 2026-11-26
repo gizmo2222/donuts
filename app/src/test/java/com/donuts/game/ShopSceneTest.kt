@@ -54,8 +54,8 @@ class ShopSceneTest {
     @Test @Config(qualifiers = "xxhdpi")
     fun theShopFitsUnderPlayOnARealDensityPhone() = checkLayout(listOf(1080 to 2400, 2400 to 1080))
 
-    private fun paint(scene: ShopScene, earned: Int, t: Float = 0f, still: Boolean = true): Bitmap =
-        Bitmap.createBitmap(540, 240, Bitmap.Config.ARGB_8888).also { scene.draw(Canvas(it), box, earned, t, still) }
+    private fun paint(scene: ShopScene, earned: Int, t: Float = 0f, still: Boolean = true, pop: Float = 1f): Bitmap =
+        Bitmap.createBitmap(540, 240, Bitmap.Config.ARGB_8888).also { scene.draw(Canvas(it), box, earned, t, still, pop) }
 
     private fun assertInside(bmp: Bitmap, r: RectF, tag: String) {
         for (y in 0 until bmp.height) for (x in 0 until bmp.width)
@@ -89,6 +89,75 @@ class ShopSceneTest {
         for (step in 0..24) assertInside(paint(scene, ShopRules.COUNT, step * 0.13f, still = false), box, "step $step")
     }
 
+    /** A piece popping in, with sparkles or (reduced motion) a glow, never paints outside the scene box. */
+    @Test fun aPoppingPieceStaysInsideTheBox() {
+        val scene = ShopScene(Typeface.DEFAULT_BOLD)
+        for (n in 1..ShopRules.COUNT) for (still in listOf(false, true)) for (step in 0..10)
+            assertInside(paint(scene, n, step * 0.2f, still, step / 10f), box, "piece $n still=$still pop ${step / 10f}")
+    }
+
+    /** Mid-pop the new piece is part drawn: it differs both from the shop without it and from the settled shop. */
+    @Test fun aPoppingPieceIsBetweenAbsentAndSettled() {
+        val scene = ShopScene(Typeface.DEFAULT_BOLD)
+        for (still in listOf(false, true)) {
+            val without = paint(scene, 6, still = still); val settled = paint(scene, 7, still = still)
+            val mid = paint(scene, 7, still = still, pop = 0.3f)
+            assertTrue("still=$still", diff(mid, without, box) > 100)
+            assertTrue("still=$still", diff(mid, settled, box) > 50)
+            assertEquals(0, diff(paint(scene, 7, still = still, pop = 1f), settled, box))
+        }
+    }
+
+    private fun diff(a: Bitmap, b: Bitmap, r: RectF): Int {
+        var n = 0
+        for (y in r.top.toInt() until r.bottom.toInt()) for (x in r.left.toInt() until r.right.toInt())
+            if (x in 0 until a.width && y in 0 until a.height && a.getPixel(x, y) != b.getPixel(x, y)) n++
+        return n
+    }
+
+    /** On the home screen a newly earned piece waits, pops in, then is saved as seen; a seen piece shows at once. */
+    @Test fun aNewPiecePopsInOnTheHomeScreenAndIsSavedOnceSettled() {
+        val (w, h) = 1080 to 2400
+        fun shot(mv: MainView) = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also { mv.draw(Canvas(it)) }
+        prefs().also { it.shopEarned = 6; it.shopSeen = 6 }
+        val six = mainView(w, h)
+        val spot = ShopScene(Typeface.DEFAULT_BOLD).spot(RectF(six.shopRect), ShopRules.PIECES[6])
+        val without = shot(six)
+
+        val p = prefs().also { it.shopEarned = 7; it.shopSeen = 6 }
+        val mv = mainView(w, h)
+        assertEquals(6, mv.shopSeen)
+        assertEquals("waits before popping", 0, diff(shot(mv), without, spot))
+        TestViews.advance(ShopRules.REVEAL_DELAY_MS + ShopRules.REVEAL_MS / 2)
+        assertTrue("half popped", diff(shot(mv), without, spot) > 100)
+        assertEquals(6, p.shopSeen)
+        TestViews.advance(ShopRules.REVEAL_MS)
+        val settled = shot(mv)
+        assertTrue(diff(settled, without, spot) > 100)
+        assertEquals(7, mv.shopSeen)
+        assertEquals(7, p.shopSeen)
+
+        // Coming back, the piece is already there and nothing pops again
+        val again = mainView(w, h)
+        assertEquals(7, again.shopSeen)
+        assertEquals(0, diff(shot(again), settled, spot))
+    }
+
+    /** Leaving mid-reveal keeps only the settled pieces as seen, so the rest pop in next time. */
+    @Test fun leavingMidRevealReplaysTheUnseenPieces() {
+        val p = prefs().also { it.shopEarned = 9; it.shopSeen = 6 }
+        val mv = mainView(1080, 2400)
+        val c = Canvas(Bitmap.createBitmap(1080, 2400, Bitmap.Config.ARGB_8888))
+        TestViews.advance(ShopRules.REVEAL_DELAY_MS + ShopRules.REVEAL_MS + 10)
+        mv.draw(c)
+        assertEquals(7, p.shopSeen)
+        mv.refreshShop()                                       // what onResume does after a game
+        assertEquals(7, mv.shopSeen)
+        TestViews.advance(ShopRules.REVEAL_DELAY_MS + 2 * ShopRules.REVEAL_MS)
+        mv.draw(c)
+        assertEquals(9, p.shopSeen)
+    }
+
     @Test fun lifetimeDonutsBuildTheShopAndResetStickersCannotTakeItDown() {
         val p = prefs()
         assertEquals(0, mainView(1080, 2400).shopEarned)
@@ -109,7 +178,7 @@ class ShopSceneTest {
     @Test fun aFullShopShowsOnTheHomeScreen() {
         for ((w, h) in gallery) {
             fun shot(earned: Int): Pair<Bitmap, RectF> {
-                prefs().shopEarned = earned
+                prefs().also { it.shopEarned = earned; it.shopSeen = earned }
                 val mv = mainView(w, h)
                 assertEquals(earned, mv.shopEarned)
                 val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
