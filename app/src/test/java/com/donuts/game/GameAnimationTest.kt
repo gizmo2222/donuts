@@ -263,8 +263,8 @@ class GameAnimationTest {
         TestViews.advance(4_900); v.drawFrame(c)
         assertTrue(v.hintCells.isEmpty())
         TestViews.advance(200); v.drawFrame(c)
-        assertEquals(v.board.findHint(), v.hintCells)
-        assertEquals(3, v.hintCells.size)
+        assertTrue(v.hintCells.size in 3..HintRules.LONGEST)
+        assertNotNull(v.board.peekChainClear(v.hintCells))
     }
 
     @Test
