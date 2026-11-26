@@ -114,8 +114,8 @@ All sources are in `app\src\main\java\com\donuts\game`. No main source is over a
 | `PalArt.kt` | `drawPal`: the donut pal beside the counter (tangerine-glazed ring, red sneakers, arms resting or thrown up, blinking or happy eyes, a grin that widens); `PAL_HALF_W`, `PAL_TALL` give its box; `palReact` starts a reaction |
 | `PalMotion.kt` | `PalPose`, `PalReaction` and `PalMotion`: the pal's idle bob, squash, blink and glance; reactions (smile, cheer, wow, party) to chains, power-ups and celebrations, a weaker one never cutting a stronger one short; a still pose under reduced motion (pure, unit tested) |
 | `GameBoard.kt`, `GameCell.kt`, `ChainResult.kt`, `PowerUp.kt`, `DonutType.kt` | Game rules, no drawing |
-| `ShopRules.kt` | `ShopPiece` and `ShopRules`: the six donut shop pieces lifetime donuts build, in a fixed order, kept forever (`kept`), and where each sits in the scene (pure, unit tested) |
-| `ShopArt.kt` | `ShopScene`: draws the donut shop on the home screen under PLAY (base, sign, awning, window donuts, lamp, ball, roof donut) and `spot` for each piece |
+| `ShopRules.kt` | `ShopPiece` and `ShopRules`: the ten donut shop pieces lifetime donuts build, in a fixed order, kept forever (`kept`), where each sits in the scene, and `revealAt`: new pieces popping in one at a time on the home screen (pure, unit tested) |
+| `ShopArt.kt` | `ShopScene`: draws the donut shop on the home screen under PLAY (base, sign, awning, window donuts, lamp, ball, roof donut, flower box, basketball, balloons, sun), a piece popping in (`drawPopping`: spring and sparkles, a glow under reduced motion) and `spot` for each piece |
 | `MainView.kt`, `MainActivity.kt`, `GameActivity.kt` | Home screen and the two activities |
 | `Prefs.kt`, `UiScale.kt`, `GameTheme.kt`, `SoundEngine.kt`, `HapticEngine.kt` | Saved data, dp sizing, palette, sound, haptics |
 
@@ -169,7 +169,7 @@ so read just that range.
 | LiftGrace.kt | 24 | `LiftGrace` 9-15, `graceMs` 16-22, `expired` 23-24 |
 | LoopRules.kt | 22 | `LoopRules` 9-15, `closes` 16-22 |
 | MainActivity.kt | 32 | `MainActivity` 8-13, `onResume` 14-19, `onCreate` 20-32 |
-| MainView.kt | 404 | `MainView` 13-72, `onSizeChanged` 73-78, `relayout` 79-102, `layoutShop` 103-112, `refreshShop` 113-119, `onDraw` 120-142, `drawDotGrid` 143-157, `drawLogo` 158-176, `drawDonut` 177-218, `drawSoccerBall` 219-261, `regularPolygon` 262-276, `addSheen` 277-293, `drawTitle` 294-334, `buttonPressScale` 335-341, `drawPlayButton` 342-382, `onTouchEvent` 383-404 |
+| MainView.kt | 427 | `MainView` 13-80, `onSizeChanged` 81-86, `relayout` 87-110, `layoutShop` 111-120, `refreshShop` 121-131, `onDraw` 132-152, `drawShop` 153-165, `drawDotGrid` 166-180, `drawLogo` 181-199, `drawDonut` 200-241, `drawSoccerBall` 242-284, `regularPolygon` 285-299, `addSheen` 300-316, `drawTitle` 317-357, `buttonPressScale` 358-364, `drawPlayButton` 365-405, `onTouchEvent` 406-427 |
 | PalArt.kt | 113 | `drawPal` 30-109, `palReact` 110-113 |
 | PalMotion.kt | 117 | `PalPose` 15-23, `PalReaction` 24-32, `PalMotion` 33-58, `reactionFor` 59-66, `replaces` 67-69, `running` 70-72, `at` 73-101, `idle` 102-115, `smooth` 116-117 |
 | PanelsDraw.kt | 424 | `stickerStats` 13-21, `drawStickersPanel` 22-168, `drawDonutBox` 169-236, `popScale` 237-241, `drawClosedBox` 242-261, `drawSettings` 262-343, `drawConfirmButton` 344-371, `drawCheckBadge` 372-381, `drawSettingsBtn` 382-424 |
@@ -180,15 +180,15 @@ so read just that range.
 | PopTiming.kt | 49 | `PopTiming` 8-11, `leadMs` 12-22, `origin` 23-31, `delays` 32-46, `totalMs` 47-49 |
 | PowerUp.kt | 13 | `PowerUp` 13-13 |
 | Praise.kt | 38 | `Praise` 8-21, `chainLabel` 22-32, `cheers` 33-35, `banner` 36-38 |
-| Prefs.kt | 125 | `Prefs` 5-52, `highScore` 53-53, `setHighScore` 54-125 |
+| Prefs.kt | 130 | `Prefs` 5-52, `highScore` 53-53, `setHighScore` 54-130 |
 | PromptDraw.kt | 131 | `advancePrompt` 19-59, `savePrompt` 60-66, `layoutCounterRow` 67-84, `drawPromptChip` 85-131 |
 | RenderThread.kt | 62 | `RenderThread` 9-12, `lockFrame` 13-27, `run` 28-62 |
 | SavedBoard.kt | 30 | `SavedBoard` 4-5, `encode` 6-12, `decode` 13-24, `ints` 25-30 |
 | SavedGame.kt | 136 | `settleBoard` 19-31, `saveState` 32-46, `restoreState` 47-53, `applySaved` 54-70, `saveToPrefs` 71-79, `restoreFromPrefs` 80-85, `saveSession` 86-93, `lifetimeDonuts` 94-96, `displayedLifetime` 97-98, `rebuildBoard` 99-112, `resetPlayState` 113-128, `clearMotion` 129-136 |
 | SeasonRules.kt | 46 | `Season` 9-22, `SeasonRules` 23-25, `md` 26-28, `at` 29-37, `id` 38-44, `worn` 45-46 |
 | SettingsIcons.kt | 203 | `drawSettingsIcon` 24-37, `inkLine` 38-44, `outlineAndFill` 45-51, `drawSpeakerIcon` 52-79, `drawBuzzIcon` 80-101, `drawBulbIcon` 102-136, `drawGridIcon` 137-156, `drawRestartIcon` 157-178, `drawConfirmIcon` 179-186, `drawLockIcon` 187-203 |
-| ShopArt.kt | 218 | `ShopScene` 14-34, `draw` 35-53, `spot` 54-57, `x` 58-58, `y` 59-60, `outlined` 61-65, `drawBase` 66-84, `drawSign` 85-97, `drawAwning` 98-122, `drawWindowDonuts` 123-135, `donut` 136-160, `drawLamp` 161-180, `drawBall` 181-196, `pentagon` 197-207, `drawRoofDonut` 208-218 |
-| ShopRules.kt | 45 | `ShopPiece` 9-19, `ShopRules` 20-31, `due` 32-34, `kept` 35-37, `isShown` 38-40, `shown` 41-43, `next` 44-45 |
+| ShopArt.kt | 371 | `ShopScene` 15-42, `draw` 43-58, `drawPiece` 59-74, `drawPopping` 75-100, `sparkle` 101-111, `easeOutBack` 112-117, `spot` 118-121, `x` 122-122, `y` 123-124, `outlined` 125-129, `drawBase` 130-148, `drawSign` 149-161, `drawAwning` 162-186, `drawWindowDonuts` 187-199, `donut` 200-224, `drawLamp` 225-244, `drawBall` 245-260, `pentagon` 261-271, `drawRoofDonut` 272-283, `drawFlowers` 284-305, `drawBasketball` 306-322, `drawBalloons` 323-348, `drawSun` 349-371 |
+| ShopRules.kt | 81 | `ShopPiece` 9-23, `ShopReveal` 24-29, `ShopRules` 30-41, `due` 42-44, `kept` 45-47, `isShown` 48-50, `shown` 51-53, `next` 54-64, `revealAt` 65-75, `revealDone` 76-81 |
 | SoundEngine.kt | 188 | `SoundEngine` 12-15, `waveSample` 16-22, `playConnectBlip` 23-28, `playPopClear` 29-33, `playBoop` 34-38, `playDropLand` 39-46, `playMilestone` 47-62, `playGiggle` 63-75, `playFriend` 76-87, `playPromptDone` 88-94, `playShuffle` 95-102, `playTone` 103-106, `playToneBlocking` 107-117, `playSweep` 118-121, `playSweepBlocking` 122-135, `playPCM` 136-188 |
 | StickerArt.kt | 167 | `drawStickerArt` 12-45, `drawStickerGift` 46-99, `drawChainArt` 100-111, `drawBatchArt` 112-121, `drawCrown` 122-140, `drawMiniBoard` 141-153, `drawHeart` 154-167 |
 | StickerRules.kt | 75 | `StickerStats` 6-14, `StickerRules` 15-20, `statsLine` 21-27, `isBig` 28-32, `isEarned` 33-52, `earnedMask` 53-59, `toAnnounce` 60-62, `boxesFilled` 63-65, `slotsFilled` 66-68, `slotJustFilled` 69-72, `boxJustFilled` 73-75 |
@@ -254,12 +254,12 @@ so read just that range.
 | RingClearTest.kt | 53 | `RingClearTest` 8-10, `board` 11-17, `aRingClearsEveryOtherCellOfItsType` 18-26, `theSameChainUnloopedIsABomb` 27-30, `aRingWinsOverEveryLengthTier` 31-40, `aGoldenFirstCellTakesTheTypeOfTheRestOfTheRing` 41-48, `aMixedRingIsRejected` 49-53 |
 | SavedBoardCodecTest.kt | 96 | `SavedBoardCodecTest` 11-12, `seeded` 13-49, `cellsText` 50-96 |
 | SavedGameTest.kt | 330 | `SavedGameTest` 10-14, `codes` 15-17, `plant` 18-23, `planted` 24-29, `assertSameBoard` 30-330 |
-| ScreenGallery.kt | 237 | `ScreenGallery` 24-27, `Size` 28-37, `save` 38-42, `clearPrefs` 43-46, `game` 47-57, `shoot` 58-67, `drag` 68-78, `home` 79-91, `render` 92-237 |
+| ScreenGallery.kt | 238 | `ScreenGallery` 24-27, `Size` 28-37, `save` 38-42, `clearPrefs` 43-46, `game` 47-57, `shoot` 58-67, `drag` 68-78, `home` 79-91, `render` 92-238 |
 | SeasonLookTest.kt | 133 | `SeasonLookTest` 14-17, `pixels` 18-20, `setDate` 21-133 |
 | SeasonRulesTest.kt | 55 | `SeasonRulesTest` 6-55 |
 | SettingsIconsTest.kt | 62 | `SettingsIconsTest` 15-18, `pixels` 19-26, `icon` 27-51, `at` 52-62 |
-| ShopRulesTest.kt | 69 | `ShopRulesTest` 7-69 |
-| ShopSceneTest.kt | 130 | `ShopSceneTest` 19-23, `prefs` 24-28, `mainView` 29-36, `checkLayout` 37-54, `theShopFitsUnderPlayOnARealDensityPhone` 55-56, `paint` 57-59, `assertInside` 60-110, `shot` 111-130 |
+| ShopRulesTest.kt | 101 | `ShopRulesTest` 7-101 |
+| ShopSceneTest.kt | 199 | `ShopSceneTest` 19-23, `prefs` 24-28, `mainView` 29-36, `checkLayout` 37-54, `theShopFitsUnderPlayOnARealDensityPhone` 55-56, `paint` 57-59, `assertInside` 60-110, `diff` 111-120, `shot` 121-179, `shot` 180-199 |
 | ShowSomeoneTest.kt | 117 | `ShowSomeoneTest` 12-13, `boxFull` 14-23, `aFullBoxShowsTheCard` 24-33, `aBigStickerShowsTheCardOnlyAfterTheFlyEnds` 34-50, `aSmallStickerDoesNotShowTheCard` 51-63, `theCardWaitsWhileAPanelIsOpen` 64-76, `aTapClosesTheCardAndStartsNoChain` 77-95, `backClosesTheCardFirst` 96-105, `theCardDrawsForBothKindsAndHoldsTheHintBack` 106-117 |
 | StickerGiftTest.kt | 61 | `StickerGiftTest` 16-17, `near` 18-21, `shot` 22-28, `paper` 29-61 |
 | StickerRulesTest.kt | 115 | `StickerRulesTest` 8-11, `earned` 12-13, `edge` 14-110, `onlyTheTopOfEachLadderIsBig` 111-115 |

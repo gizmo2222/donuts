@@ -14,6 +14,16 @@ enum class ShopPiece(val key: String, val unlockAt: Int,
     LAMP("lamp", 450, 0.06f, 0.08f, 0.20f, 0.92f),
     BALL("ball", 800, 0.74f, 0.72f, 0.86f, 0.96f),
     ROOF_DONUT("roof", 1200, 0.42f, 0.00f, 0.58f, 0.25f),
+    FLOWERS("flowers", 1700, 0.355f, 0.80f, 0.525f, 0.90f),
+    BASKETBALL("basketball", 2300, 0.87f, 0.78f, 0.97f, 0.96f),
+    BALLOONS("balloons", 3000, 0.76f, 0.02f, 0.96f, 0.70f),
+    SUN("sun", 4000, 0.205f, 0.02f, 0.295f, 0.25f),
+}
+
+/** The reveal on the home screen at one moment: [shown] pieces are drawn, the last of them popping in at [pop] (1 = settled). */
+data class ShopReveal(val shown: Int, val pop: Float) {
+    /** Pieces fully in place, the ones that count as seen. */
+    val settled: Int get() = if (pop >= 1f) shown else shown - 1
 }
 
 /** Which shop pieces Steven has, from lifetime donuts. Pieces stay once earned, even after Reset stickers. Pure. */
@@ -42,4 +52,30 @@ object ShopRules {
 
     /** The next piece to earn and the lifetime it needs, or null when the shop is complete. */
     fun next(earned: Int): ShopPiece? = PIECES.getOrNull(earned.coerceAtLeast(0))
+
+    /** The home screen waits this long before the first new piece pops in, so Steven is looking. */
+    const val REVEAL_DELAY_MS = 450L
+    /** Each new piece takes this long to pop in; several earned at once pop one after another. */
+    const val REVEAL_MS = 1100L
+
+    /**
+     * The reveal [ms] after the home screen began showing the pieces from [seen] up to [earned]: the seen ones
+     * stand from the start, then each new one pops in after [REVEAL_DELAY_MS], [REVEAL_MS] apart.
+     */
+    fun revealAt(seen: Int, earned: Int, ms: Long): ShopReveal {
+        val e = earned.coerceIn(0, COUNT)
+        val s = seen.coerceIn(0, e)
+        if (s == e || ms < REVEAL_DELAY_MS) return ShopReveal(s, 1f)
+        val i = (ms - REVEAL_DELAY_MS) / REVEAL_MS
+        if (i >= e - s) return ShopReveal(e, 1f)
+        val frac = ((ms - REVEAL_DELAY_MS) % REVEAL_MS).toFloat() / REVEAL_MS
+        return ShopReveal(s + i.toInt() + 1, frac)
+    }
+
+    /** Whether every piece from [seen] to [earned] has popped in by [ms]. */
+    fun revealDone(seen: Int, earned: Int, ms: Long): Boolean {
+        val e = earned.coerceIn(0, COUNT)
+        val s = seen.coerceIn(0, e)
+        return s == e || ms >= REVEAL_DELAY_MS + (e - s) * REVEAL_MS
+    }
 }

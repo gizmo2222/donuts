@@ -27,6 +27,14 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
     internal val shopRect = RectF()
     internal var shopEarned = 0
     private val shop = ShopScene(boldTypeface)
+    // New pieces pop in one at a time (ShopRules.revealAt) from revealFrom, timed from revealStartMs;
+    // shopSeen is what is saved as each one settles, so leaving early replays the rest next time
+    internal var shopSeen = 0
+    private var revealFrom = 0
+    private var revealStartMs = 0L
+    private var revealChimed = 0
+    private var soundOn = true
+    private val sound = SoundEngine()
 
     // Density-independent unit (see UiScale) and window insets
     private val uiScale = UiScale(context)
@@ -114,6 +122,10 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         val prefs = Prefs(context)
         shopEarned = ShopRules.kept(prefs.lifetimeDonuts, prefs.shopEarned)
         if (shopEarned > prefs.shopEarned) prefs.shopEarned = shopEarned
+        shopSeen = prefs.shopSeen.coerceAtMost(shopEarned)
+        revealFrom = shopSeen; revealChimed = shopSeen
+        revealStartMs = SystemClock.elapsedRealtime()
+        soundOn = prefs.soundEnabled
         invalidate()
     }
 
@@ -132,9 +144,20 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         // Gentle breathing invites the tap
         val breathe = if (reducedMotion) 1f else 1f + 0.025f * sin(elapsed * 2.6f)
         drawPlayButton(canvas, buttonPressScale(now) * breathe)
-        if (!shopRect.isEmpty) shop.draw(canvas, shopRect, shopEarned, elapsed, reducedMotion)
+        if (!shopRect.isEmpty) drawShop(canvas, now, elapsed)
 
         postInvalidateOnAnimation()
+    }
+
+    /** The shop, popping in any piece Steven has not watched arrive yet: a chime as each starts, saved as it settles. */
+    private fun drawShop(canvas: Canvas, now: Long, elapsed: Float) {
+        val reveal = ShopRules.revealAt(revealFrom, shopEarned, now - revealStartMs)
+        if (reveal.pop < 1f && reveal.shown > revealChimed) {
+            revealChimed = reveal.shown
+            if (soundOn) sound.playPromptDone()
+        }
+        if (reveal.settled > shopSeen) { shopSeen = reveal.settled; Prefs(context).shopSeen = shopSeen }
+        shop.draw(canvas, shopRect, reveal.shown, elapsed, reducedMotion, reveal.pop)
     }
 
     // -----------------------------------------------------------------------
