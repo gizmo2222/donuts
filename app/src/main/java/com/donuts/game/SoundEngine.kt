@@ -3,17 +3,16 @@ package com.donuts.game
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
-import kotlin.math.*
+import com.donuts.game.SoundLevels.Level
 
 /**
  * Synthesized sound effects — no audio files required.
- * All sounds are generated from PCM math and played on background threads.
+ * All sounds are generated from PCM math and played on background threads. How loud each one is comes from
+ * its named [Level], and [SoundLevels] caps every sample at [SoundLevels.LOUDNESS_CAP].
  */
 class SoundEngine {
 
     private val sampleRate = 44100
-
-    private fun waveSample(phase: Double): Double = sin(phase)
 
     // -----------------------------------------------------------------------
     // Public API
@@ -22,22 +21,22 @@ class SoundEngine {
     /** Blip when a cell joins the drag chain. Pitch rises with chain length. */
     fun playConnectBlip(chainLength: Int) {
         val freq = (350f + chainLength * 55f).coerceAtMost(2000f)
-        playTone(freq, 0.07f, 0.35f)
+        playTone(freq, 0.07f, Level.BLIP)
     }
 
     /** Chirp when the chain is cleared / donuts pop. */
     fun playPopClear() {
-        playSweep(520f, 1300f, 0.13f, 0.45f)
+        playSweep(520f, 1300f, 0.13f, Level.POP)
     }
 
     /** Gentle falling "boop" when a chain is let go too short. Friendly, never a buzzer. */
     fun playBoop() {
-        playSweep(440f, 300f, 0.12f, 0.28f)
+        playSweep(440f, 300f, 0.12f, Level.BOOP)
     }
 
     /** Soft thud when new donuts drop and land. */
     fun playDropLand() {
-        playTone(90f, 0.08f, 0.30f)
+        playTone(90f, 0.08f, Level.LAND)
     }
 
     /**
@@ -48,12 +47,12 @@ class SoundEngine {
         val notes = MILESTONE_TUNES[Math.floorMod(twist, MILESTONE_TUNES.size)]
         Thread {
             for (n in notes.indices step 3) {
-                if (notes[n] == notes[n + 1]) playToneBlocking(notes[n], notes[n + 2], 0.42f)
-                else playSweepBlocking(notes[n], notes[n + 1], notes[n + 2], 0.40f)
+                if (notes[n] == notes[n + 1]) playToneBlocking(notes[n], notes[n + 2], Level.MILESTONE)
+                else playSweepBlocking(notes[n], notes[n + 1], notes[n + 2], Level.MILESTONE_SLIDE)
                 Thread.sleep(80)
             }
             if (golden) for (k in 0 until 4) {
-                playToneBlocking(if (k % 2 == 0) 1047f else 1319f, 0.06f, 0.30f)   // C6, E6
+                playToneBlocking(if (k % 2 == 0) 1047f else 1319f, 0.06f, Level.SPARKLE)   // C6, E6
                 Thread.sleep(30)
             }
         }.start()
@@ -63,7 +62,7 @@ class SoundEngine {
     fun playGiggle() {
         Thread {
             for (k in 0 until 3) {
-                playSweepBlocking(700f + k * 60f, 980f + k * 60f, 0.07f, 0.30f)
+                playSweepBlocking(700f + k * 60f, 980f + k * 60f, 0.07f, Level.GIGGLE)
                 Thread.sleep(35)
             }
         }.start()
@@ -77,8 +76,8 @@ class SoundEngine {
         val tune = FRIEND_TUNES[Math.floorMod(idx, FRIEND_TUNES.size)]
         Thread {
             for (n in tune.indices step 3) {
-                if (tune[n] == tune[n + 1]) playToneBlocking(tune[n], tune[n + 2], 0.40f)
-                else playSweepBlocking(tune[n], tune[n + 1], tune[n + 2], 0.38f)
+                if (tune[n] == tune[n + 1]) playToneBlocking(tune[n], tune[n + 2], Level.FRIEND)
+                else playSweepBlocking(tune[n], tune[n + 1], tune[n + 2], Level.FRIEND_SLIDE)
                 Thread.sleep(30)
             }
         }.start()
@@ -87,51 +86,33 @@ class SoundEngine {
     /** A quick rising do-mi-sol-do when a picture prompt is finished. */
     fun playPromptDone() {
         Thread {
-            for (f in floatArrayOf(784f, 988f, 1175f, 1568f)) { playToneBlocking(f, 0.09f, 0.34f); Thread.sleep(15) }
+            for (f in floatArrayOf(784f, 988f, 1175f, 1568f)) { playToneBlocking(f, 0.09f, Level.PROMPT); Thread.sleep(15) }
         }.start()
     }
 
     /** Downward whoosh when the board shuffles. */
     fun playShuffle() {
-        playSweep(900f, 280f, 0.28f, 0.38f)
+        playSweep(900f, 280f, 0.28f, Level.SHUFFLE)
     }
 
     // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 
-    private fun playTone(freq: Float, durationSec: Float, volume: Float) {
-        Thread { playToneBlocking(freq, durationSec, volume) }.start()
+    private fun playTone(freq: Float, durationSec: Float, level: Level) {
+        Thread { playToneBlocking(freq, durationSec, level) }.start()
     }
 
-    private fun playToneBlocking(freq: Float, durationSec: Float, volume: Float) {
-        val numSamples = (sampleRate * durationSec).toInt()
-        val buf = ShortArray(numSamples)
-        for (i in 0 until numSamples) {
-            val t        = i.toFloat() / sampleRate
-            val env      = (1f - t / durationSec).pow(0.6f)
-            buf[i] = (waveSample(2.0 * PI * freq * t) * env * volume * Short.MAX_VALUE).toInt().toShort()
-        }
-        playPCM(buf)
+    private fun playToneBlocking(freq: Float, durationSec: Float, level: Level) =
+        playPCM(SoundLevels.tone(freq, durationSec, level.volume, sampleRate))
+
+    private fun playSweep(freqStart: Float, freqEnd: Float, durationSec: Float, level: Level) {
+        Thread { playSweepBlocking(freqStart, freqEnd, durationSec, level) }.start()
     }
 
-    private fun playSweep(freqStart: Float, freqEnd: Float, durationSec: Float, volume: Float) {
-        Thread { playSweepBlocking(freqStart, freqEnd, durationSec, volume) }.start()
-    }
+    private fun playSweepBlocking(freqStart: Float, freqEnd: Float, durationSec: Float, level: Level) =
+        playPCM(SoundLevels.sweep(freqStart, freqEnd, durationSec, level.volume, sampleRate))
 
-    private fun playSweepBlocking(freqStart: Float, freqEnd: Float, durationSec: Float, volume: Float) {
-        val numSamples = (sampleRate * durationSec).toInt()
-        val buf  = ShortArray(numSamples)
-        var phase = 0.0
-        for (i in 0 until numSamples) {
-            val t    = i.toFloat() / numSamples
-            val freq = freqStart + (freqEnd - freqStart) * t
-            phase   += 2.0 * PI * freq / sampleRate
-            val env  = (1f - t * 0.7f)
-            buf[i] = (waveSample(phase) * env * volume * Short.MAX_VALUE).toInt().toShort()
-        }
-        playPCM(buf)
-    }
 
     private fun playPCM(samples: ShortArray) {
         val track = try {

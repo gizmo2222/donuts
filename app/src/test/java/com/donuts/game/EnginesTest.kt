@@ -5,7 +5,6 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import kotlin.math.PI
 
 /** SoundEngine, HapticEngine and RenderThread smoke tests (moved from ActivityTest). */
 @RunWith(RobolectricTestRunner::class)
@@ -13,31 +12,12 @@ class EnginesTest {
 
     // ---- SoundEngine ----
 
-    private fun waveSample(phase: Double): Double {
-        val m = SoundEngine::class.java.getDeclaredMethod("waveSample", Double::class.javaPrimitiveType)
-        m.isAccessible = true
-        return m.invoke(SoundEngine(), phase) as Double
-    }
-
-    @Test
-    fun waveSampleIsASineAtQuarterPoints() {
-        assertEquals(0.0, waveSample(0.0), 1e-9)
-        assertEquals(1.0, waveSample(2 * PI * 0.25), 1e-9)
-        assertEquals(0.0, waveSample(2 * PI * 0.5), 1e-9)
-        assertEquals(-1.0, waveSample(2 * PI * 0.75), 1e-9)
-        assertEquals(0.0, waveSample(2 * PI), 1e-9)
-    }
-
-    @Test
-    fun waveSampleStaysInRangeOverManyPhases() {
-        for (i in 0..2000) assertTrue(waveSample(i * 0.01) in -1.0..1.0)
-    }
-
     @Test
     fun everySoundMethodRunsWithoutThrowing() {
         val s = SoundEngine()
         s.playConnectBlip(0); s.playConnectBlip(3); s.playConnectBlip(100)
         s.playPopClear(); s.playBoop(); s.playDropLand(); s.playMilestone(); s.playShuffle(); s.playFriend(-1)
+        s.playMilestone(1, golden = true); s.playMilestone(-1); s.playGiggle(); s.playPromptDone()
         for (i in 0 until FriendRules.FRIEND_COUNT + 1) s.playFriend(i)     // a jingle for every friend, and past the end
     }
 
