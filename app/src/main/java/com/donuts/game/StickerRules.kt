@@ -18,11 +18,11 @@ object StickerRules {
     const val BOX_SLOT_DONUTS = 10
 
     /** The line under the stickers panel: the donuts popped, and the stickers so far with no "of 12" to finish. */
-    fun statsLine(lifetime: Int, earned: Int): String = when (earned) {
-        0 -> "$lifetime donuts popped"
-        1 -> "$lifetime donuts popped  ·  1 sticker"
-        else -> "$lifetime donuts popped  ·  $earned stickers"
-    }
+    fun statsLine(lifetime: Int, earned: Int): String = statsParts(lifetime, earned).joinToString("  ·  ")
+
+    /** The stats line's parts: donuts popped, then the stickers once there are any (a tablet shows them as two lines). */
+    fun statsParts(lifetime: Int, earned: Int): List<String> = listOfNotNull("$lifetime donuts popped",
+        when (earned) { 0 -> null; 1 -> "1 sticker"; else -> "$earned stickers" })
 
     /** The top sticker of each ladder (500 donuts, chain of 8, best score 200): these earn the Show someone card. */
     fun isBig(i: Int): Boolean = i == 2 || i == 5 || i == 8

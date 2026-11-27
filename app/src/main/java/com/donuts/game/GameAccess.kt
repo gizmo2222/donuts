@@ -168,7 +168,8 @@ private fun GameView.stickersNodes(out: MutableList<AccessNode>) {
                     shifted(stickerRects[i]), selected = earned)
             }
             if (!donutBoxRect.isEmpty) out += accessNode(ACCESS_BOX,
-                "Donut box. " + StickerRules.statsLine(lifetimeDonuts(), Integer.bitCount(mask)), shifted(donutBoxRect))
+                "Donut box. " + StickerRules.statsLine(lifetimeDonuts(), Integer.bitCount(mask)),
+                shifted(if (statsBeside) RectF(donutBoxRect).apply { union(statsRect) } else donutBoxRect))
         }
     }
     add(7, "Done", stickersCloseRect)

@@ -172,6 +172,10 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // Donut box: one slot fills every StickerRules.BOX_SLOT_DONUTS donuts popped, ever; a full box
     // is banked and a fresh one starts. It never runs out, so there is always something filling up.
     internal val donutBoxRect     = RectF()
+    // The stats line under the box (beside it on a wide tablet panel, as two lines) and its text size
+    internal val statsRect        = RectF()
+    internal var statsSize        = 0f
+    internal var statsBeside      = false
     internal val boxStrip         = BoxStrip()   // the same box on the board screen, under the counter
     internal var boxesSeen        = -1        // full boxes at the last check; -1 until first frame
     // "Show someone!" card: pending until the sticker fly and any panel are done, then up until a tap
