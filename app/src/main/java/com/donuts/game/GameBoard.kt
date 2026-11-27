@@ -23,6 +23,8 @@ class GameBoard(
         const val GOLDEN_CHANCE = 0.04
         /** Marks a golden cell in [cellCodes]. */
         const val GOLDEN_BIT = 0x100
+        /** Marks a bubble cell ([BubbleRules]) in [cellCodes]. */
+        const val BUBBLE_BIT = 0x200
         /** Cap on refill attempts when looking for a board with a valid move. */
         const val REFILL_TRIES = 100
         /** Boards this size or smaller drop the last donut type ([SMALL_GRID_TYPES] in play). */
@@ -116,17 +118,19 @@ class GameBoard(
     // Match detection
     // -----------------------------------------------------------------------
 
-    /** Returns the set of (row, col) positions that form part of a match. */
+    /** Returns the set of (row, col) positions that form part of a match. A bubble is a gap: it waits for a tap. */
     fun findMatches(): Set<Pair<Int, Int>> {
         val matched = mutableSetOf<Pair<Int, Int>>()
+        fun same(r: Int, c: Int, t: DonutType) = !grid[r][c].isBubble && grid[r][c].type == t
 
         // Horizontal runs ≥ 3
         for (r in 0 until rows) {
             var c = 0
             while (c < cols) {
+                if (grid[r][c].isBubble) { c++; continue }
                 val t = grid[r][c].type
                 var len = 1
-                while (c + len < cols && grid[r][c + len].type == t) len++
+                while (c + len < cols && same(r, c + len, t)) len++
                 if (len >= 3) for (i in 0 until len) matched += Pair(r, c + i)
                 c += len
             }
@@ -136,9 +140,10 @@ class GameBoard(
         for (c in 0 until cols) {
             var r = 0
             while (r < rows) {
+                if (grid[r][c].isBubble) { r++; continue }
                 val t = grid[r][c].type
                 var len = 1
-                while (r + len < rows && grid[r + len][c].type == t) len++
+                while (r + len < rows && same(r + len, c, t)) len++
                 if (len >= 3) for (i in 0 until len) matched += Pair(r + i, c)
                 r += len
             }
@@ -371,7 +376,7 @@ class GameBoard(
     /**
      * Applies a pre-computed [ChainResult] to the board: clears all affected cells,
      * updates the per-type [donutsCleared] counts, then applies gravity and refills
-     * with [spawnCell] (preserving golden on survivors).
+     * with [spawnCell] (preserving golden and bubbles on survivors), and leaves the result's new bubble, if any.
      *
      * Call [peekChainClear] first to obtain the result, then pass it here once the
      * pop animation has finished.
@@ -381,6 +386,7 @@ class GameBoard(
 
         countCleared(result.chainCells + result.bonusCells)
         collapse(allSet)
+        result.bubbleAt?.let { (r, c) -> markBubble(r, c) }
     }
 
     /** True if at least one valid chain of ≥3 exists on the current board. */
@@ -390,9 +396,11 @@ class GameBoard(
     // Reset / Shuffle
     // -----------------------------------------------------------------------
 
-    /** Rerandomizes all cells without touching score or counter — used when no moves remain. */
+    /** Rerandomizes all cells without touching score or counter — used when no moves remain. Bubbles stay put. */
     fun shuffle() {
+        val kept = bubbles()
         refill()
+        kept.forEach { (r, c) -> markBubble(r, c) }
     }
 
     fun reset() {
@@ -409,10 +417,10 @@ class GameBoard(
         repeat(50) { if (resolveOnce() == 0) return }
     }
 
-    /** One int per cell, row by row: the type's ordinal, plus [GOLDEN_BIT] when the cell is golden. */
+    /** One int per cell, row by row: the type's ordinal, plus [GOLDEN_BIT] if golden and [BUBBLE_BIT] if a bubble. */
     fun cellCodes(): IntArray = IntArray(rows * cols) { i ->
         val cell = grid[i / cols][i % cols]
-        cell.type.ordinal or (if (cell.isGolden) GOLDEN_BIT else 0)
+        cell.type.ordinal or (if (cell.isGolden) GOLDEN_BIT else 0) or (if (cell.isBubble) BUBBLE_BIT else 0)
     }
 
     /** Donuts cleared per type, indexed by the type's ordinal. */
@@ -425,13 +433,14 @@ class GameBoard(
     fun restore(cells: IntArray, cleared: IntArray): Boolean {
         val types = DonutType.values()
         if (cells.size != rows * cols || cleared.size != types.size) return false
-        if (cells.any { (it and GOLDEN_BIT.inv()) !in types.indices } || cleared.any { it < 0 }) return false
+        val flags = (GOLDEN_BIT or BUBBLE_BIT).inv()
+        if (cells.any { (it and flags) !in types.indices } || cleared.any { it < 0 }) return false
         // Counts from edited or corrupt prefs must not overflow the Int total the counter shows
         if (cleared.sumOf { it.toLong() } > Int.MAX_VALUE) return false
         for (i in cells.indices) {
             val r = i / cols; val c = i % cols
-            grid[r][c] = GameCell(types[cells[i] and GOLDEN_BIT.inv()], r, c,
-                isGolden = (cells[i] and GOLDEN_BIT) != 0)
+            grid[r][c] = GameCell(types[cells[i] and flags], r, c,
+                isGolden = (cells[i] and GOLDEN_BIT) != 0, isBubble = (cells[i] and BUBBLE_BIT) != 0)
         }
         types.forEach { donutsCleared[it] = cleared[it.ordinal] }
         return true

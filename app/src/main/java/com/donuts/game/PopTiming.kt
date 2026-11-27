@@ -11,16 +11,17 @@ object PopTiming {
     /** How long the power-up builds (swell, wiggle) before its first bonus cell pops. */
     fun leadMs(p: PowerUp): Long = when (p) {
         PowerUp.NONE        -> 0L
-        PowerUp.BOMB        -> 160L
+        PowerUp.BOMB, PowerUp.BUBBLE -> 160L
         PowerUp.ROW_BLAST   -> 60L
         PowerUp.COLOR_BURST, PowerUp.RING -> 320L
     }
 
     /**
      * Where the power-up starts: the middle donut of the chain, or for a ring the chain cell
-     * nearest the ring's centre (the first such cell in chain order on a tie).
+     * nearest the ring's centre (the first such cell in chain order on a tie), or for a bubble the first bubble burst.
      */
     fun origin(r: ChainResult): Pair<Int, Int> {
+        if (r.powerUp == PowerUp.BUBBLE) return r.bursting.firstOrNull() ?: midCell(r.chainCells)
         if (r.powerUp != PowerUp.RING) return midCell(r.chainCells)
         val n = r.chainCells.size.toDouble()
         val mr = r.chainCells.sumOf { it.first } / n
@@ -34,7 +35,7 @@ object PopTiming {
         val (or, oc) = origin(r)
         val out = HashMap<Pair<Int, Int>, Long>()
         for (cell in r.chainCells) out[cell] = 0L
-        if (r.powerUp == PowerUp.BOMB) out[Pair(or, oc)] = lead
+        if (r.powerUp == PowerUp.BOMB || r.powerUp == PowerUp.BUBBLE) out[Pair(or, oc)] = lead
         for ((row, col) in r.bonusCells) {
             val dist = if (r.powerUp == PowerUp.ROW_BLAST) Math.abs(col - oc)
                        else maxOf(Math.abs(row - or), Math.abs(col - oc))

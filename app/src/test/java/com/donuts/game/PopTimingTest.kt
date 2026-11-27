@@ -42,6 +42,21 @@ class PopTimingTest {
     }
 
     @Test
+    fun aTappedBubbleSwellsFirstThenItsThreeByThreePopsTogether() {
+        val board = boardOf("CSCSC", "SCSCS", "CSCSC")
+        board.markBubble(1, 2)
+        val r = board.peekBubblePop(1, 2)!!
+        assertEquals(PowerUp.BUBBLE, r.powerUp)
+        assertEquals(1 to 2, PopTiming.origin(r))
+        val lead = PopTiming.leadMs(PowerUp.BUBBLE)
+        val d = PopTiming.delays(r)
+        checkEveryCellHasAnEntry(r, d)
+        assertEquals(lead, d[1 to 2])
+        assertEquals(8, r.bonusCells.size)
+        for (cell in r.bonusCells) assertEquals(lead + PopTiming.STEP_MS, d[cell])
+    }
+
+    @Test
     fun rowBlastGrowsWithColumnDistanceAndMatchesBothSides() {
         // Seven chain cells; the middle one (index 3) sits in row 1, so row 1 is blasted.
         val board = boardOf("SSSSSSCCCCC", "CCCCCSCCCCC", "CCCCCCCCCCC")

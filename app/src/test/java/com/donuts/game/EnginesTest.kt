@@ -16,7 +16,7 @@ class EnginesTest {
     fun everySoundMethodRunsWithoutThrowing() {
         val s = SoundEngine()
         s.playConnectBlip(0); s.playConnectBlip(3); s.playConnectBlip(100)
-        s.playPopClear(); s.playBoop(); s.playDropLand(); s.playMilestone(); s.playShuffle(); s.playFriend(-1)
+        s.playPopClear(); s.playBubble(); s.playBoop(); s.playDropLand(); s.playMilestone(); s.playShuffle(); s.playFriend(-1)
         s.playMilestone(1, golden = true); s.playMilestone(-1); s.playGiggle(); s.playPromptDone()
         for (i in 0 until FriendRules.FRIEND_COUNT + 1) s.playFriend(i)     // a jingle for every friend, and past the end
     }

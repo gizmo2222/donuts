@@ -237,50 +237,14 @@ internal fun GameView.handleMove(x: Float, y: Float) {
 
 internal fun GameView.handleUp() {
     val chain = dragChain.toList()
-    if (chain.size >= 3) {
-        val result = board.peekChainClear(chain, looped = chainLooped)
-        if (result != null) {
-            pendingResult = result
-            isCascade     = false
-            cascadeCount  = 0
-
-            // The chain and any power-up bonus cells all pop; bonus cells wait their turn.
-            popCells.clear()
-            val allPop = result.chainCells + result.bonusCells
-            val delays = PopTiming.delays(result)
-            popCells.addAll(allPop.map { (r, c) ->
-                AnimCell(r, c, board.grid[r][c].type, isGolden = board.grid[r][c].isGolden,
-                    delayMs = delays[Pair(r, c)] ?: 0L)
-            })
-
-            val now = SystemClock.elapsedRealtime()
-            powerFx = if (result.powerUp == PowerUp.NONE) null else {
-                val (orr, occ) = PopTiming.origin(result)
-                PowerUpFx(result.powerUp, orr, occ, result.chainType.bodyColor,
-                    PopTiming.totalMs(delays, POP_MS))
-            }
-            animStartMs = now; animPhase = AnimPhase.POPPING
-            lastActionMs = now; hintCells = emptyList()
-            // First chain ever made: the guided demo has done its job
-            if (tutorialActive) { tutorialActive = false; prefs.tutorialSeen = true; celebrate(now, "YAY!") }
-
-            val chainLen = result.chainCells.size
-            if (chainLen > prefs.bestChainLength) prefs.bestChainLength = chainLen
-            if (chainLen >= 6 && FlashGate.allows(lastFullFlashMs, now)) {
-                chainFlashMs    = now; lastFullFlashMs = now
-                chainFlashColor = result.chainType.bodyColor
-            }
-            if (prefs.soundEnabled)  soundEngine.playPopClear()
-            if (prefs.hapticEnabled) hapticEngine.pop()
-
-            // Float word that names the act: power-ups get their sound word, a golden cell its own
-            val hasGolden = allPop.any { (r, c) -> board.grid[r][c].isGolden }
-            val label = Praise.chainLabel(result.powerUp, chainLen, hasGolden)
-            val labelColor = if (label == "GOLDEN!") GameTheme.goldenLabel else result.chainType.labelColor
-            label?.let { addFloatLabelAt(allPop, it, labelColor, now) }
-            tallyChain(chainLen, result.powerUp, hasGolden)
-            palReact(PalMotion.reactionFor(chainLen, result.powerUp), now)
-        }
+    // Three or more pop (any bubble in the clear bursts too); a lone tap on a bubble pops it and its 3x3
+    val result = when {
+        chain.size >= 3 -> board.peekChainClear(chain, looped = chainLooped)?.let { board.withBubbles(it, chainLooped) }
+        chain.size == 1 -> board.peekBubblePop(chain[0].first, chain[0].second)
+        else -> null
+    }
+    if (result != null) {
+        startPop(result)
     } else if (chain.isNotEmpty()) {
         // Too short to pop: the donuts wobble with a "boop" and a tick, so a tap is never dead.
         // Two in a row also get a "3!" so the rule is taught by the board itself. Now and then a lone tap
@@ -295,6 +259,53 @@ internal fun GameView.handleUp() {
         tallyChain(chain.size)
     }
     dragChain.clear(); chainPings.clear(); rejectedCell = null; chainLooped = false
+}
+
+/** Starts the pop of a released chain or a tapped bubble: the cells, power-up show, sound, word, tally and pal. */
+internal fun GameView.startPop(result: ChainResult) {
+    pendingResult = result
+    isCascade     = false
+    cascadeCount  = 0
+
+    // The chain and any power-up bonus cells all pop; bonus cells wait their turn.
+    popCells.clear()
+    val allPop = result.chainCells + result.bonusCells
+    val delays = PopTiming.delays(result)
+    popCells.addAll(allPop.map { (r, c) ->
+        AnimCell(r, c, board.grid[r][c].type, isGolden = board.grid[r][c].isGolden,
+            delayMs = delays[Pair(r, c)] ?: 0L, isBubble = board.grid[r][c].isBubble)
+    })
+
+    val now = SystemClock.elapsedRealtime()
+    val bubble = result.powerUp == PowerUp.BUBBLE
+    powerFx = if (result.powerUp == PowerUp.NONE) null else {
+        val (orr, occ) = PopTiming.origin(result)
+        PowerUpFx(result.powerUp, orr, occ, if (bubble) GameTheme.bubble else result.chainType.bodyColor,
+            PopTiming.totalMs(delays, POP_MS))
+    }
+    animStartMs = now; animPhase = AnimPhase.POPPING
+    lastActionMs = now; hintCells = emptyList()
+    // First chain ever made: the guided demo has done its job
+    if (tutorialActive) { tutorialActive = false; prefs.tutorialSeen = true; celebrate(now, "YAY!") }
+
+    // A tapped bubble is not a chain: it counts as a bubble pop only, and its "chain" is the one cell
+    val tapped = result.chainCells.size == 1
+    val chainLen = result.chainCells.size
+    if (chainLen > prefs.bestChainLength) prefs.bestChainLength = chainLen
+    if (chainLen >= 6 && FlashGate.allows(lastFullFlashMs, now)) {
+        chainFlashMs    = now; lastFullFlashMs = now
+        chainFlashColor = result.chainType.bodyColor
+    }
+    if (prefs.soundEnabled) { if (bubble) soundEngine.playBubble() else soundEngine.playPopClear() }
+    if (prefs.hapticEnabled) hapticEngine.pop()
+
+    // Float word that names the act: power-ups get their sound word, a golden cell its own
+    val hasGolden = allPop.any { (r, c) -> board.grid[r][c].isGolden }
+    val label = Praise.chainLabel(result.powerUp, chainLen, hasGolden)
+    val labelColor = if (label == "GOLDEN!") GameTheme.goldenLabel else result.chainType.labelColor
+    label?.let { addFloatLabelAt(allPop, it, labelColor, now) }
+    tallyChain(if (tapped) 0 else chainLen, result.powerUp, hasGolden)
+    palReact(PalMotion.reactionFor(chainLen, result.powerUp), now)
 }
 
 /** Counts a released chain in [PlayTally] and saves it to Prefs (on this phone only). */

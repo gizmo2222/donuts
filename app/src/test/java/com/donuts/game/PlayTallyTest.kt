@@ -56,12 +56,30 @@ class PlayTallyTest {
         val back = PlayTally.decode(t.encode())
         assertEquals(t.encode(), back.encode())
         assertEquals(t.lines(), back.lines())
-        assertEquals("t1;2,1,2,1,1,1,1,0,1,0,0,0;0,1,1,1,1;1", t.encode())
+        assertEquals("t2;2,1,2,1,1,1,1,0,1,0,0,0;0,1,1,1,1,0;1", t.encode())
+    }
+
+    @Test
+    fun anOldTallyWithoutBubblesStillLoadsAndSavesInTheNewForm() {
+        val back = PlayTally.decode("t1;2,1,2,1,1,1,1,0,1,0,0,0;0,1,1,1,1;1")
+        assertEquals(sample().lines(), back.lines())
+        assertEquals("t2;2,1,2,1,1,1,1,0,1,0,0,0;0,1,1,1,1,0;1", back.encode())
+    }
+
+    @Test
+    fun aBubbleTapCountsTheBubbleButNotAChainOrATry() {
+        val t = PlayTally()
+        t.record(0, PowerUp.BUBBLE)
+        assertEquals(1, t.powerUps(PowerUp.BUBBLE)); assertEquals(0L, t.tries); assertEquals(0L, t.pops)
+        assertFalse(t.isEmpty)
+        assertTrue(t.lines()[3].endsWith("Bubbles 1"))
     }
 
     @Test
     fun badTextDecodesToAnEmptyTally() {
-        val bad = listOf(null, "", "x", "t2;1,1,1,1,1,1,1,1,1,1,1,1;0,0,0,0,0;0",
+        val bad = listOf(null, "", "x", "t3;1,1,1,1,1,1,1,1,1,1,1,1;0,0,0,0,0,0;0",
+            "t2;1,1,1,1,1,1,1,1,1,1,1,1;0,0,0,0,0;0",      // a new tally needs the bubble slot
+            "t1;1,1,1,1,1,1,1,1,1,1,1,1;0,0,0,0,0,0;0",    // an old one never had it
             "t1;1,1;0,0,0,0,0;0",                          // too few lengths
             "t1;1,1,1,1,1,1,1,1,1,1,1,1;0,0,0;0",          // too few power-ups
             "t1;1,1,1,1,1,1,1,1,1,1,1,-1;0,0,0,0,0;0",     // a negative count
@@ -74,7 +92,7 @@ class PlayTallyTest {
     @Test
     fun countsStopAtTheTopInsteadOfWrapping() {
         val max = Int.MAX_VALUE
-        val t = PlayTally.decode("t1;$max,0,0,0,0,0,0,0,0,0,0,0;0,$max,0,0,0;$max")
+        val t = PlayTally.decode("t2;$max,0,0,0,0,0,0,0,0,0,0,0;0,$max,0,0,0,0;$max")
         t.record(1); t.record(5, PowerUp.BOMB, hadGolden = true)
         assertEquals(max, t.chains(1)); assertEquals(max, t.powerUps(PowerUp.BOMB)); assertEquals(max, t.golden)
     }
@@ -86,6 +104,6 @@ class PlayTallyTest {
         assertEquals(PlayTally.HEADING, l[0])
         assertEquals("Chains  3: 2  4: 1  5: 1  6: 1  7+: 2", l[1])
         assertEquals("Taps 2  Twos 1  7+ share 28.6%  Golden 1", l[2])
-        assertEquals("Bombs 1  Rows 1  Bursts 1  Rings 1", l[3])
+        assertEquals("Bombs 1  Rows 1  Bursts 1  Rings 1  Bubbles 0", l[3])
     }
 }

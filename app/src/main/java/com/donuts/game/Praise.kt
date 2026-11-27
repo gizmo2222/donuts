@@ -24,6 +24,7 @@ object Praise {
         powerUp == PowerUp.COLOR_BURST -> "KABOOM!"
         powerUp == PowerUp.ROW_BLAST   -> "WHOOSH!"
         powerUp == PowerUp.BOMB        -> "BOOM!"
+        powerUp == PowerUp.BUBBLE      -> "POP!"
         hasGolden                      -> "GOLDEN!"
         chainLen == 4                  -> "NICE!"
         else                           -> null

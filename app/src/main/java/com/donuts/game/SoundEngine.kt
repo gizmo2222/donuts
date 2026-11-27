@@ -29,6 +29,11 @@ class SoundEngine {
         playSweep(520f, 1300f, 0.13f, Level.POP)
     }
 
+    /** A bright rising "plip" when a bubble donut is tapped and pops. */
+    fun playBubble() {
+        playSweep(300f, 1100f, 0.15f, Level.BUBBLE)
+    }
+
     /** Gentle falling "boop" when a chain is let go too short. Friendly, never a buzzer. */
     fun playBoop() {
         playSweep(440f, 300f, 0.12f, Level.BOOP)

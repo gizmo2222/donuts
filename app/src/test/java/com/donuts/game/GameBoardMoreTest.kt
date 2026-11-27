@@ -366,7 +366,7 @@ class GameBoardMoreTest {
     fun restoreRejectsUnknownCodesAndNegativeCountsAndChangesNothing() {
         val b = boardOf("SCB", "VMA", "SCB")
         val before = snapshot(b)
-        for (bad in listOf(6, -1, 0x200, 0x100 or 6, 99)) {
+        for (bad in listOf(6, -1, 0x400, 0x200 or 6, 0x100 or 6, 99)) {
             val codes = b.cellCodes()
             codes[4] = bad
             assertFalse("code $bad", b.restore(codes, goodCleared()))

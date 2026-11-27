@@ -9,5 +9,7 @@ package com.donuts.game
  *   COLOR_BURST — chain 9+:  clears every cell of the chain's donut type
  *   RING        — a chain of [LoopRules.MIN_LOOP]+ that closes on its start: clears every cell
  *                 of the chain's type, whatever its length (wins over every length tier)
+ *   BUBBLE      — a bubble donut ([BubbleRules]) burst by a tap or inside a plain chain: clears the
+ *                 3×3 around it. Kept last so saved [PlayTally] slots keep their order.
  */
-enum class PowerUp { NONE, BOMB, ROW_BLAST, COLOR_BURST, RING }
+enum class PowerUp { NONE, BOMB, ROW_BLAST, COLOR_BURST, RING, BUBBLE }

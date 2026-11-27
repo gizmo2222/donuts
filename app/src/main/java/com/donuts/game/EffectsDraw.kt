@@ -345,6 +345,11 @@ internal fun GameView.drawPowerUpFx(canvas: Canvas, now: Long) {
         boardTop + board.rows * cellSize + pad, (fade * 255).toInt().coerceIn(0, 255))
     when (fx.kind) {
         PowerUp.BOMB -> ring(cells * cellSize, cellSize * 0.22f, fade + 0.15f, fx.color)
+        PowerUp.BUBBLE -> {
+            // A soap-bubble ring popping outward: sky ring with a white rim inside it
+            ring(cells * cellSize, cellSize * 0.16f, fade + 0.15f, fx.color)
+            if (cells * cellSize > cellSize * 0.4f) ring(cells * cellSize - cellSize * 0.18f, cellSize * 0.06f, fade, Color.WHITE)
+        }
         PowerUp.COLOR_BURST -> for (i in 0 until 3) {
             val r = (cells - i * 1.2f) * cellSize
             ring(r, cellSize * (0.16f - i * 0.03f), fade, if (i == 1) light else fx.color)

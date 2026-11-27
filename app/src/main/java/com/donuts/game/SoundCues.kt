@@ -19,6 +19,7 @@ object SoundCues {
         SoundLevels.Level.LAND to Cue("new donuts drop in and squash", "new donuts drop into place"),
         SoundLevels.Level.SHUFFLE to Cue("the no-moves warning, then every donut shrinks and pops back", "the warning, then the donuts shrink and pop back"),
         SoundLevels.Level.POP to Cue("the chain pops with a word and a flash", "the chain pops, the word, a softer flash"),
+        SoundLevels.Level.BUBBLE to Cue("the bubble swells and bursts in a sky ring, the 3x3 pops, the word", "the 3x3 pops, the word, a softer sky ring"),
         // Also the topping tile tap (the ring and check move to it) and a shop piece popping in on the home screen
         SoundLevels.Level.PROMPT to Cue(
             "the prompt chip turns gold with a star and sparkles; a tapped topping hops; a shop piece springs in",
