@@ -15,6 +15,10 @@
   First line to mutate (default 1). Use the doc map's line ranges to target one function.
 .PARAMETER To
   Last line to mutate (default: end of file).
+.PARAMETER Lines
+  Only these line numbers (inside -From/-To), e.g. the survivors of an earlier run, to confirm new tests kill them.
+.PARAMETER FailFast
+  Stop each test run at its first failure (gradle --fail-fast): a killed mutant is found sooner.
 .PARAMETER WhatIf
   List the mutants that would run, without running tests. Also restores a file left mutated by an interrupted run.
 .EXAMPLE
@@ -28,6 +32,8 @@ param(
     [int]$Max = 30,
     [int]$From = 1,
     [int]$To = [int]::MaxValue,
+    [int[]]$Lines,
+    [switch]$FailFast,
     [switch]$WhatIf
 )
 $root = Split-Path -Parent $PSScriptRoot
@@ -62,7 +68,7 @@ if (Test-Path $backup) {
 $origBytes = [System.IO.File]::ReadAllBytes($src)
 $text = $utf8.GetString($origBytes)
 if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
-$lines = $text -split "`n"
+$srcLines = $text -split "`n"
 
 $ops = @(
     @{ Find = ' == ';  Repl = ' != ' }, @{ Find = ' != ';  Repl = ' == ' },
@@ -82,8 +88,9 @@ function Test-InString([string]$line, [int]$pos) {
 }
 
 $mutants = New-Object System.Collections.ArrayList
-for ($n = [math]::Max(1, $From); $n -le [math]::Min($To, $lines.Count); $n++) {
-    $line = $lines[$n - 1]
+for ($n = [math]::Max(1, $From); $n -le [math]::Min($To, $srcLines.Count); $n++) {
+    if ($Lines -and ($Lines -notcontains $n)) { continue }
+    $line = $srcLines[$n - 1]
     $t = $line.Trim()
     if ($t -eq '' -or $t.StartsWith('//') -or $t.StartsWith('*') -or $t.StartsWith('/*') -or
         $t.StartsWith('import ') -or $t.StartsWith('package ')) { continue }
@@ -130,6 +137,7 @@ if ($WhatIf) {
 }
 
 $filter = ($Tests | ForEach-Object { "--tests $_" }) -join ' '
+if ($FailFast) { $filter += ' --fail-fast' }
 function Invoke-Tests {
     Push-Location $root
     try {
@@ -151,7 +159,7 @@ try {
     $i = 0
     foreach ($m in $mutants) {
         $i++
-        $copy = [string[]]$lines.Clone()
+        $copy = [string[]]$srcLines.Clone()
         $copy[$m.Line - 1] = $m.Mutated
         [System.IO.File]::WriteAllText($src, ($copy -join "`n"), $utf8)
         $r = Invoke-Tests

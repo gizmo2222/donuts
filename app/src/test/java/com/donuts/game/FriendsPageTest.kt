@@ -70,6 +70,8 @@ class FriendsPageTest : GameInputTestBase() {
         assertTrue(v.friendTapMs >= 0)
         paint(v)
         v.friendTapIdx = -1; v.friendTapMs = -1L
+        tap(v, v.stickerRects[2])                    // the tile just after the last friend met
+        assertEquals(-1, v.friendTapIdx)
         tap(v, v.stickerRects[3])
         assertEquals(-1, v.friendTapIdx)
         assertTrue(v.stickersOpen)
