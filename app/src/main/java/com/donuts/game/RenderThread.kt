@@ -10,6 +10,9 @@ internal class RenderThread(private val view: GameView) : Thread("GameRenderThre
     @Volatile var running = true
     private var frames = 0; private var fpsMarkMs = 0L
     private var hwFailures = 0
+    // Where frames come from and go to: the view's surface. Tests swap in a bitmap canvas before start().
+    internal var lock: () -> Canvas? = { lockFrame() }
+    internal var post: (Canvas) -> Unit = { view.holder.unlockCanvasAndPost(it) }
     private fun lockFrame(): Canvas? {
         // The GPU canvas can fail transiently while the surface is being set up, so only
         // give up on it after a long run of consecutive failures.
@@ -29,14 +32,14 @@ internal class RenderThread(private val view: GameView) : Thread("GameRenderThre
         var next = System.nanoTime()
         while (running) {
             val t0 = System.nanoTime()
-            val canvas = lockFrame() // GPU-backed (API 26+), or the software canvas if unavailable
+            val canvas = lock() // GPU-backed (API 26+), or the software canvas if unavailable
             if (canvas == null) { sleep(16L); continue }
             val t1 = System.nanoTime()
             try { synchronized(view.holder) { view.drawFrame(canvas) } }
             finally {
                 val t2 = System.nanoTime()
                 // The surface can vanish under us while we hold a canvas; that is not fatal
-                try { view.holder.unlockCanvasAndPost(canvas) } catch (_: Exception) { }
+                try { post(canvas) } catch (_: Exception) { }
                 val t3 = System.nanoTime()
                 if (view.debuggable) {
                     lockNs += t1 - t0; drawNs += t2 - t1; postNs += t3 - t2
@@ -50,9 +53,10 @@ internal class RenderThread(private val view: GameView) : Thread("GameRenderThre
                 }
             }
             // Pace to 60 fps against a nanosecond deadline; resync when a frame ran long
-            next += 16_666_667L
-            val wait = next - System.nanoTime()
-            if (wait > 0) sleep(wait / 1_000_000L, (wait % 1_000_000L).toInt()) else next = System.nanoTime()
+            val now = System.nanoTime()
+            next = FramePacer.next(next, now)
+            val wait = FramePacer.waitNs(next, now)
+            if (wait > 0) sleep(wait / 1_000_000L, (wait % 1_000_000L).toInt())
         }
         // unlockCanvasAndPost returns when the frame is handed over; the system's RenderThread
         // is still drawing and swapping it. Making and destroying a renderer queues behind that
