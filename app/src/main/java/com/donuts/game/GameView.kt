@@ -116,6 +116,8 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal val DROP_MS = 380L
 
     internal var powerFx: PowerUpFx? = null              // set only for a power-up clear
+    internal var bubbleBornAt: Pair<Int, Int>? = null    // the newest bubble pops in here (BubbleDraw)
+    internal var bubbleBornMs = 0L                       // ... from this time, once the drop has landed
     internal val popCells    = mutableListOf<AnimCell>()
     internal val dropCells   = mutableListOf<AnimCell>()  // all moving cells during DROPPING
     internal val dropColMask = mutableSetOf<Int>()        // columns hidden from the normal draw loop

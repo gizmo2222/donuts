@@ -98,6 +98,13 @@ class ScreenGallery {
         shoot(game(size, tutorialSeen = false), size, "03-tutorial", warm = 40, step = 40L)
         shoot(game(size).also { drag(it, 6, release = false) }, size, "04-drag")
         run {
+            // Two bubble donuts waiting for a tap (B37), then one tapped mid-pop
+            val v = game(size).also { it.board.markBubble(2, 1); it.board.markBubble(4, 4) }
+            shoot(v, size, "33-bubbles")
+            val w = game(size).also { it.board.markBubble(2, 2) }
+            shoot(w, size, "33b-bubble-pop", warm = 14) { w.startPop(w.board.peekBubblePop(2, 2)!!) }
+        }
+        run {
             val v = game(size)
             shoot(v, size, "05-celebration", warm = 20, step = 50L) { v.celebrate(TestViews.now(), "WOW!") }
         }

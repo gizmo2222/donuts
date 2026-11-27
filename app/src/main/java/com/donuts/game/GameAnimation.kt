@@ -74,7 +74,10 @@ internal fun GameView.advanceAnimation(now: Long) {
                 board.resolveOnce()
             } else {
                 // Player-initiated clear — apply the pre-computed result.
-                pendingResult?.let { board.clearChain(it) }
+                pendingResult?.let { r ->
+                    board.clearChain(r)
+                    r.bubbleAt?.let { bubbleBornAt = it; bubbleBornMs = now + DROP_MS }
+                }
                 pendingResult = null
             }
 
@@ -102,7 +105,8 @@ internal fun GameView.advanceAnimation(now: Long) {
                 // travel the same distance and land simultaneously.
                 for (row in 0 until k)
                     dropCells.add(AnimCell(row, c, board.grid[row][c].type,
-                        fromRow = row - k, isGolden = board.grid[row][c].isGolden))
+                        fromRow = row - k, isGolden = board.grid[row][c].isGolden,
+                        isBubble = board.grid[row][c].isBubble))
 
                 // Survivors: we know exactly which preRow each one came from, so
                 // the animation source is always correct — even with duplicate types.
@@ -111,7 +115,7 @@ internal fun GameView.advanceAnimation(now: Long) {
                     if (preR !in clearedRowsInCol) {
                         val postRow = k + survivorIdx
                         dropCells.add(AnimCell(postRow, c, board.grid[postRow][c].type,
-                            fromRow = preR, isGolden = preGolden[preR][c]))
+                            fromRow = preR, isGolden = preGolden[preR][c], isBubble = board.grid[postRow][c].isBubble))
                         survivorIdx++
                     }
                 }

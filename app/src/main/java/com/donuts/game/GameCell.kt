@@ -9,10 +9,12 @@ package com.donuts.game
  * @param isGolden  When true this cell glows gold and can join any drag chain
  *                  regardless of its own type.  Golden cells spawn with a small
  *                  chance during gravity fills; the board never starts with them.
+ * @param isBubble  A donut wrapped in a bubble ([BubbleRules]): a tap pops it and the 3×3 around it.
  */
 data class GameCell(
     val type: DonutType,
     val row: Int,
     val col: Int,
-    val isGolden: Boolean = false
+    val isGolden: Boolean = false,
+    val isBubble: Boolean = false,
 )

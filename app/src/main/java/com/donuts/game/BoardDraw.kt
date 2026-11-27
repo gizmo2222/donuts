@@ -257,6 +257,7 @@ internal fun GameView.drawCellsInner(canvas: Canvas, now: Long) {
             if (board.grid[r][c].isGolden) {
                 drawGoldenOverlay(canvas, cx, cy, pieceR, now)
             }
+            if (board.grid[r][c].isBubble) drawBubble(canvas, cx, cy, pieceR, now, r, c)
 
             // Expanding ring on ping — colored to match the donut
             pingMs?.let { pm ->
@@ -301,6 +302,7 @@ internal fun GameView.drawCellsInner(canvas: Canvas, now: Long) {
             val cy     = startY + (endY - startY) * eased
             if (cell.isGolden) { drawBall(canvas, cx, cy, cellSize * 0.43f, false, 255); drawGoldenOverlay(canvas, cx, cy, cellSize * 0.43f, now) }
             else drawPiece(canvas, cx, cy, cellSize * 0.43f, cell.type, false)
+            if (cell.isBubble) drawBubble(canvas, cx, cy, cellSize * 0.43f, now, cell.row, cell.col)
         }
     }
 }
@@ -361,7 +363,7 @@ internal fun GameView.drawPoppingCells(canvas: Canvas, now: Long) {
             var sx = 1f; var sy = 1f; var rot = 0f
             if (fx != null && !reducedMotion) {
                 when (fx.kind) {
-                    PowerUp.BOMB -> {
+                    PowerUp.BOMB, PowerUp.BUBBLE -> {
                         val p = (sinceGo / lead).coerceIn(0f, 1f)
                         if (cell.row == fx.originRow && cell.col == fx.originCol) {
                             // Squash-and-stretch swell: tall and thin, then fat
@@ -385,6 +387,7 @@ internal fun GameView.drawPoppingCells(canvas: Canvas, now: Long) {
             canvas.scale(sx, sy, cx, cy)
             if (cell.isGolden) drawBall(canvas, cx, cy, cellSize * 0.43f, false, 255)
             else drawPiece(canvas, cx, cy, cellSize * 0.43f, cell.type, false)
+            if (cell.isBubble) drawBubble(canvas, cx, cy, cellSize * 0.43f, now, cell.row, cell.col)
             canvas.restore()
             continue
         }
@@ -401,6 +404,7 @@ internal fun GameView.drawPoppingCells(canvas: Canvas, now: Long) {
         canvas.scale(scaleX, scaleY, cx0, cy0)
         if (cell.isGolden) drawBall(canvas, cx0, cy0, cellSize * 0.43f, false, alpha)
         else drawPiece(canvas, cx0, cy0, cellSize * 0.43f, cell.type, false, alpha)
+        if (cell.isBubble) drawBubble(canvas, cx0, cy0, cellSize * 0.43f, now, cell.row, cell.col, alpha)
         canvas.restore()
         // Expanding burst ring: gold for bonus cells (power-up), white for chain cells
         val burstT     = (t / 0.6f).coerceIn(0f, 1f)

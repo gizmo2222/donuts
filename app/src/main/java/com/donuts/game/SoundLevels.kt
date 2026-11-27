@@ -27,6 +27,7 @@ object SoundLevels {
         LAND(Kind.FEEDBACK, 0.30f),       // new donuts land
         SHUFFLE(Kind.CLEAR, 0.38f),       // the board shuffles
         POP(Kind.CLEAR, 0.45f),           // a chain pops
+        BUBBLE(Kind.CLEAR, 0.42f),        // a bubble donut pops
         PROMPT(Kind.CHEER, 0.34f),        // a picture prompt is finished
         SPARKLE(Kind.CHEER, 0.30f),       // the golden trill after a milestone
         FRIEND_SLIDE(Kind.CHEER, 0.38f),  // a sliding note in a friend's jingle

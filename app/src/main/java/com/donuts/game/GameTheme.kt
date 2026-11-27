@@ -18,6 +18,7 @@ object GameTheme {
     val accentMuted   = Color.rgb(200, 170, 130)   // unselected option
     val chrome        = Color.rgb(170, 120,  60)   // stickers / settings buttons
     val goldenLabel   = Color.rgb(255, 214,  64)   // the GOLDEN! float word
+    val bubble        = Color.rgb(140, 215, 255)   // the bubble donut's skin and its POP! ring
     // Celebration banners take turns: gold, strawberry pink, mint, sky. All light, so the brown words read.
     val bannerColors  = intArrayOf(
         Color.rgb(255, 210,  50), Color.rgb(255, 160, 205), Color.rgb(130, 228, 170), Color.rgb(140, 205, 255))

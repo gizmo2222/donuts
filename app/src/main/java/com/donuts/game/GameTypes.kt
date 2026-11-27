@@ -14,7 +14,8 @@ internal const val SETTINGS_GROWN = 2
 internal data class AnimCell(
     val row: Int, val col: Int, val type: DonutType,
     val fromRow: Int = row, val isGolden: Boolean = false,
-    val delayMs: Long = 0L            // pop starts this long after animStartMs (power-ups)
+    val delayMs: Long = 0L,           // pop starts this long after animStartMs (power-ups)
+    val isBubble: Boolean = false     // wrapped in a bubble (BubbleRules)
 )
 
 /** A power-up in flight: which cells have already popped and when the whole show ends. */
