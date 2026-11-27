@@ -50,4 +50,5 @@ internal class BoxStrip {
 /** Values for the Show someone card's `showSomeonePending` and `showSomeoneKind` (0..11 means that sticker). */
 internal const val SHOW_NONE = -2
 internal const val SHOW_BOX  = -1
+internal const val SHOW_REST = -3   // the grown-ups' rest reminder (WindDown)
 internal const val SHOW_CARD_GUARD_MS = 400L

@@ -31,6 +31,10 @@ class Prefs(context: Context) {
     var calmMotion: Boolean
         get()  = p.getBoolean("calm_motion", false)
         set(v) { p.edit().putBoolean("calm_motion", v).apply() }
+    /** Grown-ups' rest reminder: minutes of play before a gentle "time for a rest?" card; 0 is off. */
+    var windDownMin: Int
+        get()  = p.getInt("wind_down_min", 0).let { if (it in WindDown.OPTIONS) it else 0 }
+        set(v) { p.edit().putInt("wind_down_min", v).apply() }
 
     // The sprinkle party meter (see PartyMeter): donuts poured in, and party chains still to play
     var partyMeter: Int

@@ -235,7 +235,12 @@ class ScreenGallery {
         run {
             val v = game(size) { it.picturePrompt = PicturePrompts.encode(Prompt(2, 4, 4), 1) }
             shoot(v, size, "28-prompt-done", warm = 20)
-        }    }
+        }
+        run {
+            val v = game(size)
+            shoot(v, size, "34-rest-card", warm = 20, step = 50L) { v.showSomeoneKind = SHOW_REST; v.showSomeoneMs = TestViews.now() - 500L }
+        }
+    }
 
     @Test fun phone() { assumeTrue(outDir != null); render(sizes[0]) }
     @Test fun phoneLandscape() { assumeTrue(outDir != null); render(sizes[1]) }

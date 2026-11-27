@@ -48,7 +48,8 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var settingsStickersRect = RectF()
     internal val gridRects         = Array(2) { RectF() }
     internal val motionRects       = Array(2) { RectF() }   // grown-ups page: Bouncy, Calm
-    internal val settingsIconRects = Array(5) { RectF() }   // picture with its word: sound, buzz, hints, size, motion
+    internal val restRects         = Array(3) { RectF() }   // grown-ups page: rest reminder Off, 15 min, 30 min
+    internal val settingsIconRects = Array(6) { RectF() }   // picture with its word: sound, buzz, hints, size, motion, rest
     internal var settingsResetRect = RectF()
     internal var settingsCloseRect = RectF()
 
@@ -176,6 +177,12 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal var showSomeonePending = SHOW_NONE   // SHOW_NONE, SHOW_BOX, or a sticker index
     internal var showSomeoneKind    = SHOW_NONE
     internal var showSomeoneMs      = -1L
+    // Rest reminder (WindDown): play time counted this visit, whether its card has shown, and
+    // when the surface went away (a long time away starts the count again)
+    internal var windDownPlayedMs = 0L
+    internal var windDownShown    = false
+    internal var windDownFrameMs  = -1L
+    internal var windDownAwayMs   = -1L
     internal var allStickersParty = false     // "all 12" banner waits until the sticker fly lands
 
     // 12 stickers — 4 rows × 3 cols
@@ -455,6 +462,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
 
     override fun surfaceCreated(holder: SurfaceHolder) {
         boardEntryMs = SystemClock.elapsedRealtime()
+        wakeWindDown(boardEntryMs)
         renderThread = RenderThread(this).also { it.start() }
     }
 
@@ -464,7 +472,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
         // Bank this board's progress before the app goes to the background
-        synchronized(holder) { saveSession() }
+        synchronized(holder) { saveSession(); windDownAwayMs = SystemClock.elapsedRealtime() }
         // Stop the render loop when the surface goes away (e.g. the app is backgrounded), so no
         // thread spins with nothing to draw to. surfaceCreated starts a new one when we return.
         val t = renderThread; renderThread = null
@@ -508,6 +516,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
         drawNoMovesWarning(canvas, now)
         if (celebrateMs >= 0) drawCelebration(canvas, now)
         checkStickers(now)
+        advanceWindDown(now)
         advanceShowSomeone(now)
         checkFriends(now)
         checkToppings(now)

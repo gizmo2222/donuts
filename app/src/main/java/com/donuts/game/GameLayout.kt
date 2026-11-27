@@ -109,7 +109,7 @@ internal fun GameView.placeSettings(page: Int, pw: Float, safeL: Float, safeT: F
     val ph = when (page) {
         SETTINGS_KID  -> titleH + secH * 3f + secGap * 2f + confGap + rowH + pad + closeH + pad + verH
         SETTINGS_GATE -> titleH + questH + ansH + keyGap * 2f + keyH * 4f + keyGap * 3f + pad + closeH + pad
-        else          -> titleH + secH * 2f + secGap + confGap + rowH + promiseH + tallyH + closeH + pad + verH
+        else          -> titleH + secH * 3f + secGap * 2f + confGap + rowH + promiseH + tallyH + closeH + pad + verH
     }
     val pl = safeL + (safeW - pw) / 2f
     val pt = safeT + (safeH - ph) / 2f
@@ -153,7 +153,8 @@ internal fun GameView.placeSettings(page: Int, pw: Float, safeL: Float, safeT: F
         else -> {
             row(ICON_GRID, pt + titleH, gridRects)
             row(ICON_MOTION, pt + titleH + secH + secGap, motionRects)
-            val rTop = pt + titleH + secH * 2f + secGap + confGap
+            row(ICON_REST, pt + titleH + (secH + secGap) * 2f, restRects)
+            val rTop = pt + titleH + secH * 3f + secGap * 2f + confGap
             val rw = (pw - pad * 3f) / 2f
             settingsResetRect    = RectF(pl + pad, rTop, pl + pad + rw, rTop + rowH)
             settingsStickersRect = RectF(pl + pad * 2f + rw, rTop, pl + pw - pad, rTop + rowH)

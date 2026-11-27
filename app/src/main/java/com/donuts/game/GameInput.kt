@@ -30,6 +30,7 @@ internal fun GameView.settingsHit(x: Float, y: Float): Int {
             if (gridRects[1].contains(x, y)) return 5
             if (motionRects[0].contains(x, y)) return 40
             if (motionRects[1].contains(x, y)) return 41
+            for (j in restRects.indices) if (restRects[j].contains(x, y)) return 42 + j
             if (settingsResetRect.contains(x, y)) return 6
             if (settingsStickersRect.contains(x, y)) return 9
             if (settingsCloseRect.contains(x, y)) return 7
@@ -107,6 +108,8 @@ internal fun GameView.handleSettingsTap(hit: Int) {
             if (prefs.gridSize != size) { prefs.gridSize = size; rebuildBoard() }
         }
         40, 41 -> { prefs.calmMotion = hit == 41; reducedMotion = systemReducedMotion || prefs.calmMotion }
+        // a new rest time counts from now, and its card may show again
+        42, 43, 44 -> { prefs.windDownMin = WindDown.OPTIONS[hit - 42]; windDownPlayedMs = 0L; windDownShown = false }
         6 -> {
             stickersConfirm.cancel()
             if (newGameConfirm.tap(now)) { startOver(); closeSettings() }
