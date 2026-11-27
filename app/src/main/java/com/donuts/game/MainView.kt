@@ -5,6 +5,7 @@ import android.graphics.*
 import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
+import android.view.accessibility.AccessibilityNodeProvider
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -65,6 +66,18 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
     private val bgPaint = Paint()
     private val scratchRect = RectF()
 
+    // TalkBack: the title and PLAY as virtual nodes (CanvasAccess), told again after each layout
+    internal val access by lazy { CanvasAccess(this) { accessNodes() } }
+
+    internal fun accessNodes(): List<AccessNode> {
+        if (logoR <= 0f) return emptyList()
+        val title = RectF(logoCX - logoR * 1.6f, logoCY - logoR, logoCX + logoR * 1.6f, logoCY + logoR * 2.6f)
+        return listOf(
+            accessNode(1, "Donuts for Steven", title),
+            accessNode(2, "Play", playRect, act = { onPlay() }),
+        )
+    }
+
     init {
         refreshShop()
         postInvalidateOnAnimation()
@@ -104,6 +117,7 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         layoutShop(safeL, safeW, safeT + safeH)
 
         bgPaint.shader = LinearGradient(0f, 0f, 0f, h, bgTop, bgBot, Shader.TileMode.CLAMP)
+        access.refresh()
     }
 
     /** The shop sits under PLAY, bottom-anchored, 2.5 times as wide as tall, at most 200dp tall; none under 48dp. */
@@ -395,6 +409,10 @@ class MainView(context: Context, private val onPlay: () -> Unit) : View(context)
         }
         return true
     }
+
+    override fun getAccessibilityNodeProvider(): AccessibilityNodeProvider = access
+
+    override fun dispatchHoverEvent(event: MotionEvent): Boolean = access.onHover(event) || super.dispatchHoverEvent(event)
 
     companion object {
         /** The shop scene's width over its height. */

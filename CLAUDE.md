@@ -130,6 +130,8 @@ All sources are in `app\src\main\java\com\donuts\game`. No main source is over a
 | `Prefs.kt`, `UiScale.kt`, `GameTheme.kt`, `SoundEngine.kt`, `HapticEngine.kt` | Saved data, dp sizing, palette, sound, haptics |
 | `SoundCues.kt` | `SoundCues`: the visual cue that plays with every sound level, with full motion and under reduced motion; a new level fails `SoundCuesTest` until it has both (pure, unit tested) |
 | `SoundLevels.kt` | `SoundLevels`: every sound's named level by kind (feedback, clear, cheer), `LOUDNESS_CAP` and the capped tone and sweep synth `SoundEngine` plays (pure, unit tested) |
+| `CanvasAccess.kt` | `CanvasAccess`: the TalkBack virtual-node provider for a canvas view (labels, bounds, click, focus, explore by touch, `refresh` on change); `accessNode` builds an `AccessNode` |
+| `GameAccess.kt` | What TalkBack reads on the game screen (`accessNodes`): the show-someone or rest card, else the open panel page, else the HUD and the board; `tickAccess` refreshes about four times a second while TalkBack is on |
 
 Rules for this layout:
 
@@ -151,6 +153,7 @@ so read just that range.
 | BoardDraw.kt | 418 | `drawResetFlash` 12-25, `drawChainFlash` 26-38, `drawBoardBackground` 39-69, `drawChainLine` 70-98, `drawCells` 99-113, `drawTapCue` 114-131, `drawRefusedCue` 132-145, `drawHintRing` 146-155, `nearMissOffset` 156-173, `drawCellsInner` 174-316, `drawGoldenOverlay` 317-349, `drawPoppingCells` 350-418 |
 | BubbleDraw.kt | 50 | `drawBubble` 19-50 |
 | BubbleRules.kt | 71 | `BubbleRules` 12-18, `earns` 19-22, `GameBoard` 23-26, `GameBoard` 27-31, `GameBoard` 32-36, `GameBoard` 37-49, `GameBoard` 50-61, `GameBoard` 62-71 |
+| CanvasAccess.kt | 164 | `CanvasAccess` 18-26, `node` 27-29, `createAccessibilityNodeInfo` 30-61, `findFocus` 62-64, `performAction` 65-96, `onHover` 97-110, `setHovered` 111-119, `refresh` 120-130, `send` 131-151, `signature` 152-162, `accessNode` 163-164 |
 | CelebrationDraw.kt | 112 | `drawCelebration` 9-93, `drawBannerSparkles` 94-112 |
 | CelebrationMix.kt | 38 | `ConfettiStyle` 6-11, `CelebrationLook` 12-18, `CelebrationMix` 19-25, `next` 26-36, `giggle` 37-38 |
 | ChainBadge.kt | 21 | `ChainBadge` 5-10, `spot` 11-21 |
@@ -167,6 +170,7 @@ so read just that range.
 | FriendArt2.kt | 315 | `glazeTop` 16-25, `drawChocoFriend` 26-61, `drawKickyFriend` 62-99, `drawBerryFriend` 100-155, `drawGloopFriend` 156-184, `drawZoomyFriend` 185-222, `drawPuffFriend` 223-260, `drawFizzFriend` 261-283, `drawCaptainFriend` 284-315 |
 | FriendDraw.kt | 120 | `checkFriends` 17-28, `drawFriendFly` 29-86, `drawFriendsPage` 87-120 |
 | FriendRules.kt | 39 | `Friend` 4-9, `FriendRules` 10-22, `slotsEver` 23-25, `due` 26-34, `next` 35-39 |
+| GameAccess.kt | 175 | `accessNodes` 30-41, `tickAccess` 42-47, `cardNodes` 48-58, `hudNodes` 59-76, `donutsWord` 77-78, `promptWords` 79-83, `settingsNodes` 84-85, `add` 86-92, `pair` 93-129, `sizeWords` 130-132, `stickersNodes` 133-137, `shifted` 138-138, `add` 139-175 |
 | GameActivity.kt | 57 | `GameActivity` 8-11, `onCreate` 12-34, `handleOnBackPressed` 35-43, `onSaveInstanceState` 44-48, `onPause` 49-57 |
 | GameAnimation.kt | 436 | `cascadeWord` 10-15, `updateHint` 16-32, `advancePowerPops` 33-44, `advanceAnimation` 45-175, `addFloatLabelAt` 176-184, `advanceSettingsAnim` 185-195, `slideToward` 196-207, `easeOutQuint` 208-213, `settingsSlideY` 214-214, `stickersSlideY` 215-220, `panelBusy` 221-222, `advanceCounter` 223-256, `celebrate` 257-261, `praise` 262-265, `startCelebration` 266-280, `spawnParticles` 281-321, `easeOutBack` 322-327, `checkStickers` 328-360, `advanceShowSomeone` 361-370, `closeShowSomeone` 371-375, `starPulse` 376-383, `advanceBoxStrip` 384-396, `pourParty` 397-404, `setParty` 405-411, `advancePartyMeter` 412-420, `advanceWindDown` 421-432, `wakeWindDown` 433-436 |
 | GameBoard.kt | 448 | `GameBoard` 12-35, `typesFor` 36-38, `forGrid` 39-69, `refill` 70-88, `randomType` 89-91, `safeRandom` 92-113, `spawnCell` 114-121, `findMatches` 122-123, `same` 124-165, `resolveOnce` 166-181, `findHint` 182-200, `dragOrder` 201-205, `floodFill` 206-233, `chainTypeOf` 234-253, `peekChainClear` 254-294, `countCleared` 295-299, `collapse` 300-315, `collapseNudged` 316-342, `makesLine` 343-343, `same` 344-344, `run` 345-352, `hasChainOf` 353-355, `go` 356-383, `clearChain` 384-392, `hasValidMoves` 393-399, `shuffle` 400-405, `reset` 406-415, `settle` 416-420, `cellCodes` 421-426, `clearedCounts` 427-432, `restore` 433-448 |
@@ -174,8 +178,8 @@ so read just that range.
 | GameInput.kt | 475 | `settingsHit` 14-42, `stickersHit` 43-60, `handleStickersTap` 61-75, `panelHitRect` 76-90, `turnSettingsPage` 91-97, `handleSettingsTap` 98-131, `resetStickers` 132-144, `closeSettings` 145-147, `startOver` 148-163, `startHeldDrag` 164-170, `handleDown` 171-183, `handleMove` 184-240, `handleUp` 241-267, `startPop` 268-314, `tallyChain` 315-321, `beginLift` 322-329, `finishLift` 330-336, `advanceLift` 337-345, `resumeLift` 346-363, `handleTouch` 364-452, `cellCol` 453-454, `cellRow` 455-457, `cellU` 458-459, `cellV` 460-461, `inBounds` 462-463, `adjacent8` 464-467, `onBackPressed` 468-475 |
 | GameLayout.kt | 224 | `computeLayout` 10-67, `layoutSettingsPanel` 68-83, `showSettingsPage` 84-91, `placeSettings` 92-117, `row` 118-171, `layoutStickersPanel` 172-180, `sideFor` 181-215, `excludeBackSwipe` 216-224 |
 | GameTheme.kt | 28 | `ink` 6-9, `GameTheme` 10-28 |
-| GameTypes.kt | 54 | `AnimPhase` 7-13, `AnimCell` 14-21, `PowerUpFx` 22-26, `DigitFlip` 27-28, `Particle` 29-36, `FloatLabel` 37-42, `BoxStrip` 43-54 |
-| GameView.kt | 550 | `GameView` 14-462, `surfaceCreated` 463-468, `surfaceChanged` 469-472, `surfaceDestroyed` 473-492, `drawFrame` 493-548, `onTouchEvent` 549-550 |
+| GameTypes.kt | 64 | `AnimPhase` 7-13, `AnimCell` 14-21, `PowerUpFx` 22-26, `DigitFlip` 27-28, `Particle` 29-36, `FloatLabel` 37-42, `BoxStrip` 43-56, `AccessNode` 57-64 |
+| GameView.kt | 561 | `GameView` 15-468, `surfaceCreated` 469-474, `surfaceChanged` 475-478, `surfaceDestroyed` 479-498, `drawFrame` 499-555, `onTouchEvent` 556-557, `getAccessibilityNodeProvider` 558-559, `dispatchHoverEvent` 560-561 |
 | GateDraw.kt | 90 | `drawGrownUpsButton` 17-35, `drawGatePage` 36-67, `drawPromise` 68-77, `drawTally` 78-90 |
 | HapticEngine.kt | 34 | `HapticEngine` 10-21, `tick` 22-24, `pop` 25-27, `milestone` 28-31, `shuffle` 32-34 |
 | HintDraw.kt | 44 | `hintTracing` 11-14, `drawHintTrace` 15-19, `x` 20-20, `y` 21-44 |
@@ -186,7 +190,7 @@ so read just that range.
 | LiftGrace.kt | 24 | `LiftGrace` 9-15, `graceMs` 16-22, `expired` 23-24 |
 | LoopRules.kt | 22 | `LoopRules` 9-15, `closes` 16-22 |
 | MainActivity.kt | 32 | `MainActivity` 8-13, `onResume` 14-19, `onCreate` 20-32 |
-| MainView.kt | 404 | `MainView` 13-79, `onSizeChanged` 80-85, `relayout` 86-109, `layoutShop` 110-119, `refreshShop` 120-131, `onDraw` 132-152, `drawShop` 153-165, `drawDotGrid` 166-180, `drawLogo` 181-199, `drawDonut` 200-241, `drawSoccerBall` 242-284, `regularPolygon` 285-290, `addSheen` 291-297, `drawTitle` 298-338, `buttonPressScale` 339-341, `drawPlayButton` 342-382, `onTouchEvent` 383-404 |
+| MainView.kt | 422 | `MainView` 14-71, `accessNodes` 72-92, `onSizeChanged` 93-98, `relayout` 99-123, `layoutShop` 124-133, `refreshShop` 134-145, `onDraw` 146-166, `drawShop` 167-179, `drawDotGrid` 180-194, `drawLogo` 195-213, `drawDonut` 214-255, `drawSoccerBall` 256-298, `regularPolygon` 299-304, `addSheen` 305-311, `drawTitle` 312-352, `buttonPressScale` 353-355, `drawPlayButton` 356-396, `onTouchEvent` 397-412, `getAccessibilityNodeProvider` 413-414, `dispatchHoverEvent` 415-422 |
 | PalArt.kt | 112 | `drawPal` 29-108, `palReact` 109-112 |
 | PalMotion.kt | 117 | `PalPose` 15-23, `PalReaction` 24-32, `PalMotion` 33-58, `reactionFor` 59-66, `replaces` 67-69, `running` 70-72, `at` 73-101, `idle` 102-115, `smooth` 116-117 |
 | PanelsDraw.kt | 429 | `stickerStats` 13-22, `dimScreen` 23-31, `drawPanelShell` 32-49, `drawStickersPanel` 50-171, `drawDonutBox` 172-239, `popScale` 240-244, `drawClosedBox` 245-264, `drawSettings` 265-346, `drawConfirmButton` 347-375, `drawCheckBadge` 376-386, `drawSettingsBtn` 387-429 |
@@ -224,6 +228,7 @@ so read just that range.
 
 | File | Lines | Symbols (line ranges) |
 |---|---|---|
+| AccessNodesTest.kt | 201 | `AccessNodesTest` 16-17, `labels` 18-18, `node` 19-19, `click` 20-23, `theHudNamesTheButtonsTheCounterAndTheBoardInsideTheirBoxes` 24-38, `theHostNodeListsEveryVirtualNodeAndEachOneHasItsWords` 39-50, `pressingTheStarAndTheGearOpensTheirPanels` 51-61, `focusMovesFromNodeToNodeAndClears` 62-78, `stevensSettingsPageReadsEachChoiceAndAPressChangesIt` 79-95, `theGateReadsItsQuestionAndTheKeysAnswerIt` 96-119, `theStickersPanelReadsStickersTabsAndFriends` 120-140, `theCardIsTheOnlyNodeAndClosesOnlyAfterItsGuard` 141-155, `exploreByTouchFindsTheNodeUnderTheFingerOnlyWhileTouchExplorationIsOn` 156-170, `refreshForgetsAFocusThatIsNoLongerOnScreen` 171-179, `theHomeScreenReadsTheTitleAndPlayStartsTheGame` 180-195, `wordsForSizesAndPrompts` 196-201 |
 | ActivityTest.kt | 233 | `ActivityTest` 17-18, `contentChild` 19-21, `gameViewOf` 22-23, `startGame` 24-26, `laidOutMain` 27-36, `dispatch` 37-42, `gameActivityShowsAGameView` 43-49, `coldStartCountsAVisitAndStartsFresh` 50-56, `recreateWithSavedStateKeepsTheBoardAndTheVisitCount` 57-77, `coldStartRestoresTheBoardKeptByOnPause` 78-94, `onPauseBanksDonutsAndWritesTheBoardToPrefs` 95-112, `backPressClosesAnOpenSettingsPanelFirst` 113-122, `backPressClosesAnOpenStickersPanelFirst` 123-132, `backPressWithNoPanelFinishesTheActivity` 133-139, `secondBackPressAfterClosingAPanelFinishes` 140-150, `mainActivityStartsGameActivityWhenPlayIsTapped` 151-157, `send` 158-173, `secondQuickPlayTapStartsOnlyOneGameUntilResume` 174-177, `tap` 178-192, `mainActivityResumeAndPauseDoNotThrow` 193-197, `surfaceDestroyedBanksLifetimeDonutsOnce` 198-211, `surfaceDestroyedStopsAndClearsTheRenderThread` 212-224, `surfaceChangedLaysTheBoardOut` 225-233 |
 | BalanceSim.kt | 377 | `BalanceSim` 14-33, `Comp` 34-35, `Analysis` 36-37, `MoveRow` 38-43, `Scenario` 44-62, `Geometry` 63-75, `Dfs` 76-85, `run` 86-98, `go` 99-110, `analyze` 111-116, `ok` 117-141, `randomWalk` 142-158, `choose` 159-181, `verify` 182-203, `play` 204-212, `fail` 213-278, `pct` 279-281, `pctD` 282-284, `f1` 285-285, `f2` 286-287, `summary` 288-346, `runBalanceSimulation` 347-377 |
 | BannerQueueTest.kt | 42 | `BannerQueueTest` 7-42 |

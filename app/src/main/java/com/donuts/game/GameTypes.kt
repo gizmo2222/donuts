@@ -52,3 +52,13 @@ internal const val SHOW_NONE = -2
 internal const val SHOW_BOX  = -1
 internal const val SHOW_REST = -3   // the grown-ups' rest reminder (WindDown)
 internal const val SHOW_CARD_GUARD_MS = 400L
+
+/** One thing TalkBack can find on a canvas: a virtual node with its words, box (view pixels) and press. */
+internal class AccessNode(
+    val id: Int,
+    val label: String,
+    val bounds: RectF,
+    val clickable: Boolean,
+    val selected: Boolean = false,
+    val act: (() -> Unit)? = null,
+)
