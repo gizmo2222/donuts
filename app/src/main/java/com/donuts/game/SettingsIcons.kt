@@ -4,7 +4,7 @@ import android.graphics.*
 import kotlin.math.*
 
 // The settings pictures: a big icon over each settings word (a speaker, a buzzing phone, a
-// bulb, a donut grid and a bouncing or resting donut), each showing its current choice, and the icons on the two
+// bulb, a donut grid, a bouncing or resting donut and a moon), each showing its current choice, and the icons on the two
 // tap-twice buttons. Part of GameView: these are extension functions on it.
 
 private val OFF  = Color.rgb(195, 178, 160)   // a switched-off picture: same shape, no colour
@@ -16,6 +16,7 @@ internal const val ICON_BUZZ  = 1
 internal const val ICON_HINTS = 2
 internal const val ICON_GRID  = 3
 internal const val ICON_MOTION = 4
+internal const val ICON_REST  = 5
 
 /**
  * One settings row's left column: the picture, then its word underneath. [on] is the row's
@@ -30,6 +31,7 @@ internal fun GameView.drawSettingsIcon(canvas: Canvas, rect: RectF, which: Int, 
         ICON_BUZZ  -> drawBuzzIcon(canvas, cx, cy, r, on)
         ICON_HINTS -> drawBulbIcon(canvas, cx, cy, r, on)
         ICON_MOTION -> drawMotionIcon(canvas, cx, cy, r, on)
+        ICON_REST  -> drawMoonIcon(canvas, cx, cy, r, on)
         else       -> drawGridIcon(canvas, cx, cy, r, if (on) 3 else 4)
     }
     drawLabel(canvas, word, cx, rect.bottom - 7f * k, 16f * k, rect.width() - 4f * k, theme.textPrimary, outlined = false)
@@ -175,6 +177,24 @@ internal fun GameView.drawMotionIcon(canvas: Canvas, cx: Float, cy: Float, r: Fl
     fillPaint.color = theme.holeColor
     canvas.drawCircle(cx, dy, dr * 0.36f, fillPaint)
     fillPaint.alpha = 255
+}
+
+/** The rest reminder: a crescent moon with a little star, gold when a rest time is set. */
+internal fun GameView.drawMoonIcon(canvas: Canvas, cx: Float, cy: Float, r: Float, on: Boolean) {
+    val mx = cx - r * 0.12f
+    val moon = Path().apply { addCircle(mx, cy, r * 0.82f, Path.Direction.CW) }
+    val bite = Path().apply { addCircle(mx + r * 0.42f, cy - r * 0.30f, r * 0.66f, Path.Direction.CW) }
+    moon.op(bite, Path.Op.DIFFERENCE)
+    outlineAndFill(canvas, moon, r * 0.2f, if (on) GOLD else OFF)
+    val star = Path()
+    for (i in 0 until 10) {
+        val rr = if (i % 2 == 0) r * 0.32f else r * 0.14f
+        val ang = Math.toRadians(-90.0 + i * 36.0)
+        val x = cx + r * 0.66f + (rr * cos(ang)).toFloat(); val y = cy - r * 0.50f + (rr * sin(ang)).toFloat()
+        if (i == 0) star.moveTo(x, y) else star.lineTo(x, y)
+    }
+    star.close()
+    outlineAndFill(canvas, star, r * 0.12f, if (on) Color.WHITE else OFF)
 }
 
 /** A round arrow for New game. */

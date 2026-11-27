@@ -418,7 +418,9 @@ internal fun GameView.drawShowSomeone(canvas: Canvas, now: Long) {
     canvas.drawRoundRect(scratchRectF.apply { set(bx + 3f * u, by + 7f * u, bx + bw + 3f * u, by + bh + 7f * u) }, 24f * u, 24f * u, fillPaint)
     fillPaint.color = ink(a)
     canvas.drawRoundRect(scratchRectF.apply { set(bx - 5f * u, by - 5f * u, bx + bw + 5f * u, by + bh + 5f * u) }, 28f * u, 28f * u, fillPaint)
-    fillPaint.color = Color.argb(a, 255, 210, 50)
+    val rest = showSomeoneKind == SHOW_REST
+    // the rest card is a warm dusky violet, the others sunny yellow
+    fillPaint.color = if (rest) Color.argb(a, 150, 120, 235) else Color.argb(a, 255, 210, 50)
     canvas.drawRoundRect(scratchRectF.apply { set(bx, by, bx + bw, by + bh) }, 23f * u, 23f * u, fillPaint)
     canvas.save()
     canvas.clipRect(bx, by, bx + bw, by + bh * 0.3f)
@@ -432,20 +434,36 @@ internal fun GameView.drawShowSomeone(canvas: Canvas, now: Long) {
     val wob = if (reducedMotion) 0f else 4f * sin(elapsed / 220f)
     canvas.save()
     canvas.rotate(wob, cx, artY)
-    if (showSomeoneKind >= 0) drawStickerArt(canvas, showSomeoneKind, cx, artY, artSize * 1.3f)
+    if (rest) drawSleepyPal(canvas, cx, artY, artSize, elapsed)
+    else if (showSomeoneKind >= 0) drawStickerArt(canvas, showSomeoneKind, cx, artY, artSize * 1.3f)
     else drawClosedBox(canvas, cx - artSize * 0.5f, artY - artSize * 0.5f, artSize, 1f, 0)
     canvas.restore()
 
     textPaint.textAlign = Paint.Align.CENTER
     textPaint.letterSpacing = 0.04f
     val maxW = bw - 28f * u
+    val title = if (rest) "Great playing!" else "Show someone!"
     textPaint.textSize = 38f * u
-    fitText("Show someone!", maxW)
-    drawBannerLine(canvas, "Show someone!", cx, by + bh * 0.17f + textPaint.textSize * 0.36f, a)
+    fitText(title, maxW)
+    drawBannerLine(canvas, title, cx, by + bh * 0.17f + textPaint.textSize * 0.36f, a)
     textPaint.textSize = 26f * u
-    val line = "Steven did it!"
+    val line = if (rest) "Time for a rest?" else "Steven did it!"
     fitText(line, maxW)
     drawBannerLine(canvas, line, cx, by + bh * 0.87f + textPaint.textSize * 0.36f, a)
     textPaint.letterSpacing = 0f
     canvas.restore()
+}
+
+// The rest card's picture: the donut pal with its eyes shut, and three soft z's drifting up
+internal fun GameView.drawSleepyPal(canvas: Canvas, cx: Float, cy: Float, size: Float, elapsed: Float) {
+    val r = size * 0.46f
+    val breathe = if (reducedMotion) 0f else 0.03f * sin(elapsed / 600f)
+    drawPal(canvas, cx - size * 0.12f, cy + r * PAL_TALL / 2f, r,
+        PalPose(bob = 0f, squashX = 1f + breathe, squashY = 1f - breathe, blink = 1f, look = 0f))
+    for (i in 0 until 3) {
+        val drift = if (reducedMotion) 0f else ((elapsed / 1400f + i / 3f) % 1f)
+        val zx = cx + size * (0.38f + 0.14f * i) + size * 0.05f * drift
+        val zy = cy - size * (0.10f + 0.22f * i) - size * 0.18f * drift
+        drawOutlinedText(canvas, "z", zx, zy, size * (0.20f + 0.07f * i), Color.WHITE)
+    }
 }

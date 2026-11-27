@@ -11,6 +11,8 @@ private const val KEY_SIZE    = "board.size"
 private const val KEY_CELLS   = "board.cells"
 private const val KEY_CLEARED = "board.cleared"
 private const val KEY_SAVED   = "board.sessionSaved"
+private const val KEY_REST_PLAYED = "rest.playedMs"
+private const val KEY_REST_SHOWN  = "rest.shown"
 
 /**
  * Finishes a pop or drop that is in flight (no animation), so the board is idle and every
@@ -37,6 +39,8 @@ internal fun GameView.saveState(out: Bundle) {
         out.putIntArray(KEY_CELLS, board.cellCodes())
         out.putIntArray(KEY_CLEARED, board.clearedCounts())
         out.putInt(KEY_SAVED, sessionSaved)
+        out.putLong(KEY_REST_PLAYED, windDownPlayedMs)
+        out.putBoolean(KEY_REST_SHOWN, windDownShown)
     }
 }
 
@@ -45,6 +49,9 @@ internal fun GameView.saveState(out: Bundle) {
  * place, when [state] holds no board or one of another size.
  */
 internal fun GameView.restoreState(state: Bundle): Boolean {
+    // a turn of the screen keeps the rest reminder's count, whatever happens to the board
+    windDownPlayedMs = state.getLong(KEY_REST_PLAYED, 0L)
+    windDownShown    = state.getBoolean(KEY_REST_SHOWN, false)
     val cells   = state.getIntArray(KEY_CELLS) ?: return false
     val cleared = state.getIntArray(KEY_CLEARED) ?: return false
     return applySaved(SavedBoard(state.getInt(KEY_SIZE), cells, cleared, state.getInt(KEY_SAVED)))

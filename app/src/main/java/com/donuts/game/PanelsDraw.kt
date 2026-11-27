@@ -312,6 +312,11 @@ internal fun GameView.drawSettings(canvas: Canvas, now: Long) {
             drawSettingsBtn(canvas, now, motionRects[0], motionLabels[0], !reducedMotion)
             drawSettingsBtn(canvas, now, motionRects[1], motionLabels[1], reducedMotion)
 
+            // The rest reminder: off unless a grown-up picks a time
+            val restMin = prefs.windDownMin
+            drawSettingsIcon(canvas, settingsIconRects[ICON_REST], ICON_REST, restMin > 0, "Rest")
+            for (j in restRects.indices) drawSettingsBtn(canvas, now, restRects[j], WindDown.LABELS[j], WindDown.OPTIONS[j] == restMin)
+
             // Two-tap confirm buttons so a stray tap cannot wipe the board or the stickers
             drawConfirmButton(canvas, now, settingsResetRect, newGameConfirm, "New game", "New game?", Color.rgb(200, 70, 50), restart = true)
             drawConfirmButton(canvas, now, settingsStickersRect, stickersConfirm, "Reset stickers", "Clear all?", Color.rgb(150, 70, 170), restart = false)

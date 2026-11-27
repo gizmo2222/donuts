@@ -363,6 +363,7 @@ internal fun GameView.advanceShowSomeone(now: Long) {
     showSomeoneKind = showSomeonePending; showSomeonePending = SHOW_NONE
     showSomeoneMs = now
     hintCells = emptyList()
+    if (showSomeoneKind == SHOW_REST) return    // the rest card comes in quietly: no fanfare
     if (prefs.soundEnabled)  soundEngine.playMilestone()
     if (prefs.hapticEnabled) hapticEngine.milestone()
 }
@@ -413,4 +414,23 @@ internal fun GameView.advancePartyMeter() {
     partyShownFill = if (partyShownFill < 0f || reducedMotion) target
                      else partyShownFill + (target - partyShownFill) * 0.12f
     if (abs(target - partyShownFill) < 0.002f) partyShownFill = target
+}
+
+// The rest reminder: count play time, and once it is up wait for a quiet board (nothing moving,
+// no finger down, no celebration, card or panel) before the gentle card is queued
+internal fun GameView.advanceWindDown(now: Long) {
+    windDownPlayedMs = WindDown.step(windDownPlayedMs, windDownFrameMs, now, lastActionMs)
+    windDownFrameMs = now
+    if (!WindDown.due(windDownPlayedMs, prefs.windDownMin, windDownShown)) return
+    if (animPhase != AnimPhase.IDLE || dragChain.isNotEmpty() || liftMs >= 0 || celebrateMs >= 0 ||
+        tutorialActive || noMovesWarningMs >= 0 || showSomeonePending != SHOW_NONE || showSomeoneMs >= 0 ||
+        stickerFlyMs >= 0 || friendFlyMs >= 0 || toppingFlyMs >= 0 || panelBusy()) return
+    windDownShown = true
+    showSomeonePending = SHOW_REST
+}
+
+// The surface is back: after a long time away the rest count starts again
+internal fun GameView.wakeWindDown(now: Long) {
+    if (windDownAwayMs >= 0 && WindDown.freshAfter(now - windDownAwayMs)) { windDownPlayedMs = 0L; windDownShown = false }
+    windDownAwayMs = -1L; windDownFrameMs = -1L
 }
