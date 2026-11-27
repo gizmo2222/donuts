@@ -58,4 +58,11 @@ class StickerGiftTest : GameInputTestBase() {
         assertEquals("600 donuts popped  ·  12 stickers", StickerRules.statsLine(600, 12))
         assertFalse(StickerRules.statsLine(600, 12).contains("of"))
     }
+
+    @Test fun theTabletStatsAreTheSameWordsOnTwoLines() {
+        assertEquals(listOf("0 donuts popped"), StickerRules.statsParts(0, 0))
+        assertEquals(listOf("12 donuts popped", "1 sticker"), StickerRules.statsParts(12, 1))
+        for ((l, e) in listOf(0 to 0, 12 to 1, 600 to 12))
+            assertEquals(StickerRules.statsParts(l, e).joinToString("  ·  "), StickerRules.statsLine(l, e))
+    }
 }

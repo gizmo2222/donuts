@@ -153,11 +153,19 @@ internal fun GameView.drawStickersPanel(canvas: Canvas, now: Long) {
     drawDonutBox(canvas, donutBoxRect, now)
 
     // ---- Stats line ----
-    val statsY = donutBoxRect.bottom + 20f * u
     val lifetime = lifetimeDonuts()
-    val stats = StickerRules.statsLine(lifetime, earnedCount)
-    drawLabel(canvas, stats,
-        stickerPanelRect.centerX(), statsY, 18f * u, stickerPanelRect.width() - 20f * u, theme.textPrimary, outlined = false)
+    if (statsBeside) {
+        val parts = StickerRules.statsParts(lifetime, earnedCount)
+        val lineH = statsSize * 1.25f
+        var y = statsRect.centerY() - lineH * (parts.size - 1) / 2f + statsSize * 0.35f
+        for (part in parts) {
+            drawLabel(canvas, part, statsRect.centerX(), y, statsSize, statsRect.width(), theme.textPrimary, outlined = false)
+            y += lineH
+        }
+    } else {
+        drawLabel(canvas, StickerRules.statsLine(lifetime, earnedCount),
+            stickerPanelRect.centerX(), statsRect.bottom - statsSize * 4f / 9f, statsSize, statsRect.width(), theme.textPrimary, outlined = false)
+    }
 
     drawPrettyButton(canvas, stickersCloseRect, Color.rgb(60, 175, 80), "Done  \u2713", 18f * u, pressScaleFor(stickersCloseRect, now))
 

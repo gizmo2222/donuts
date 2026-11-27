@@ -169,25 +169,34 @@ internal fun GameView.placeSettings(page: Int, pw: Float, safeL: Float, safeT: F
  * Sticker panel: 4 rows of 3 tiles, or 2 rows of 6 on wide short screens (landscape tablets)
  * when that gives bigger tiles. Tiles are sized by whichever of width or height is tighter.
  */
+/** Tiles bigger than this (dp) mean a tablet: the donut box and the stats grow too. */
+internal const val ROOMY_TILE = 115f
+
 internal fun GameView.layoutStickersPanel(safeL: Float, safeT: Float, safeW: Float, safeH: Float) {
     val spPad    = 10f * u
     val spTitleH = 56f * u
-    val spBoxH   = 64f * u      // the donut box: the goal that never runs out
-    val spStatsH = 28f * u
     val spCloseH = 56f * u
     val minGut   = 14f * u
-    val fixedH   = spTitleH + spBoxH + spStatsH + spCloseH + spPad * 5f
-    val availH   = safeH - 24f * u - fixedH
-    fun sideFor(cols: Int, maxW: Float) =
+    fun availFor(boxH: Float, statsH: Float) = safeH - 24f * u - (spTitleH + boxH + statsH + spCloseH + spPad * 5f)
+    fun sideFor(cols: Int, maxW: Float, availH: Float) =
         min(LayoutMath.fitSide(maxW - spPad * 2f, cols, minGut), LayoutMath.fitSide(availH, 12 / cols, minGut))
     val maxW3 = min(safeW - 24f * u, 560f * u)
     val maxW6 = min(safeW - 24f * u, 960f * u)
-    val wide  = sideFor(6, maxW6) > sideFor(3, maxW3)
+    val phoneAvail = availFor(64f * u, 28f * u)
+    val wide  = sideFor(6, maxW6, phoneAvail) > sideFor(3, maxW3, phoneAvail)
     val cols  = if (wide) 6 else 3
     val rows  = 12 / cols
     val maxW  = if (wide) maxW6 else maxW3
     val minW  = min(320f * u, maxW)   // still fits the donut box row, the stats line and Close
-    val side  = sideFor(cols, maxW)
+    // A phone's tiles come out at about 110dp at most. Past ROOMY_TILE (a tablet) the donut box and the
+    // stats grow to match the tiles; on a wide panel they share one row, the stats as two lines.
+    val roomy = sideFor(cols, maxW, phoneAvail) > ROOMY_TILE * u
+    statsBeside = roomy && wide
+    val spBoxH   = (if (roomy) 88f else 64f) * u      // the donut box: the goal that never runs out
+    val spStatsH = (if (statsBeside) 0f else if (roomy) 36f else 28f) * u
+    statsSize    = (if (statsBeside) 26f else if (roomy) 24f else 18f) * u
+    val fixedH   = spTitleH + spBoxH + spStatsH + spCloseH + spPad * 5f
+    val side  = sideFor(cols, maxW, availFor(spBoxH, spStatsH))
     val gut   = LayoutMath.gutter(side, minGut)
     val gridW = side * cols + gut * (cols - 1)
     // Hugs the grid when height limits the tiles; never narrower than minW
@@ -205,7 +214,16 @@ internal fun GameView.layoutStickersPanel(safeL: Float, safeT: Float, safeW: Flo
         stickerRects[i].set(sx, sy, sx + side, sy + side)
     }
     val boxTop = stickerRects[11].bottom + spPad * 2f
-    donutBoxRect.set(spL + spPad, boxTop, spL + spW - spPad, boxTop + spBoxH)
+    val inL = spL + spPad
+    val inR = spL + spW - spPad
+    if (statsBeside) {
+        val mid = (inL + inR) / 2f
+        donutBoxRect.set(inL, boxTop, mid - spPad / 2f, boxTop + spBoxH)
+        statsRect.set(mid + spPad / 2f, boxTop, inR, boxTop + spBoxH)
+    } else {
+        donutBoxRect.set(inL, boxTop, inR, boxTop + spBoxH)
+        statsRect.set(inL, boxTop + spBoxH, inR, boxTop + spBoxH + spStatsH)
+    }
     // The tabs share the title row (56dp): each 48dp tall, a 4dp margin above and below
     placePanelTabs()
     val closeRowY = stickerPanelRect.bottom - spCloseH - spPad

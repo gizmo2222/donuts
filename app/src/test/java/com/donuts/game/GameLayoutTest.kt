@@ -7,6 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import kotlin.math.abs
 
@@ -154,6 +155,32 @@ class GameLayoutTest {
         for (r in v.stickerRects) {
             assertEquals("$n: tiles square", r.width(), r.height(), eps)
             assertEquals("$n: tiles equal", side, r.width(), eps)
+        }
+    }
+
+    /** The gallery's five sizes at their real densities: only the two tablets grow the box and the stats. */
+    @Test fun theDonutBoxAndStatsGrowOnlyOnTablets() {
+        data class Case(val w: Int, val h: Int, val q: String, val roomy: Boolean, val beside: Boolean)
+        val cases = listOf(
+            Case(1080, 2400, "w411dp-h914dp-port-420dpi", false, false),
+            Case(2400, 1080, "w914dp-h411dp-land-420dpi", false, false),
+            Case(720, 1280, "w360dp-h640dp-port-xhdpi", false, false),
+            Case(1600, 2560, "w800dp-h1280dp-port-xhdpi", true, false),
+            Case(2560, 1600, "w1280dp-h800dp-land-xhdpi", true, true))
+        for ((w, h, q, roomy, beside) in cases) for (g in grids) {
+            RuntimeEnvironment.setQualifiers(q)
+            val v = TestViews.gameView(w, h, g); val n = "${w}x$h grid $g"
+            assertEquals("$n: beside", beside, v.statsBeside)
+            assertEquals("$n: box height", (if (roomy) 88f else 64f) * v.u, v.donutBoxRect.height(), eps)
+            assertEquals("$n: stats size", (if (beside) 26f else if (roomy) 24f else 18f) * v.u, v.statsSize, eps)
+            assertTrue("$n: stats inside", inside(v.stickerPanelRect, v.statsRect))
+            assertTrue("$n: stats clear of the box", !overlap(v.statsRect, v.donutBoxRect))
+            assertTrue("$n: stats clear of close", !overlap(v.statsRect, v.stickersCloseRect))
+            for (r in v.stickerRects) assertTrue("$n: stats clear of tiles", !overlap(v.statsRect, r))
+            if (beside) {
+                assertEquals("$n: same row", v.donutBoxRect.top, v.statsRect.top, eps)
+                assertTrue("$n: stats right of the box", v.statsRect.left >= v.donutBoxRect.right)
+            }
         }
     }
 
