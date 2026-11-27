@@ -6,6 +6,7 @@ import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.view.accessibility.AccessibilityNodeProvider
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -391,6 +392,11 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     internal val scratchPath2 = Path()
     internal val scratchRectF = RectF()
 
+    // TalkBack: virtual nodes for the canvas (GameAccess.kt), refreshed every few frames while it is on
+    internal val access by lazy { CanvasAccess(this) { accessNodes() } }
+    internal var accessFrame = 0
+    internal val accessRefresh = Runnable { access.refresh() }
+
     // -----------------------------------------------------------------------
     // Precomputed trigonometry — computed once at class init, never recalculated.
     // -----------------------------------------------------------------------
@@ -495,6 +501,7 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
         canvas.drawColor(theme.bg)
         if (cellSize == 0f) return
         val now = SystemClock.elapsedRealtime()
+        tickAccess()
         drawBackdrop(canvas)
         advanceLift(now)
         advanceAnimation(now)
@@ -547,4 +554,8 @@ class GameView(context: Context, initialBoard: GameBoard, internal val prefs: Pr
     // Touch
     // -----------------------------------------------------------------------
     override fun onTouchEvent(event: MotionEvent): Boolean = handleTouch(event)
+
+    override fun getAccessibilityNodeProvider(): AccessibilityNodeProvider = access
+
+    override fun dispatchHoverEvent(event: MotionEvent): Boolean = access.onHover(event) || super.dispatchHoverEvent(event)
 }
